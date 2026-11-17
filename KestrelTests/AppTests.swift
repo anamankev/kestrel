@@ -336,3 +336,20 @@ import SwiftUI
     }
 }
 #endif
+
+@MainActor
+struct OwnerUnlockTests {
+    @Test func onlyListedAccountSkipsThePaywall() {
+        let key = "KestrelOwnerEmails"
+        let saved = UserDefaults.standard.string(forKey: key)
+        defer { UserDefaults.standard.set(saved, forKey: key) }
+        UserDefaults.standard.set("owner@example.com", forKey: key)
+        let store = SubscriptionStore()
+        store.signedIn(as: "Owner@Example.com ")
+        #expect(store.isPro)
+        store.signedIn(as: "someone@example.com")
+        #expect(!store.isPro)
+        store.signedIn(as: nil)
+        #expect(!store.isPro)
+    }
+}

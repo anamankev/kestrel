@@ -112,6 +112,9 @@ struct AuthGate: View {
         #endif
         .onAppear(perform: wire)
         .onChange(of: auth.space?.id) { wire() }
+        #if DEBUG
+        .onChange(of: auth.current?.email, initial: true) { store.signedIn(as: auth.current?.email) }
+        #endif
     }
 
     /// Routes quotes to whoever is signed in. One space is shared by every window.

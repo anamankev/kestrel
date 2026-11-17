@@ -17,11 +17,21 @@ import KestrelCore
     #if DEBUG
     /// The screenshot tour shows Pro screens without a purchase. Never compiled into release.
     var tourOverride = false
+    /// Owner access for builds run from Xcode: true while an account listed in the local
+    /// `KestrelOwnerEmails` default is signed in. The list lives only in this device's
+    /// defaults, never in the repo, and none of this is compiled into release builds;
+    /// App Store owner access uses a free offer code instead.
+    private(set) var ownerUnlock = false
+    func signedIn(as email: String?) {
+        let owners = (UserDefaults.standard.string(forKey: "KestrelOwnerEmails") ?? "")
+            .split(separator: ",").map { Credentials.normalize(String($0)) }
+        ownerUnlock = email.map { owners.contains(Credentials.normalize($0)) } ?? false
+    }
     #endif
 
     var isPro: Bool {
         #if DEBUG
-        if tourOverride { return true }
+        if tourOverride || ownerUnlock { return true }
         #endif
         return entitlement.isPro
     }
