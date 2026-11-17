@@ -5,7 +5,9 @@ import KestrelCore
 /// selected expiry and the ATM term structure across all expiries.
 struct OptionMonitorView: View {
     let instrument: Instrument
+    var panelID: Int = 0
     @Environment(MarketStore.self) private var market
+    @Environment(Workspace.self) private var ws
     @Environment(Theme.self) private var theme
 
     @State private var chain: OptionChain?
@@ -186,6 +188,13 @@ struct OptionMonitorView: View {
         .padding(.horizontal, 4)
         .frame(height: 22)
         .background((c?.isITM ?? false) ? Theme.selection.opacity(0.55) : Theme.panel)
+        .contentShape(.rect)
+        .onTapGesture {
+            guard let c, let o = Universe.option(c.name) else { return }
+            market.ingest(c)
+            ws.load(Command(function: .trade, instrument: o, side: .buy), in: panelID)
+        }
+        .help("Tap to trade this contract")
     }
 }
 

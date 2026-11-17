@@ -526,3 +526,26 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(abs(pnl[0] - (210 - 50)) < 1e-6)
     }
 }
+
+
+@Suite struct OptionTradingTests {
+    @Test func resolvesOptionSymbols() {
+        let o = Universe.resolve("btc-27nov26-70000-c")!
+        #expect(o.assetClass == .option && o.symbol == "BTC-27NOV26-70000-C" && o.name == "BTC 27NOV26 70000 Call")
+        #expect(!o.isStreaming)
+        #expect((try? CommandParser.parse("BTC-27NOV26-70000-C TRADE", current: nil))?.instrument == o)
+    }
+
+    @Test func optionsAreLongPremiumOnly() throws {
+        var a = PaperAccount(cash: 10_000)
+        let sym = "BTC-27NOV26-70000-C"
+        let t = Touch(bid: 400, ask: 420, last: 410)
+        try a.submit(symbol: sym, side: .buy, quantity: 2, type: .market, touch: t)
+        #expect(a.positions[sym]?.quantity == 2 && a.cash == 9_160)
+        try a.submit(symbol: sym, side: .sell, quantity: 2, type: .market, touch: t)   // closing is fine
+        #expect(a.positions[sym]?.quantity == 0 && a.realizedPnL == -40)
+        #expect(throws: OrderReject.insufficientPosition(0)) {                          // writing is not
+            try a.submit(symbol: sym, side: .sell, quantity: 1, type: .market, touch: t)
+        }
+    }
+}

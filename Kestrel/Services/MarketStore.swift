@@ -63,6 +63,10 @@ struct SecurityDetail: Equatable {
     @ObservationIgnored var focusSymbols: Set<String> = []
     /// Watchlist/alert symbols outside the built-in universe, polled on the slow cycle.
     @ObservationIgnored var extraSymbols: () -> Set<String> = { [] }
+    /// Option contracts held or worked in the paper account: marked from Deribit every 15 s.
+    @ObservationIgnored var heldOptions: () -> Set<String> = { [] }
+    /// Latest Deribit data (mark, IV, forward) for option contracts we track, for greeks.
+    private(set) var optionContracts: [String: OptionContract] = [:]
 
     @ObservationIgnored private let stream = CoinbaseStream(products: Universe.crypto.map(\.symbol))
     @ObservationIgnored private var tasks: [Task<Void, Never>] = []
@@ -100,7 +104,13 @@ struct SecurityDetail: Equatable {
                 try? await Task.sleep(for: .seconds(8))
                 guard let self else { return }
                 let symbols = self.focusSymbols.compactMap { Universe.instrument(symbol: $0) ?? Universe.resolve($0) }
-                await self.refresh(symbols.filter { !$0.isStreaming })
+                await self.refresh(symbols.filter { !$0.isStreaming && $0.assetClass != .option })
+            }
+        })
+        tasks.append(Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.markOptions()
+                try? await Task.sleep(for: .seconds(15))
             }
         })
     }
@@ -125,14 +135,14 @@ struct SecurityDetail: Equatable {
 
     func refreshUniverse() async {
         let known = Set(Universe.all.map(\.symbol))
-        let extra = extraSymbols().subtracting(known).compactMap { Universe.resolve($0) }
+        let extra = extraSymbols().subtracting(known).compactMap { Universe.resolve($0) }.filter { $0.assetClass != .option }
         await refresh(Universe.all.filter { !$0.isStreaming } + extra)
         lastEquityRefresh = .now
     }
 
     /// Fetch now for a security just loaded into a panel.
     func touch(_ instrument: Instrument) {
-        guard !instrument.isStreaming, quotes[instrument.symbol] == nil else { return }
+        guard !instrument.isStreaming, instrument.assetClass != .option, quotes[instrument.symbol] == nil else { return }
         Task { await refresh([instrument]) }
     }
 
@@ -205,6 +215,7 @@ struct SecurityDetail: Equatable {
 
     /// Daily (or weekly for multi-year) bars for HP. Crypto is capped at Coinbase's 300 bars.
     func history(for i: Instrument, range: String, weekly: Bool) async throws -> [Candle] {
+        guard i.assetClass != .option else { return [] }
         if i.isStreaming {
             let url = URL(string: "https://api.exchange.coinbase.com/products/\(i.symbol)/candles?granularity=86400")!
             let (data, _) = try await http.data(from: url)
@@ -212,6 +223,25 @@ struct SecurityDetail: Equatable {
         }
         let (data, _) = try await http.data(from: YahooChart.url(symbol: i.symbol, range: range, interval: weekly ? "1wk" : "1d"))
         return try YahooChart.decode(data, intraday: false).candles
+    }
+
+    /// Publishes a contract's Deribit touch as a quote (paper broker marks and fills from it).
+    func ingest(_ c: OptionContract) {
+        guard let mark = c.mark ?? c.bid ?? c.ask else { return }
+        let q = Quote(last: mark, bid: c.bid, ask: c.ask, time: .now)
+        quotes[c.name] = q
+        optionContracts[c.name] = c
+        onQuote?(c.name, q)
+    }
+
+    private func markOptions() async {
+        let held = heldOptions()
+        guard !held.isEmpty else { return }
+        for currency in Set(held.compactMap { Deribit.parse($0)?.underlying }) {
+            guard let i = Universe.resolve(currency, hint: .crypto),
+                  let chain = try? await optionChain(for: i) else { continue }
+            for c in chain.contracts where held.contains(c.name) { ingest(c) }
+        }
     }
 
     /// Full listed option chain from Deribit's public API (BTC, ETH).

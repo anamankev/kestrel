@@ -29,7 +29,8 @@ struct TicketView: View {
         return side == .buy ? (quote?.ask ?? quote?.last) : (quote?.bid ?? quote?.last)
     }
     private var presets: [Decimal] {
-        instrument.isStreaming ? (instrument.ticker == "BTC" ? [0.01, 0.1, 0.5, 1] : [0.1, 1, 10, 100]) : [1, 10, 50, 100]
+        instrument.assetClass == .option ? [0.1, 1, 5, 10]
+            : instrument.isStreaming ? (instrument.ticker == "BTC" ? [0.01, 0.1, 0.5, 1] : [0.1, 1, 10, 100]) : [1, 10, 50, 100]
     }
 
     var body: some View {
@@ -40,8 +41,9 @@ struct TicketView: View {
                     sideButton(.buy, quote?.ask ?? quote?.last, theme.up)
                 }
                 HStack {
-                    Text(instrument.isStreaming ? "LIVE TOP OF BOOK" : "DELAYED · FILLS AT LAST").font(.mono(9, .bold))
-                        .foregroundStyle(instrument.isStreaming ? Theme.go : Theme.warn)
+                    Text(instrument.assetClass == .option ? "DERIBIT BOOK · USD PER CONTRACT · LONG ONLY"
+                         : instrument.isStreaming ? "LIVE TOP OF BOOK" : "DELAYED · FILLS AT LAST").font(.mono(9, .bold))
+                        .foregroundStyle(instrument.isStreaming || instrument.assetClass == .option ? Theme.go : Theme.warn)
                     Spacer()
                     if let b = quote?.bid, let a = quote?.ask {
                         Text("SPREAD \(Fmt.price(a - b, instrument.assetClass))").font(.mono(9)).foregroundStyle(Theme.dim)
@@ -267,7 +269,7 @@ struct PortfolioView: View {
                 RiskPanel()
                 SectionBar(title: "POSITIONS", trailing: "\(a.openPositions.count) OPEN")
                 HStack {
-                    HeaderCell(text: "SECURITY", width: 80, align: .leading)
+                    HeaderCell(text: "SECURITY", width: 180, align: .leading)
                     HeaderCell(text: "QTY"); HeaderCell(text: "AVG COST"); HeaderCell(text: "MARK")
                     HeaderCell(text: "MKT VALUE"); HeaderCell(text: "UNRL P&L"); HeaderCell(text: "%")
                 }
@@ -282,7 +284,9 @@ struct PortfolioView: View {
                     let basis = abs(p.quantity) * p.averageCost
                     let pct = basis == 0 ? 0 : (u / basis * 100).double
                     HStack {
-                        Text(inst?.ticker ?? p.symbol).font(.mono(12, .bold)).foregroundStyle(Theme.text).frame(width: 80, alignment: .leading)
+                        Text(inst.map { $0.assetClass == .option ? $0.name : $0.ticker } ?? p.symbol)
+                            .font(.mono(12, .bold)).foregroundStyle(Theme.text).lineLimit(1).minimumScaleFactor(0.7)
+                            .frame(width: 180, alignment: .leading)
                         cell(Fmt.qty(p.quantity)); cell(Fmt.price(p.averageCost.double)); cell(Fmt.price(mark.double))
                         cell(Fmt.money(p.quantity * mark))
                         Text(signedMoney(u)).foregroundStyle(theme.tint(u.double)).frame(maxWidth: .infinity, alignment: .trailing)

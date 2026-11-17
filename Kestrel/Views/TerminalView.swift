@@ -410,7 +410,10 @@ struct FunctionView: View {
         case .blot: BlotterView()
         case .help: HelpView(panelID: panel.id)
         case .des, .fa, .evts, .gp, .hp, .depth, .tas, .cn, .omon, .trade:
-            if let i = c.instrument, market.unknown.contains(i.symbol) {
+            if let i = c.instrument, i.assetClass == .option, c.function != .trade {
+                EmptyNote(title: "\(i.name)", detail: "Option contracts support TRADE. See the full chain, greeks and smile in \(Deribit.parse(i.symbol)?.underlying ?? "BTC") OMON.",
+                          icon: "function")
+            } else if let i = c.instrument, market.unknown.contains(i.symbol) {
                 EmptyNote(title: "\(i.ticker): security not found",
                           detail: "No market data exists for this ticker. Check the symbol or press MENU to go back.",
                           icon: "questionmark.diamond")
@@ -424,7 +427,7 @@ struct FunctionView: View {
                 case .depth: DepthView(instrument: i)
                 case .tas: TimeAndSalesView(instrument: i)
                 case .cn: NewsView(instrument: i)
-                case .omon: OptionMonitorView(instrument: i).id(i.symbol)
+                case .omon: OptionMonitorView(instrument: i, panelID: panel.id).id(i.symbol)
                 default: TicketView(instrument: i, side: panel.side ?? .buy).id("\(i.symbol)-\(panel.side?.rawValue ?? "")")
                 }
             } else {

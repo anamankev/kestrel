@@ -8,6 +8,7 @@ public enum AssetClass: String, Codable, Sendable, CaseIterable {
     case fx = "CURNCY"
     case commodity = "CMDTY"
     case rate = "GOVT"
+    case option = "OPTION"
 }
 
 public enum Region: String, Codable, Sendable, CaseIterable {
@@ -116,7 +117,21 @@ public enum Universe {
 
     /// Resolves a typed token (`AAPL`, `BTC`, `SPX`, `BRK/B`) into an instrument.
     /// Unknown but well-formed tickers resolve to an ad-hoc equity.
+    /// A listed Deribit option (`BTC-27NOV26-70000-C`) as a tradable instrument.
+    public static func option(_ symbol: String) -> Instrument? {
+        let s = symbol.uppercased()
+        guard let p = Deribit.parse(s) else { return nil }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "dMMMyy"
+        let strike = p.strike.formatted(.number.precision(.fractionLength(0...2)).grouping(.never))
+        return Instrument(symbol: s, ticker: s, name: "\(p.underlying) \(f.string(from: p.expiry).uppercased()) \(strike) \(p.call ? "Call" : "Put")",
+                          assetClass: .option)
+    }
+
     public static func resolve(_ raw: String, hint: AssetClass? = nil) -> Instrument? {
+        if let o = option(raw) { return o }
         let token = raw.uppercased().replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ".", with: "-")
         if hint == .crypto, let c = bySymbol[token.hasSuffix("-USD") ? token : "\(token)-USD"] { return c }
         if let matches = byTicker[token] {

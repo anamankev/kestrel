@@ -22,6 +22,20 @@ struct RiskPanel: View {
         }
     }
 
+    /// Net delta per crypto underlying, in coins: spot positions plus Σ contracts × Black-76 delta.
+    private var deltas: [(String, Double)] {
+        var d: [String: Double] = [:]
+        for p in broker.account.openPositions {
+            if let o = Deribit.parse(p.symbol) {
+                guard let g = market.optionContracts[p.symbol]?.greeks() else { continue }
+                d[o.underlying, default: 0] += p.quantity.double * g.delta
+            } else if Deribit.currencies.contains(String(p.symbol.prefix { $0 != "-" })), p.symbol.hasSuffix("-USD") {
+                d[String(p.symbol.prefix { $0 != "-" }), default: 0] += p.quantity.double
+            }
+        }
+        return d.sorted { $0.key < $1.key }
+    }
+
     /// Recompute risk when holdings change (not on every tick).
     private var holdingsKey: String {
         broker.account.openPositions.map { "\($0.symbol):\($0.quantity)" }.joined(separator: ",")
@@ -42,6 +56,9 @@ struct RiskPanel: View {
                     tile("BETA (S&P 500)", result?.beta.map { String(format: "%.2f", $0) } ?? "—", "equity-weighted")
                     tile("1-DAY VaR 95%", result?.var95.map { "-$" + Fmt.compact($0) } ?? "—", "historical simulation", Theme.warn)
                     tile("EXP. SHORTFALL 95%", result?.es95.map { "-$" + Fmt.compact($0) } ?? "—", "avg loss beyond VaR", theme.down)
+                    if !deltas.isEmpty {
+                        tile("NET DELTA", deltas.map { "\($0.0) \(String(format: "%+.3f", $0.1))" }.joined(separator: "\n"), "spot + options, in coins", Theme.accent)
+                    }
                 }
                 .padding(.horizontal, 8)
                 classBars(ex, gross: long - short)
@@ -98,7 +115,8 @@ struct RiskPanel: View {
     private func tile(_ k: String, _ v: String, _ sub: String?, _ c: Color = Theme.text) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(k).font(.mono(8, .bold)).foregroundStyle(Theme.label)
-            Text(v).font(.mono(14, .semibold)).monospacedDigit().foregroundStyle(c).lineLimit(1).minimumScaleFactor(0.6)
+            Text(v).font(.mono(14, .semibold)).monospacedDigit().foregroundStyle(c)
+                .lineLimit(v.contains("\n") ? 3 : 1).minimumScaleFactor(0.6)
             if let sub { Text(sub).font(.mono(8)).foregroundStyle(Theme.faint) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -32,6 +32,11 @@ struct KestrelApp: App {
                         userData.check(symbol, quote)
                     }
                     market.extraSymbols = { userData.watchedSymbols }
+                    market.heldOptions = {
+                        let a = broker.account
+                        let syms = a.openPositions.map(\.symbol) + a.workingOrders.map(\.symbol)
+                        return Set(syms.filter { Deribit.parse($0) != nil })
+                    }
                     market.start()
                 }
         }

@@ -163,7 +163,8 @@ public struct PaperAccount: Codable, Sendable, Equatable {
             let free = max(held, 0) - reservedQuantity(symbol)
             let shortPart = quantity - max(free, 0)
             if shortPart > 0 {
-                guard allowShort else { throw .insufficientPosition(max(free, 0)) }
+                // Writing options needs a portfolio margin model; options are long-premium only.
+                guard allowShort, Deribit.parse(symbol) == nil else { throw .insufficientPosition(max(free, 0)) }
                 let needed = shortPart * px * (Self.shortRequirement - 1)  // proceeds cover the other 100%
                 guard needed <= buyingPower else { throw .insufficientMargin(needed: needed, available: buyingPower) }
             }
@@ -233,7 +234,7 @@ public struct PaperAccount: Codable, Sendable, Equatable {
         case .sell:
             let closing = min(o.quantity, max(pos.quantity, 0))
             let opening = o.quantity - closing
-            if opening > 0, !allowShort {
+            if opening > 0, !allowShort || Deribit.parse(o.symbol) != nil {
                 orders[i].status = .rejected; orders[i].note = "Position no longer available"; orders[i].updated = now
                 return nil
             }
