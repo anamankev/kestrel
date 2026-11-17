@@ -53,6 +53,16 @@ struct SecurityDetail: Equatable {
     private(set) var details: [String: SecurityDetail] = [:]
     private(set) var link: CoinbaseStream.Link = .connecting
     private(set) var messagesPerSecond: Double = 0
+    /// Feed diagnostics (PREF → Diagnostics, docs/PERFORMANCE.md).
+    private(set) var feedLatencyP50: Double?
+    private(set) var feedLatencyP95: Double?
+    private(set) var processP50: Double?
+    private(set) var processP99: Double?
+    private(set) var mainApplyP50: Double?
+    private(set) var mainApplyP99: Double?
+    private(set) var clockOffsetMs: Double?
+    private(set) var clockUncertaintyMs: Double?
+    @ObservationIgnored private var mainApply = Samples()
     private(set) var lastEquityRefresh: Date?
     /// Tickers the data source says don't exist.
     private(set) var unknown: Set<String> = []
@@ -116,8 +126,19 @@ struct SecurityDetail: Equatable {
     }
 
     private func apply(_ b: CoinbaseStream.Batch) {
+        let started = ContinuousClock.now
+        defer {
+            let d = ContinuousClock.now - started
+            mainApply.add(Double(d.components.seconds) * 1e6 + Double(d.components.attoseconds) / 1e12)
+        }
         link = b.link
         messagesPerSecond = b.messagesPerSecond
+        if b.latencyP50 != nil {
+            feedLatencyP50 = b.latencyP50; feedLatencyP95 = b.latencyP95
+            processP50 = b.processP50; processP99 = b.processP99
+            mainApplyP50 = mainApply.percentile(50); mainApplyP99 = mainApply.percentile(99)
+            clockOffsetMs = b.clockOffsetMs; clockUncertaintyMs = b.clockUncertaintyMs
+        }
         for (p, q) in b.quotes {
             quotes[p] = q
             if var s = sparks[p], !s.isEmpty { s[s.count - 1] = q.last; sparks[p] = s }
@@ -247,7 +268,7 @@ struct SecurityDetail: Equatable {
     /// Full listed option chain from Deribit's public API (BTC, ETH).
     func optionChain(for i: Instrument) async throws -> OptionChain {
         let (data, _) = try await http.data(from: Deribit.summaryURL(currency: i.ticker))
-        return try Deribit.decode(data)
+        return try await Task.detached(priority: .userInitiated) { try Deribit.decode(data) }.value
     }
 
     func displayName(_ i: Instrument) -> String {

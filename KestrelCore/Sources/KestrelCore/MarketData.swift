@@ -97,15 +97,25 @@ public struct OrderBook: Sendable, Equatable {
     }
 
     /// The best `depth` levels per side, inside-out, with cumulative size.
+    ///
+    /// Top-k selection in one pass (O(n·log k)) instead of sorting every level: a live BTC book
+    /// carries ~20k levels, and a full sort cost ~0.8 ms per call.
     public func ladder(depth: Int) -> (bids: [BookLevel], asks: [BookLevel]) {
-        func build(_ levels: some Sequence<(key: Double, value: Double)>) -> [BookLevel] {
-            var total = 0.0
-            return levels.prefix(depth).map { lvl in
-                total += lvl.value
-                return BookLevel(price: lvl.key, size: lvl.value, cumulative: total)
+        func top(_ levels: [Double: Double], better: (Double, Double) -> Bool) -> [BookLevel] {
+            guard depth > 0 else { return [] }
+            var best: [(Double, Double)] = []
+            best.reserveCapacity(depth + 1)
+            for (price, size) in levels {
+                if best.count == depth, let worst = best.last, !better(price, worst.0) { continue }
+                var lo = 0, hi = best.count
+                while lo < hi { let m = (lo + hi) / 2; if better(best[m].0, price) { lo = m + 1 } else { hi = m } }
+                best.insert((price, size), at: lo)
+                if best.count > depth { best.removeLast() }
             }
+            var total = 0.0
+            return best.map { total += $0.1; return BookLevel(price: $0.0, size: $0.1, cumulative: total) }
         }
-        return (build(bids.sorted { $0.key > $1.key }), build(asks.sorted { $0.key < $1.key }))
+        return (top(bids, better: >), top(asks, better: <))
     }
 
     /// Bid size share of the top `depth` levels, in 0...1. Positive pressure > 0.5.

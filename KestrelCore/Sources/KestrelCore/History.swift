@@ -48,3 +48,26 @@ public enum CSV {
         return out
     }
 }
+
+
+/// Rolling sample window with percentiles (latency and timing diagnostics).
+public struct Samples: Sendable, Equatable {
+    public private(set) var values: [Double] = []
+    public let capacity: Int
+    private var next = 0
+
+    public init(capacity: Int = 2048) { self.capacity = capacity }
+
+    public mutating func add(_ v: Double) {
+        guard v.isFinite else { return }
+        if values.count < capacity { values.append(v) } else { values[next] = v; next = (next + 1) % capacity }
+    }
+
+    /// Nearest-rank percentile, p in 0...100.
+    public func percentile(_ p: Double) -> Double? {
+        guard !values.isEmpty else { return nil }
+        let sorted = values.sorted()
+        let rank = Int((p / 100 * Double(sorted.count)).rounded(.up))
+        return sorted[min(max(rank, 1), sorted.count) - 1]
+    }
+}

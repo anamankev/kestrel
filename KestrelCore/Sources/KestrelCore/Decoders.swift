@@ -70,7 +70,7 @@ public enum CoinbaseFeed {
     }()
 
     /// Coinbase sends nanosecond fractions; ISO8601DateFormatter accepts at most milliseconds.
-    static func date(_ s: String) -> Date? {
+    public static func date(_ s: String) -> Date? {
         if let d = iso.date(from: s) { return d }
         guard let dot = s.firstIndex(of: "."), let z = s.lastIndex(of: "Z"), dot < z else { return nil }
         let frac = s[s.index(after: dot)..<z].prefix(3)

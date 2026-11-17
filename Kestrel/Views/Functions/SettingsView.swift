@@ -70,6 +70,16 @@ struct SettingsView: View {
                     sourceRow("News", "CNBC, MarketWatch, CoinDesk, Yahoo RSS", "2 MIN")
                 }
 
+                section("DIAGNOSTICS") {
+                    diag("Messages / second", String(format: "%.0f", market.messagesPerSecond))
+                    diag("Feed latency p50 / p95", ms(market.feedLatencyP50) + " / " + ms(market.feedLatencyP95),
+                         "Coinbase send → local receipt, clock-offset corrected (± " + ms(market.clockUncertaintyMs) + ")")
+                    diag("Clock offset vs Coinbase", ms(market.clockOffsetMs), "NTP-style, best of 5 round trips")
+                    diag("Decode + book update p50 / p99", us(market.processP50) + " / " + us(market.processP99), "per message, off the main thread")
+                    diag("Main-thread merge p50 / p99", us(market.mainApplyP50) + " / " + us(market.mainApplyP99), "per 100 ms batch")
+                    HStack { Text("Render loop").font(.ui(12)).foregroundStyle(Theme.text); Spacer(); FrameMeter() }
+                }
+
                 section("RESET") {
                     HStack(spacing: 8) {
                         resetButton("Reset paper account", .paper)
@@ -93,6 +103,20 @@ struct SettingsView: View {
                 case nil: break
                 }
             }
+        }
+    }
+
+    private func ms(_ v: Double?) -> String { v.map { String(format: "%.0f ms", $0) } ?? "—" }
+    private func us(_ v: Double?) -> String { v.map { $0 >= 1000 ? String(format: "%.2f ms", $0 / 1000) : String(format: "%.0f µs", $0) } ?? "—" }
+
+    private func diag(_ k: String, _ v: String, _ note: String? = nil) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(k).font(.ui(12)).foregroundStyle(Theme.text)
+                if let note { Text(note).font(.ui(10)).foregroundStyle(Theme.faint) }
+            }
+            Spacer()
+            Text(v).font(.mono(12, .semibold)).monospacedDigit().foregroundStyle(Theme.accent)
         }
     }
 
@@ -126,5 +150,28 @@ struct SettingsView: View {
             .padding(.horizontal, 10).frame(height: 26)
             .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.cancel.opacity(0.5)))
             .buttonStyle(.plain)
+    }
+}
+
+
+/// Frames the SwiftUI render loop actually delivers per second (sampled over 1 s).
+struct FrameMeter: View {
+    /// Plain reference type: counting must not itself trigger SwiftUI invalidations.
+    final class Counter {
+        var frames = 0, start = Date(), fps = 0.0
+        func tick(_ now: Date) -> Double {
+            frames += 1
+            let dt = now.timeIntervalSince(start)
+            if dt >= 1 { fps = Double(frames) / dt; frames = 0; start = now }
+            return fps
+        }
+    }
+    @State private var counter = Counter()
+
+    var body: some View {
+        TimelineView(.animation) { ctx in
+            Text(String(format: "%.0f fps", counter.tick(ctx.date)))
+                .font(.mono(12, .semibold)).monospacedDigit().foregroundStyle(Theme.accent)
+        }
     }
 }

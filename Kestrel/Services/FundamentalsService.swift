@@ -43,7 +43,9 @@ import KestrelCore
         do {
             if tickers == nil { tickers = try SECFacts.decodeTickers(await get(SECFacts.tickersURL)) }
             guard let cik = tickers?[i.ticker] else { states[i.symbol] = .notFound; return }
-            let facts = try SECFacts.decode(await get(SECFacts.factsURL(cik: cik)))
+            let raw = try await get(SECFacts.factsURL(cik: cik))
+            // Company-facts JSON is 3–8 MB (70–110 ms to decode): keep it off the main thread.
+            let facts = try await Task.detached(priority: .userInitiated) { try SECFacts.decode(raw) }.value
             states[i.symbol] = facts.years.isEmpty ? .notFound : .ready(facts)
         } catch {
             states[i.symbol] = .failed(error.localizedDescription)

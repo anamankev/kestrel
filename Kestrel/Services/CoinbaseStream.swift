@@ -16,6 +16,14 @@ actor CoinbaseStream {
         var prints: [String: [TapePrint]] = [:]
         var link: Link = .connecting
         var messagesPerSecond: Double = 0
+        /// Coinbase server timestamp → local receipt, ms (includes any local clock offset).
+        var latencyP50: Double?
+        var latencyP95: Double?
+        /// Decode + book update per message on this actor (off the main thread), µs.
+        var processP50: Double?
+        var processP99: Double?
+        var clockOffsetMs: Double?
+        var clockUncertaintyMs: Double?
     }
 
     private let products: [String]
@@ -28,6 +36,11 @@ actor CoinbaseStream {
     private var link: Link = .connecting
     private var messageCount = 0
     private var lastMessageAt = Date()
+    private var latency = Samples()
+    /// Local clock minus Coinbase clock (s), estimated NTP-style at connect.
+    private var clockOffset: Double?
+    private var offsetUncertainty: Double?
+    private var process = Samples()
     private var rateWindowStart = Date()
     private var rate = 0.0
 
@@ -39,8 +52,26 @@ actor CoinbaseStream {
     }
 
     /// Connects and keeps the feed alive until the calling task is cancelled.
+    /// Estimates our clock's offset from Coinbase's using the sample with the smallest
+    /// round trip (the server stamped its time somewhere inside it, so the error is ≤ RTT/2).
+    private func syncClock() async {
+        struct T: Decodable { let epoch: Double }
+        var best: (rtt: Double, offset: Double)?
+        for _ in 0..<5 {
+            let t0 = Date()
+            guard let (d, _) = try? await session.data(from: URL(string: "https://api.exchange.coinbase.com/time")!),
+                  let server = try? JSONDecoder().decode(T.self, from: d).epoch else { continue }
+            let t1 = Date()
+            let rtt = t1.timeIntervalSince(t0)
+            let mid = t0.timeIntervalSince1970 + rtt / 2
+            if best == nil || rtt < best!.rtt { best = (rtt, mid - server) }
+        }
+        if let best { clockOffset = best.offset; offsetUncertainty = best.rtt / 2 }
+    }
+
     func run() async {
         var backoff: Duration = .milliseconds(500)
+        await syncClock()
         while !Task.isCancelled {
             let ws = session.webSocketTask(with: CoinbaseFeed.url)
             ws.maximumMessageSize = 16 << 20 // L2 snapshots are large
@@ -66,7 +97,7 @@ actor CoinbaseStream {
     }
 
     private struct SequenceGap: Error {}
-    private struct Header: Decodable { let sequence_num: Int? }
+    private struct Header: Decodable { let sequence_num: Int?; let timestamp: String? }
 
     private func handle(_ message: URLSessionWebSocketTask.Message) throws {
         let data: Data
@@ -75,10 +106,20 @@ actor CoinbaseStream {
         case .data(let d): data = d
         @unknown default: return
         }
+        let started = ContinuousClock.now
+        defer {
+            let d = ContinuousClock.now - started
+            process.add(Double(d.components.seconds) * 1e6 + Double(d.components.attoseconds) / 1e12)
+        }
         messageCount += 1
         lastMessageAt = Date()
 
-        if let seq = try? JSONDecoder().decode(Header.self, from: data).sequence_num {
+        let header = try? JSONDecoder().decode(Header.self, from: data)
+        if let ts = header?.timestamp.flatMap(CoinbaseFeed.date) {
+            // Receipt on our clock, converted to Coinbase's clock, minus their send stamp.
+            if let off = clockOffset { latency.add((lastMessageAt.timeIntervalSince(ts) - off) * 1000) }
+        }
+        if let seq = header?.sequence_num {
             if let last = lastSequence, seq != last + 1 { throw SequenceGap() } // books may be stale: resync
             lastSequence = seq
         }
@@ -119,6 +160,12 @@ actor CoinbaseStream {
         for p in dirtyBooks { out.books[p] = books[p] }
         out.link = link
         out.messagesPerSecond = rate
+        out.latencyP50 = latency.percentile(50)
+        out.latencyP95 = latency.percentile(95)
+        out.processP50 = process.percentile(50)
+        out.processP99 = process.percentile(99)
+        out.clockOffsetMs = clockOffset.map { $0 * 1000 }
+        out.clockUncertaintyMs = offsetUncertainty.map { $0 * 1000 }
         pending = Batch()
         dirtyBooks.removeAll(keepingCapacity: true)
         return out

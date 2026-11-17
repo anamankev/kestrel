@@ -549,3 +549,15 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         }
     }
 }
+
+
+@Suite struct SamplesTests {
+    @Test func percentilesAndRollingWindow() {
+        var s = Samples(capacity: 100)
+        for v in 1...100 { s.add(Double(v)) }
+        #expect(s.percentile(50) == 50 && s.percentile(95) == 95 && s.percentile(100) == 100)
+        for _ in 0..<100 { s.add(1000) }          // window rolls over completely
+        #expect(s.percentile(50) == 1000 && s.values.count == 100)
+        #expect(Samples().percentile(50) == nil)
+    }
+}

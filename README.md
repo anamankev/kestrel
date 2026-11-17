@@ -15,7 +15,7 @@ It uses live data from free public sources and has paper trading built in.
 
 ## Run
 Open `Kestrel.xcodeproj` in Xcode 26+, pick an **iPad simulator** or **My Mac**, then press ⌘R.
-Tests: `cd KestrelCore && swift test` (55 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
+Tests: `cd KestrelCore && swift test` (57 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
 (7 app tests: workspace routing, hotspots, pages, persistence regressions, formatting). CI runs both plus an iPad build
 (`.github/workflows/ci.yml`).
 
@@ -62,5 +62,5 @@ Kestrel matches the terminal *workflow* (command line, linked panels, density, k
 Bloomberg's iPad app on touch and rendering. It does not have Bloomberg's data: there's no real-time
 equity L2, fundamentals, fixed income or chat network, because those require paid exchange licences.
 
-See [SECURITY.md](SECURITY.md) for the security review and [DESIGN_RESEARCH.md](DESIGN_RESEARCH.md) for the
+See [docs/PERFORMANCE.md](docs/PERFORMANCE.md) for measured latency and frame rate and the optimisations the benchmarks drove, [SECURITY.md](SECURITY.md) for the security review and [DESIGN_RESEARCH.md](DESIGN_RESEARCH.md) for the
 design research.
