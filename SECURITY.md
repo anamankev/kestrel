@@ -12,7 +12,7 @@ N/A with the design they must follow once the planned backend exists (see the en
 ## Results
 
 Every ✅ row is backed by a test or a command whose output is quoted. Test counts at the time of review:
-**104 core tests** (`cd KestrelCore && swift test`) and **15 app tests** on both macOS and the iPad simulator
+**108 core tests** (`cd KestrelCore && swift test`) and **16 app tests** on macOS and **19** on the iPad simulator
 (`xcodebuild test -scheme Kestrel`). All pass.
 
 | # | Item | Status | What was done and how it was verified |
@@ -35,7 +35,7 @@ Every ✅ row is backed by a test or a command whose output is quoted. Test coun
 | 16 | CSRF | N/A | No server and no web forms. |
 | 17 | Password-reset expiry | N/A | There is no email server, so no reset links exist. The sign-in screen says accounts can't be recovered yet. |
 | 18 | Upload restrictions | N/A | The app accepts no uploads. |
-| 19 | Prices verified | ✅ | Paper fills are priced by the engine from the live touch, never from the UI. Cash and margin are re-checked at fill time. Stops trigger on the last trade. |
+| 19 | Prices verified | ✅ | Paper fills are priced by the engine from the live touch, never from the UI. Cash and margin are re-checked at fill time. Stops trigger on the last trade. **Subscriptions:** prices come from the App Store (`Product.displayPrice`), never hard-coded in the UI. Pro is granted only from StoreKit 2 transactions that verify (App Store JWS, checked on device); unverified, revoked (refunded) or expired transactions grant nothing. Purchases carry the Kestrel account ID as `appAccountToken`. Tests: `SubscriptionTests` (entitlement rules) and `SubscriptionStoreTests` (real StoreKitTest purchases of each plan, renewal, refund, restore). Residual: with no server, a jailbroken device could patch the app to skip the check, which App Store Server API validation would close once the backend exists. |
 | 20 | Debug off in production | ✅ fixed | The snapshot and demo tours are now compiled only into DEBUG builds. In the release binary, `strings` finds no `-snapshot`, `-demo`, tour paths or test passwords. |
 | 21 | Vulnerable dependencies | ✅ | Zero third-party packages (Foundation, SwiftUI, CryptoKit, Security, os only). Dependabot alerts and security updates are enabled. |
 | 22 | Unused packages | ✅ | None to remove. |

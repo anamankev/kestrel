@@ -11,6 +11,13 @@ It uses live data from free public sources and has paper trading built in.
 
 ![Kestrel on iPad: portfolio risk, monitor, live order book and news](docs/screenshots/overview.png)
 
+**Kestrel Pro** (auto-renewing, one subscription group): **$9.99 / month**, **$49.99 / 6 months** or
+**$99.99 / year**. Pro unlocks `BT`, `OSA`, `CORR`, `ERN`, the 4- and 6-panel layouts and background alerts;
+quotes, charts, depth, news, alerts, paper trading and everything else stay free. Purchases use StoreKit 2 with
+on-device verification. Test them locally with `Config/Kestrel.storekit` (selected in the scheme). Selling
+requires an Apple Developer Program membership and the three products created in App Store Connect with these IDs:
+`dev.kestrel.pro.monthly`, `dev.kestrel.pro.halfyear`, `dev.kestrel.pro.annual`. [Privacy policy](docs/PRIVACY.md).
+
 Sign in or create an account on the first screen. Accounts stay on the device (salted PBKDF2), and each one has its own paper book, watchlists and alerts, encrypted with AES-256-GCM under a key only the password unlocks.
 
 ![Sign in](docs/screenshots/sign-in.png)
@@ -23,8 +30,8 @@ Sign in or create an account on the first screen. Accounts stay on the device (s
 
 ## Run
 Open `Kestrel.xcodeproj` in Xcode 26+, pick an **iPad simulator** or **My Mac**, then press ⌘R.
-Tests: `cd KestrelCore && swift test` (104 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
-(15 app tests: accounts, sessions and encryption at rest, workspace routing, hotspots, pages, persistence regressions, formatting). CI runs both plus an iPad build
+Tests: `cd KestrelCore && swift test` (108 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
+(16 app tests on Mac, 19 on iPad: accounts, sessions, encryption at rest, StoreKit purchases, workspace routing, hotspots, pages, persistence regressions, formatting). CI runs both plus an iPad build
 (`.github/workflows/ci.yml`).
 
 ## Functions

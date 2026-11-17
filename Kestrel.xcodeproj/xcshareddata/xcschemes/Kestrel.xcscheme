@@ -21,6 +21,7 @@
          <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "AB0000000000000000000050" BuildableName = "Kestrel.app" BlueprintName = "Kestrel" ReferencedContainer = "container:Kestrel.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <StoreKitConfigurationFileReference identifier = "../../Config/Kestrel.storekit"></StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction buildConfiguration = "Release" shouldUseLaunchSchemeArgsEnv = "YES" savedToolIdentifier = "" useCustomWorkingDirectory = "NO" debugDocumentVersioning = "YES">
    </ProfileAction>

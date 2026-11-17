@@ -26,7 +26,7 @@ enum SnapshotTour {
     static let screens = [
         "PORT", "W", "BTC GP", "BTC DEPTH", "ETH TAS", "TOP", "TSLA CN", "AAPL DES", "AAPL FA", "AAPL EVTS",
         "SPY HP", "SPY BT", "BTC OMON", "ETH OSA", "ECO", "CORR", "ERN", "HMAP", "WEI", "MOST", "FX", "COMD", "RATES",
-        "ALRT", "BLOT", "SOL BUY", "PREF", "HELP",
+        "ALRT", "BLOT", "SOL BUY", "PREF", "PRO", "HELP",
     ]
 
     /// Phase 1, on the sign-in screen: capture it, then create the throwaway account.
@@ -47,6 +47,13 @@ enum SnapshotTour {
         try? await Task.sleep(for: .seconds(4))
         ws.maximized = nil
         ws.layout = .one
+        // First as a free account (the paywall), then with Pro unlocked for the rest of the tour.
+        ws.focused = 0
+        _ = ws.run("SPY BT")
+        try? await Task.sleep(for: .seconds(6))
+        capture("00b-paywall-free")
+        BackgroundAlerts.store?.tourOverride = true
+        try? await Task.sleep(for: .seconds(1))
         for (n, cmd) in screens.enumerated() {
             ws.focused = 0
             _ = ws.run(cmd)

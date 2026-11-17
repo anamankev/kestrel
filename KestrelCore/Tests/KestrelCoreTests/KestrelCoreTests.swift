@@ -1004,3 +1004,37 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(cal.component(.weekday, from: SECFilings.nearestWeekday(sun)) == 2)
     }
 }
+
+
+@Suite struct SubscriptionTests {
+    @Test func catalogueMatchesTheThreePlans() {
+        #expect(ProPlan.allCases.map(\.months) == [1, 6, 12])
+        #expect(ProPlan(productID: "dev.kestrel.pro.annual") == .annual && ProPlan(productID: "x") == nil)
+    }
+
+    @Test func perMonthAndSavings() throws {
+        let monthly: Decimal = 9.99
+        #expect(ProPlan.halfYear.perMonth(Decimal(string: "49.99")!) < 8.34)
+        let half = try #require(ProPlan.halfYear.saving(price: Decimal(string: "49.99")!, monthlyPrice: monthly))
+        let year = try #require(ProPlan.annual.saving(price: Decimal(string: "99.99")!, monthlyPrice: monthly))
+        #expect(abs(half - 0.166) < 0.001 && abs(year - 0.166) < 0.001)    // same per-month value
+        #expect(ProPlan.monthly.saving(price: monthly, monthlyPrice: monthly) == nil)
+    }
+
+    @Test func gatesOnlyTheProFunctions() {
+        let pro = TerminalFunction.allCases.filter { $0.proFeature != nil }
+        #expect(Set(pro) == [.bt, .osa, .corr, .ern])
+        #expect(TerminalFunction.gp.proFeature == nil && TerminalFunction.trade.proFeature == nil)
+    }
+
+    @Test func entitlementFromTransactions() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        #expect(Entitlement.from([], now: now) == .free)
+        #expect(Entitlement.from([("dev.kestrel.pro.monthly", now.addingTimeInterval(-1), false)], now: now) == .free)          // expired
+        #expect(Entitlement.from([("dev.kestrel.pro.monthly", now.addingTimeInterval(86_400), true)], now: now) == .free)       // refunded
+        #expect(Entitlement.from([("com.other.app", now.addingTimeInterval(86_400), false)], now: now) == .free)                // not ours
+        let e = Entitlement.from([("dev.kestrel.pro.monthly", now.addingTimeInterval(86_400), false),
+                                  ("dev.kestrel.pro.annual", now.addingTimeInterval(300 * 86_400), false)], now: now)
+        #expect(e == .pro(plan: .annual, expires: now.addingTimeInterval(300 * 86_400), willRenew: true))
+    }
+}

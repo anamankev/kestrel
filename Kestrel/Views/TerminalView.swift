@@ -3,6 +3,7 @@ import KestrelCore
 
 struct TerminalView: View {
     @Environment(Workspace.self) private var ws
+    @Environment(SubscriptionStore.self) private var store
     @Environment(MarketStore.self) private var market
     @Environment(PaperBroker.self) private var broker
     @State private var commandText = ""
@@ -23,6 +24,8 @@ struct TerminalView: View {
         .overlay(alignment: .topTrailing) {
             VStack(alignment: .trailing, spacing: 8) { FillToast(); AlertToast() }.padding(.top, 92).padding(.trailing, 12)
         }
+        // A lapsed subscription keeps the terminal usable: clamp a saved Pro layout to two panels.
+        .onChange(of: store.isPro, initial: true) { if !store.isPro, ws.layout.count > ProFeature.freePanels { ws.layout = .two } }
         .onChange(of: ws.symbolsOnScreen, initial: true) { _, symbols in
             market.focusSymbols = symbols
             for s in symbols { if let i = Universe.instrument(symbol: s) ?? Universe.resolve(s) { market.touch(i) } }
@@ -414,14 +417,24 @@ struct PanelView: View {
 struct FunctionView: View {
     let panel: Panel
     @Environment(MarketStore.self) private var market
+    @Environment(SubscriptionStore.self) private var store
 
     var body: some View {
+        if let f = panel.command.function.proFeature, !store.isPro {
+            PaywallView(feature: f)
+        } else {
+            content
+        }
+    }
+
+    @ViewBuilder private var content: some View {
         let c = panel.command
         switch c.function {
         case .w: MonitorView(panelID: panel.id)
         case .hmap: HeatmapView(panelID: panel.id)
         case .corr: CorrelationView(panelID: panel.id)
         case .ern: EarningsCalendarView(panelID: panel.id)
+        case .pro: PaywallView()
         case .wei: QuoteBoard(panelID: panel.id, groups: Region.allCases.map { r in (r.rawValue, Universe.indices.filter { $0.region == r }) })
         case .fx: QuoteBoard(panelID: panel.id, groups: [("G10 & EM SPOT", Universe.currencies)])
         case .comd: QuoteBoard(panelID: panel.id, groups: [("ENERGY", Array(Universe.commodities.prefix(3))), ("METALS", Array(Universe.commodities[3..<6])), ("AGRICULTURE", Array(Universe.commodities.suffix(2)))])
@@ -467,6 +480,7 @@ struct FunctionView: View {
 // MARK: - Function key bar
 
 struct FunctionKeyBar: View {
+    @Environment(SubscriptionStore.self) private var store
     @Binding var commandText: String
     var commandFocused: FocusState<Bool>.Binding
     @Environment(Workspace.self) private var ws
@@ -507,7 +521,15 @@ struct FunctionKeyBar: View {
             }
             .pickerStyle(.segmented).labelsHidden()
             .frame(width: 150)
-            .onChange(of: ws.layout) { ws.maximized = nil; if ws.focused >= ws.layout.count { ws.focused = 0 } }
+            .onChange(of: ws.layout) { old, new in
+                // 4- and 6-panel layouts are Pro: snap back and show the plans.
+                if !store.isPro, new.count > ProFeature.freePanels {
+                    ws.layout = old
+                    _ = ws.run("PRO")
+                    return
+                }
+                ws.maximized = nil; if ws.focused >= ws.layout.count { ws.focused = 0 }
+            }
             Toggle(isOn: $theme.colorBlindSafe) {
                 Image(systemName: "eye").font(.system(size: 11))
             }

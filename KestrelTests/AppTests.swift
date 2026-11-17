@@ -211,3 +211,85 @@ import KestrelCore
         #expect(try Data(contentsOf: url) == before)
     }
 }
+
+import StoreKitTest
+
+/// Real StoreKit purchases against Config/Kestrel.storekit (Apple's local test store).
+@MainActor @Suite(.serialized) struct SubscriptionStoreTests {
+    func session() throws -> SKTestSession {
+        let config = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "Config/Kestrel.storekit")
+        let s = try SKTestSession(contentsOf: config)
+        s.resetToDefaultState()
+        s.clearTransactions()
+        s.disableDialogs = true
+        return s
+    }
+
+    @Test func productsLoadWithThePrices() async throws {
+        let s = try session(); defer { s.clearTransactions() }
+        let store = SubscriptionStore()
+        await store.loadProducts()
+        #expect(store.products.map(\.id) == ProPlan.allCases.map(\.productID), "loaded \(store.products.count), error: \(store.loadError ?? "none")")
+        #expect(store.products.map(\.price) == [Decimal(string: "9.99")!, Decimal(string: "49.99")!, Decimal(string: "99.99")!])
+        #expect(store.products.allSatisfy { $0.type == .autoRenewable })
+    }
+
+    // Purchases need a window to present against; the macOS test host has none, so these
+    // run on the iPad simulator (the shipped Mac app presents the sheet on its own window).
+    #if os(iOS)
+    @Test func eachPlanUnlocksPro() async throws {
+        for plan in ProPlan.allCases {
+            let s = try session(); defer { s.clearTransactions() }
+            let store = SubscriptionStore()
+            await store.loadProducts()
+            #expect(!store.isPro)
+            await store.purchase(plan, account: UUID())
+            #expect(store.isPro, "\(store.message ?? "no message")")
+            if case .pro(let got, let expires, _) = store.entitlement {
+                #expect(got == plan && (expires ?? .distantPast) > .now)
+            } else { Issue.record("expected Pro after buying \(plan)") }
+        }
+    }
+
+    @Test func renewalKeepsProAndRefundRevokesIt() async throws {
+        let s = try session(); defer { s.clearTransactions() }
+        let store = SubscriptionStore()
+        await store.loadProducts()
+        await store.purchase(.monthly, account: nil)
+        #expect(store.isPro)
+        // Period ends with auto-renew on: StoreKit renews, so Pro must stay.
+        try s.expireSubscription(productIdentifier: ProPlan.monthly.productID)
+        try? await Task.sleep(for: .milliseconds(500))
+        await store.refresh()
+        #expect(store.isPro)
+        // A lapse without renewal is covered by EntitlementTests (expired transactions are free).
+
+        await store.purchase(.annual, account: nil)
+        #expect(store.isPro)
+        let tx = try #require(s.allTransactions().last { $0.productIdentifier == ProPlan.annual.productID })
+        try s.refundTransaction(identifier: UInt(tx.identifier))
+        #expect(await becomesFree(store))
+    }
+
+    /// StoreKit applies expiry and refunds asynchronously; the app picks them up from
+    /// `Transaction.updates`. Wait the same way, up to 5 s.
+    func becomesFree(_ store: SubscriptionStore) async -> Bool {
+        for _ in 0..<50 {
+            await store.refresh()
+            if !store.isPro { return true }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return false
+    }
+
+    @Test func restoreFindsAnExistingSubscription() async throws {
+        let s = try session(); defer { s.clearTransactions() }
+        _ = try await s.buyProduct(identifier: ProPlan.halfYear.productID)   // bought elsewhere
+        let store = SubscriptionStore()
+        await store.loadProducts()
+        await store.refresh()
+        #expect(store.entitlement.isPro)
+    }
+    #endif
+}

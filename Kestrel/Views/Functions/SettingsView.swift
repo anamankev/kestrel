@@ -86,6 +86,8 @@ struct SettingsView: View {
                     HStack { Text("Render loop").font(.ui(12)).foregroundStyle(Theme.text); Spacer(); FrameMeter() }
                 }
 
+                section("SUBSCRIPTION") { SubscriptionStatusRow() }
+
                 section("TRANSFER BETWEEN IPAD AND MAC") { TransferSection() }
 
                 section("RESET") {
@@ -227,6 +229,27 @@ struct FrameMeter: View {
         TimelineView(.animation) { ctx in
             Text(String(format: "%.0f fps", counter.tick(ctx.date)))
                 .font(.mono(12, .semibold)).monospacedDigit().foregroundStyle(Theme.accent)
+        }
+    }
+}
+
+struct SubscriptionStatusRow: View {
+    @Environment(SubscriptionStore.self) private var store
+    @Environment(Workspace.self) private var ws
+
+    var body: some View {
+        HStack {
+            switch store.entitlement {
+            case .free:
+                Text("Free plan. Pro adds BT, OSA, CORR, ERN, 4- and 6-panel layouts and background alerts.")
+                    .font(.ui(11)).foregroundStyle(Theme.dim)
+            case .pro(let plan, let expires, let willRenew):
+                Text("Kestrel Pro · \(plan.title)" + (expires.map { " · \(willRenew ? "renews" : "ends") \($0.formatted(.dateTime.month(.abbreviated).day().year()))" } ?? ""))
+                    .font(.mono(11, .semibold)).foregroundStyle(Theme.text)
+            }
+            Spacer()
+            Button(store.isPro ? "Manage" : "See plans") { _ = ws.run("PRO") }
+                .font(.mono(11, .bold)).foregroundStyle(Theme.accent).buttonStyle(.plain)
         }
     }
 }

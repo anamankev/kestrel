@@ -15,6 +15,7 @@ enum BackgroundAlerts {
     static let taskID = "dev.kestrel.terminal.alerts"
     static weak var auth: AuthService?
     static weak var market: MarketStore?
+    static weak var store: SubscriptionStore?
 
     /// Fetches current quotes for every symbol with an active alert and checks them.
     /// Returns the number of alerts that fired.
@@ -38,7 +39,8 @@ enum BackgroundAlerts {
 
     #if os(iOS)
     static func schedule() {
-        guard auth?.space?.data.alerts.active.isEmpty == false else { return }
+        // Background alerts are a Pro feature; the live in-app feed still checks alerts for everyone.
+        guard store?.isPro == true, auth?.space?.data.alerts.active.isEmpty == false else { return }
         let request = BGAppRefreshTaskRequest(identifier: taskID)
         request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
         do { try BGTaskScheduler.shared.submit(request) } catch { marketLog.error("alert refresh not scheduled: \(error.localizedDescription, privacy: .public)") }

@@ -1,0 +1,88 @@
+{
+  "identifier": "A44C1EC7-1F91-4FE4-B270-587CDC9A14F8",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {
+    "_failTransactionsEnabled": false,
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [
+    {
+      "id": "21562788",
+      "localizations": [],
+      "name": "Kestrel Pro",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "99.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "6755000001",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "All Pro tools, billed yearly.",
+              "displayName": "Kestrel Pro \u00b7 Yearly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "dev.kestrel.pro.annual",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Kestrel Pro \u00b7 Yearly",
+          "subscriptionGroupID": "21562788",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "49.99",
+          "familyShareable": false,
+          "groupNumber": 2,
+          "internalID": "6755000002",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "All Pro tools, billed every 6 months.",
+              "displayName": "Kestrel Pro \u00b7 6 Months",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "dev.kestrel.pro.halfyear",
+          "recurringSubscriptionPeriod": "P6M",
+          "referenceName": "Kestrel Pro \u00b7 6 Months",
+          "subscriptionGroupID": "21562788",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "9.99",
+          "familyShareable": false,
+          "groupNumber": 3,
+          "internalID": "6755000003",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "All Pro tools, billed monthly.",
+              "displayName": "Kestrel Pro \u00b7 Monthly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "dev.kestrel.pro.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Kestrel Pro \u00b7 Monthly",
+          "subscriptionGroupID": "21562788",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 4,
+    "minor": 0
+  }
+}
