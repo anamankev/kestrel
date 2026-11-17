@@ -3,7 +3,7 @@ import ImageIO
 import UniformTypeIdentifiers
 import CoreGraphics
 
-// usage: swift postprocess.swift <in.mp4> <out.mp4> <out.gif> <gifStart> <gifSeconds>
+// usage: swift postprocess.swift <in.mp4> <out.mp4> <out.gif> <gifStart> <gifSeconds> [rotateDegrees] [trimStart]
 let args = CommandLine.arguments
 let input = URL(fileURLWithPath: args[1])
 let outMP4 = URL(fileURLWithPath: args[2])
@@ -14,6 +14,7 @@ let gifSeconds = Double(args[5])!
 let asset = AVURLAsset(url: input)
 let sema = DispatchSemaphore(value: 0)
 let rotateDegrees = Double(args.count > 6 ? args[6] : "90")!
+let trimStart = Double(args.count > 7 ? args[7] : "5")!
 
 /// The simulator records its native portrait frame; rotate into the landscape UI.
 func rotated() async throws -> AVMutableVideoComposition {
@@ -39,10 +40,10 @@ Task {
     let comp = try await rotated()
     // 1. Full-length 1080p H.264 for LinkedIn / README link.
     try? FileManager.default.removeItem(at: outMP4)
-    let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPreset1280x720)!
+    let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPreset1920x1080)!
     export.videoComposition = comp
     let total = try await asset.load(.duration)
-    export.timeRange = CMTimeRange(start: CMTime(seconds: 5, preferredTimescale: 600), end: total)
+    export.timeRange = CMTimeRange(start: CMTime(seconds: trimStart, preferredTimescale: 600), end: total)
     do {
         try await export.export(to: outMP4, as: .mp4)
         print("mp4 ok")

@@ -187,7 +187,7 @@ struct SubscribeGate: View {
             }
         }
         #if DEBUG
-        .task { if SnapshotTour.isEnabled { await SnapshotTour.subscribeStep() } }
+        .task { if SnapshotTour.isEnabled { await SnapshotTour.subscribeStep() } else if DemoTour.isEnabled { await DemoTour.subscribeStep() } }
         #endif
     }
 }

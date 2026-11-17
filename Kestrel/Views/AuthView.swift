@@ -47,7 +47,10 @@ struct AuthView: View {
         }
         .onAppear { if auth.directory.accounts.isEmpty { mode = .create } }
         #if DEBUG
-        .task { if SnapshotTour.isEnabled { await SnapshotTour.signIn(auth) } }
+        .task {
+            if SnapshotTour.isEnabled { await SnapshotTour.signIn(auth) }
+            if DemoTour.isEnabled { await DemoTour.signIn(auth) }
+        }
         #endif   // a fresh device starts on sign-up
         .onChange(of: mode) { error = nil; confirm = ""; password = "" }
         .onChange(of: [name, email, password, confirm]) { error = nil }   // stale errors go once you edit

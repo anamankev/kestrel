@@ -7,7 +7,7 @@ struct KestrelApp: App {
     @State private var news = NewsService()
     @State private var auth: AuthService = {
         #if DEBUG
-        if SnapshotTour.isEnabled { return SnapshotTour.makeAuth() }
+        if SnapshotTour.isEnabled || DemoTour.isEnabled { return SnapshotTour.makeAuth() }
         #endif
         return AuthService()
     }()
@@ -110,6 +110,7 @@ struct AuthGate: View {
         // Hide balances and positions from the app switcher snapshot.
         .overlay { if phase != .active { PrivacyCover() } }
         #endif
+        .overlay(alignment: .bottom) { DemoCaptionBar() }
         .onAppear(perform: wire)
         .onChange(of: auth.space?.id) { wire() }
         #if DEBUG
