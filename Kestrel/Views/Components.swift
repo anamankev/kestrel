@@ -225,3 +225,27 @@ struct StatTile: View {
     return Array(symbols.compactMap { Universe.instrument(symbol: $0) ?? Universe.resolve($0) }
         .filter { $0.assetClass != .option && seen.insert($0.symbol).inserted }.prefix(max))
 }
+
+extension View {
+    /// Tracks the view's laid-out size (tables use the width to decide how many columns fit).
+    func readSize(_ size: Binding<CGSize>) -> some View {
+        onGeometryChange(for: CGSize.self) { $0.size } action: { size.wrappedValue = $0 }
+    }
+}
+
+/// How many fixed-width columns fit beside `reserved` points of other content (at least 1).
+func columnsThatFit(_ width: CGFloat, reserved: CGFloat, column: CGFloat, max: Int) -> Int {
+    guard width > 0 else { return max }
+    return Swift.max(1, Swift.min(max, Int((width - reserved) / column)))
+}
+
+/// A toolbar row that scrolls sideways instead of forcing a narrow panel wider.
+struct ControlBar<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) { content }.padding(8)
+        }
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+    }
+}

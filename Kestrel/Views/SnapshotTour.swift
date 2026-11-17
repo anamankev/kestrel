@@ -29,9 +29,16 @@ enum SnapshotTour {
         "ALRT", "BLOT", "SOL BUY", "PREF", "PRO", "HELP",
     ]
 
+    static var grids: [[String]] {
+        let a = ProcessInfo.processInfo.arguments
+        guard let i = a.firstIndex(of: "-grids"), i + 1 < a.count else { return [] }
+        return a[i + 1].split(separator: ";").map { $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) } }
+    }
+
     /// `-screens "SECF TOYOTA,7203.T DES"` captures just those commands.
     static var chosen: [String] {
         let a = ProcessInfo.processInfo.arguments
+        if a.contains("-grids"), !a.contains("-screens") { return [] }
         guard let i = a.firstIndex(of: "-screens"), i + 1 < a.count else { return screens }
         return a[i + 1].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
     }
@@ -67,6 +74,14 @@ enum SnapshotTour {
             try? await Task.sleep(for: .seconds(cmd.contains("OMON") || cmd.contains("OSA") || cmd.contains("BT") || cmd == "CORR" || cmd.hasPrefix("ECST") || cmd == "EQS" || cmd.contains("EVST") ? 7 : 4))
             capture(String(format: "%02d-%@", n + 1, cmd.replacingOccurrences(of: " ", with: "-")))
         }
+        // `-grids "A,B,C,D;E,F,G,H,I,J"`: each group fills a 4- or 6-panel layout and is captured.
+        for (g, group) in grids.enumerated() {
+            ws.layout = group.count > 4 ? .six : group.count > 2 ? .four : .two
+            for (i, c) in group.enumerated() { ws.focused = i; _ = ws.run(c) }
+            try? await Task.sleep(for: .seconds(10))
+            capture(String(format: "8%d-grid-%d", g, group.count))
+        }
+        guard grids.isEmpty else { log("SNAPSHOT TOUR DONE \(folder.path)"); return }
         ws.layout = .four
         for (i, c) in ["TOP", "W", "BTC DEPTH", "TOP"].enumerated() { ws.focused = i; _ = ws.run(c) }
         try? await Task.sleep(for: .seconds(6))

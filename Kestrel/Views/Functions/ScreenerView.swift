@@ -31,6 +31,14 @@ struct ScreenerView: View {
     @AppStorage("eqs.sort") private var sort: Column = .size
     @AppStorage("eqs.descending") private var descending = true
     @State private var text = ""
+    @State private var size: CGSize = .zero
+
+    /// Columns in display order; narrow panels keep the highest-priority ones.
+    private var columns: [Column] {
+        let priority: [Column] = [.revenue, .margin, .roe, .income, .roa, .leverage]
+        let keep = Set(priority.prefix(columnsThatFit(size.width, reserved: 190, column: 84, max: 6)))
+        return [Column.revenue, .income, .margin, .roe, .roa, .leverage].filter(keep.contains)
+    }
 
     private static let revenueSteps: [(String, Double)] = [("ANY", 0), ("$100M+", 1e8), ("$1B+", 1e9), ("$10B+", 1e10), ("$100B+", 1e11)]
     private static let marginSteps: [(String, Double)] = [("ANY", -1), ("PROFITABLE", 0), ("10%+", 0.1), ("20%+", 0.2)]
@@ -79,6 +87,7 @@ struct ScreenerView: View {
                 }
             }
         }
+        .readSize($size)
         .task(id: sec.hasValidContact) { await sec.loadScreen() }
     }
 
@@ -116,11 +125,13 @@ struct ScreenerView: View {
                 }
                 .buttonStyle(.plain).foregroundStyle(Theme.accent)
             }
-            HStack(spacing: 14) {
-                step("REVENUE", Self.revenueSteps, $minRevenue)
-                step("NET MARGIN", Self.marginSteps, $minMargin)
-                step("ROE", Self.roeSteps, $minROE)
-                step("LIAB/ASSETS", Self.leverageSteps, $maxLeverage)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    step("REVENUE", Self.revenueSteps, $minRevenue)
+                    step("NET MARGIN", Self.marginSteps, $minMargin)
+                    step("ROE", Self.roeSteps, $minROE)
+                    step("LIAB/ASSETS", Self.leverageSteps, $maxLeverage)
+                }
             }
         }
         .padding(8)
@@ -130,15 +141,15 @@ struct ScreenerView: View {
         HStack(spacing: 4) {
             Text(title).font(.mono(9, .bold)).foregroundStyle(Theme.label)
             Picker(title, selection: value) { ForEach(options, id: \.1) { Text($0.0).tag($0.1) } }
-                .labelsHidden().font(.mono(10))
+                .labelsHidden().font(.mono(10)).fixedSize()
         }
     }
 
     private var header: some View {
         HStack(spacing: 6) {
             sortButton(.size, "COMPANY").frame(maxWidth: .infinity, alignment: .leading)
-            ForEach([Column.revenue, .income, .margin, .roe, .roa, .leverage], id: \.self) { c in
-                sortButton(c, c.rawValue).frame(width: 92, alignment: .trailing)
+            ForEach(columns, id: \.self) { c in
+                sortButton(c, c.rawValue).frame(width: 84, alignment: .trailing)
             }
         }
         .padding(.horizontal, 8).padding(.vertical, 5)
@@ -160,19 +171,23 @@ struct ScreenerView: View {
         } label: {
             HStack(spacing: 6) {
                 HStack(spacing: 8) {
-                    Text(r.ticker).font(.mono(11, .bold)).foregroundStyle(Theme.accent).frame(width: 64, alignment: .leading)
+                    Text(r.ticker).font(.mono(11, .bold)).foregroundStyle(Theme.accent).lineLimit(1).frame(width: 58, alignment: .leading)
                     Text(r.name).font(.ui(11)).foregroundStyle(Theme.text).lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                Group {
-                    Text(Fmt.compact(r.revenue)).foregroundStyle(Theme.text)
-                    Text(Fmt.compact(r.netIncome)).foregroundStyle(theme.tint(r.netIncome))
-                    pct(r.netMargin, tinted: true)
-                    pct(r.roe, tinted: true)
-                    pct(r.roa, tinted: true)
-                    pct(r.leverage, tinted: false)
+                ForEach(columns, id: \.self) { c in
+                    Group {
+                        switch c {
+                        case .revenue: Text(Fmt.compact(r.revenue)).foregroundStyle(Theme.text)
+                        case .income: Text(Fmt.compact(r.netIncome)).foregroundStyle(theme.tint(r.netIncome))
+                        case .margin: pct(r.netMargin, tinted: true)
+                        case .roe: pct(r.roe, tinted: true)
+                        case .roa: pct(r.roa, tinted: true)
+                        case .leverage, .size: pct(r.leverage, tinted: false)
+                        }
+                    }
+                    .font(.mono(11)).monospacedDigit().lineLimit(1).frame(width: 84, alignment: .trailing)
                 }
-                .font(.mono(11)).monospacedDigit().frame(width: 92, alignment: .trailing)
             }
             .padding(.horizontal, 8).padding(.vertical, 5).contentShape(.rect)
         }

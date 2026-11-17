@@ -16,13 +16,18 @@ struct WorldEconomyView: View {
     @AppStorage("ecst.indicator") private var indicator = "NY.GDP.MKTP.KD.ZG"
     @State private var region = "ALL"
     @State private var ascending = false
+    @State private var size: CGSize = .zero
+
+    /// Narrow panels show fewer years, then drop the trend line and the region column.
+    private var showSpark: Bool { size.width == 0 || size.width >= 560 }
+    private var showRegion: Bool { size.width == 0 || size.width >= 640 }
 
     private var current: WorldBank.Country? { macro.countries.first { $0.id == country } }
     private var info: WorldBank.Indicator { WorldBank.indicators.first { $0.id == indicator } ?? WorldBank.indicators[0] }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
+            ControlBar {
                 Picker("Mode", selection: $mode) { ForEach(Mode.allCases, id: \.self) { Text($0.rawValue) } }
                     .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320)
                 if mode == .profile {
@@ -43,7 +48,6 @@ struct WorldEconomyView: View {
                 }
                 .buttonStyle(.plain).foregroundStyle(Theme.accent)
             }
-            .padding(8)
             if let e = macro.worldError, macro.countries.isEmpty {
                 EmptyNote(title: "World Bank unavailable", detail: e, icon: "globe.europe.africa")
             } else if mode == .profile {
@@ -54,6 +58,7 @@ struct WorldEconomyView: View {
             Text("Source: World Bank, World Development Indicators (CC BY 4.0). Annual data; the latest year varies by country and series.")
                 .font(.ui(10)).foregroundStyle(Theme.faint).padding(8)
         }
+        .readSize($size)
         .task { await macro.loadCountries(); applyInitial() }
         .onChange(of: initial) { applyInitial() }
         .task { await macro.loadWorld(first: indicator) }
@@ -69,7 +74,8 @@ struct WorldEconomyView: View {
 
     private var years: [Int] {
         let all = Set(macro.profile(country).values.flatMap { $0.map(\.year) })
-        return Array(all.sorted().suffix(7))
+        let fit = columnsThatFit(size.width, reserved: 210 + (showSpark ? 96 : 0), column: 74, max: 7)
+        return Array(all.sorted().suffix(fit))
     }
 
     private var profile: some View {
@@ -82,7 +88,7 @@ struct WorldEconomyView: View {
                 HStack(spacing: 6) {
                     Text("INDICATOR").frame(maxWidth: .infinity, alignment: .leading)
                     ForEach(years, id: \.self) { Text(String($0)).frame(width: 74, alignment: .trailing) }
-                    Text("15Y").frame(width: 90, alignment: .center)
+                    if showSpark { Text("15Y").frame(width: 90, alignment: .center) }
                 }
                 .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
                 ScrollView {
@@ -94,7 +100,7 @@ struct WorldEconomyView: View {
                                     Text(i.name).font(.ui(11)).foregroundStyle(Theme.text).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
                                     if macro.panels[i.id] == nil {
                                         Text(macro.failedIndicators.contains(i.id) ? "WORLD BANK DIDN'T RESPOND · REOPEN TO RETRY" : "LOADING…")
-                                            .font(.mono(9)).foregroundStyle(Theme.faint).frame(width: CGFloat(years.count) * 80 + 90, alignment: .trailing)
+                                            .font(.mono(9)).foregroundStyle(Theme.faint).lineLimit(1).frame(width: CGFloat(years.count) * 80 + (showSpark ? 96 : 0), alignment: .trailing)
                                     } else {
                                     ForEach(years, id: \.self) { y in
                                         let v = points.first { $0.year == y }?.value
@@ -102,7 +108,7 @@ struct WorldEconomyView: View {
                                             .foregroundStyle(v == nil ? Theme.faint : (["NY.GDP.MKTP.KD.ZG", "BN.CAB.XOKA.GD.ZS"].contains(i.id) ? theme.tint(v) : Theme.text))
                                             .frame(width: 74, alignment: .trailing)
                                     }
-                                    Sparkline(values: points.suffix(15).map(\.value)).frame(width: 90, height: 18)
+                                    if showSpark { Sparkline(values: points.suffix(15).map(\.value)).frame(width: 90, height: 18) }
                                     }
                                 }
                                 .padding(.horizontal, 8).padding(.vertical, 6).contentShape(.rect)
@@ -139,7 +145,7 @@ struct WorldEconomyView: View {
             HStack(spacing: 6) {
                 Text("#").frame(width: 34, alignment: .trailing)
                 Text("COUNTRY").frame(maxWidth: .infinity, alignment: .leading)
-                Text("REGION").frame(width: 200, alignment: .leading)
+                if showRegion { Text("REGION").frame(width: 200, alignment: .leading) }
                 Button { ascending.toggle() } label: {
                     Text("VALUE " + (ascending ? "▲" : "▼")).foregroundStyle(Theme.accent)
                 }
@@ -160,7 +166,7 @@ struct WorldEconomyView: View {
                                     Text("\(n + 1)").foregroundStyle(Theme.faint).frame(width: 34, alignment: .trailing)
                                     Text(r.0.name).font(.ui(11)).foregroundStyle(r.0.id == country ? Theme.accent : Theme.text).lineLimit(1)
                                         .frame(maxWidth: .infinity, alignment: .leading)
-                                    Text(r.0.region).font(.ui(10)).foregroundStyle(Theme.dim).lineLimit(1).frame(width: 200, alignment: .leading)
+                                    if showRegion { Text(r.0.region).font(.ui(10)).foregroundStyle(Theme.dim).lineLimit(1).frame(width: 200, alignment: .leading) }
                                     Text(format(r.1.value, info.unit)).foregroundStyle(Theme.text).frame(width: 110, alignment: .trailing)
                                     Text(String(r.1.year)).foregroundStyle(Theme.dim).frame(width: 50, alignment: .trailing)
                                 }

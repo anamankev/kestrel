@@ -31,6 +31,12 @@ struct SecurityFinderView: View {
     @State private var filter: Filter = .all
     @State private var note: String?
     @FocusState private var focused: Bool
+    @State private var size: CGSize = .zero
+
+    /// Narrow panels drop the TYPE column and tighten the rest, so the name always shows.
+    private var wide: Bool { size.width == 0 || size.width >= 620 }
+    private var tickerWidth: CGFloat { wide ? 150 : 92 }
+    private var exchangeWidth: CGFloat { wide ? 120 : 92 }
 
     private var shown: [SearchHit] { hits.filter { filter.admits($0.instrument.assetClass) } }
 
@@ -64,6 +70,7 @@ struct SecurityFinderView: View {
                 }
             }
         }
+        .readSize($size)
         .onAppear { if let initial { query = initial.lowercased() } else { focused = true } }
         .onChange(of: initial) { if let initial { query = initial.lowercased() } }
         .task(id: query) {
@@ -86,10 +93,10 @@ struct SecurityFinderView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text("TICKER").frame(width: 150, alignment: .leading)
+            Text("TICKER").frame(width: tickerWidth, alignment: .leading)
             Text("NAME").frame(maxWidth: .infinity, alignment: .leading)
-            Text("TYPE").frame(width: 110, alignment: .leading)
-            Text("EXCHANGE").frame(width: 120, alignment: .leading)
+            if wide { Text("TYPE").frame(width: 110, alignment: .leading) }
+            Text("EXCHANGE").frame(width: exchangeWidth, alignment: .leading)
             Color.clear.frame(width: 28, height: 1)
         }
         .font(.mono(9, .bold)).foregroundStyle(Theme.label)
@@ -101,13 +108,15 @@ struct SecurityFinderView: View {
             Button { ws.load(Command(function: .des, instrument: h.instrument), in: panelID) } label: {
                 HStack(spacing: 8) {
                     Text(h.token).font(.mono(12, .bold)).foregroundStyle(Theme.accent).lineLimit(1)
-                        .frame(width: 150, alignment: .leading)
+                        .frame(width: tickerWidth, alignment: .leading)
                     Text(h.instrument.name).font(.ui(12)).foregroundStyle(Theme.text).lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(h.kind.uppercased()).font(.mono(10)).foregroundStyle(Theme.dim).lineLimit(1)
-                        .frame(width: 110, alignment: .leading)
+                    if wide {
+                        Text(h.kind.uppercased()).font(.mono(10)).foregroundStyle(Theme.dim).lineLimit(1)
+                            .frame(width: 110, alignment: .leading)
+                    }
                     Text(h.exchange).font(.mono(10)).foregroundStyle(Theme.dim).lineLimit(1)
-                        .frame(width: 120, alignment: .leading)
+                        .frame(width: exchangeWidth, alignment: .leading)
                 }
                 .contentShape(.rect)
             }
