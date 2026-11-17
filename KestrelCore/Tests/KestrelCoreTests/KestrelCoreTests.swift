@@ -708,3 +708,46 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(Credentials.passwordProblem(pw, email: "b@example.com") == nil)
     }
 }
+
+@Suite struct BacktestTests {
+    /// Bars that open at the previous close, so a buy-and-hold with no costs matches the benchmark.
+    func bars(_ closes: [Double]) -> [Candle] {
+        closes.enumerated().map { i, c in
+            Candle(time: Date(timeIntervalSince1970: 1_700_000_000 + Double(i) * 86_400),
+                   open: i == 0 ? c : closes[i - 1], high: c, low: c, close: c, volume: 1)
+        }
+    }
+
+    @Test func buyAndHoldWithoutCostsTracksTheBenchmark() throws {
+        let r = try #require(Backtest.run(bars([100, 110, 99, 121]), strategy: .buyAndHold, costBps: 0))
+        #expect(abs(r.equity.last! - r.benchmark.last!) < 1e-12)
+        #expect(abs(r.totalReturn - 0.21) < 1e-12)
+        #expect(abs(r.maxDrawdown - 0.1) < 1e-12)         // 110 → 99
+        #expect(r.trades.count == 1 && r.trades[0].exit == nil)
+    }
+
+    @Test func smaCrossTradesOnceOnRiseThenFall() throws {
+        let up = (0..<30).map { 100 + Double($0) }, down = (0..<30).map { 129 - Double($0) * 2 }
+        let r = try #require(Backtest.run(bars(up + down), strategy: .smaCross(fast: 3, slow: 10), costBps: 0))
+        #expect(r.trades.filter { $0.exit != nil }.count == 1)
+        #expect(r.exposure > 0 && r.exposure < 1)
+    }
+
+    @Test func costsAreChargedOnBothSides() throws {
+        let flat = bars(Array(repeating: 100, count: 40) + Array(repeating: 100, count: 40))
+        // RSI is undefined on a flat line, so force round trips with Bollinger on a sawtooth instead.
+        let pattern: [Double] = [100, 99, 98, 97, 96, 100, 101, 102, 103, 104]
+        let saw = bars((0..<80).map { (i: Int) -> Double in pattern[i % 10] })
+        let free = try #require(Backtest.run(saw, strategy: .bollinger(period: 5, k: 1), costBps: 0))
+        let paid = try #require(Backtest.run(saw, strategy: .bollinger(period: 5, k: 1), costBps: 10))
+        #expect(!paid.trades.isEmpty && paid.equity.last! < free.equity.last!)
+        #expect(try #require(Backtest.run(flat, strategy: .buyAndHold, costBps: 10)).totalReturn < 0)
+    }
+
+    @Test func neverTradesOnTheBarItSignalsOn() throws {
+        // A spike on the last bar can't be captured: the signal would trade tomorrow.
+        let closes = Array(repeating: 100.0, count: 30) + [200]
+        let r = try #require(Backtest.run(bars(closes), strategy: .smaCross(fast: 2, slow: 5), costBps: 0))
+        #expect(r.totalReturn == 0)
+    }
+}
