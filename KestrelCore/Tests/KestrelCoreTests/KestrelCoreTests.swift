@@ -436,3 +436,25 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(r.other == [nil, 0])
     }
 }
+
+@Suite struct HistoryTests {
+    @Test func returnStats() throws {
+        let s = try #require(ReturnStats(closes: [100, 110, 99, 120], periodsPerYear: 252))
+        #expect(abs(s.totalReturn - 0.2) < 1e-12)
+        #expect(abs(s.maxDrawdown - (99.0 / 110 - 1)) < 1e-12)
+        #expect(abs(s.bestPeriod - (120.0 / 99 - 1)) < 1e-12 && abs(s.worstPeriod - (-0.1)) < 1e-12)
+        #expect(s.periods == 3 && s.annualizedVolatility > 0)
+        // Constant prices: zero vol, zero drawdown.
+        let flat = try #require(ReturnStats(closes: [5, 5, 5, 5], periodsPerYear: 365))
+        #expect(flat.annualizedVolatility == 0 && flat.maxDrawdown == 0)
+        #expect(ReturnStats(closes: [1, 2], periodsPerYear: 252) == nil)
+    }
+
+    @Test func csvExport() {
+        let k = [Candle(time: Date(timeIntervalSince1970: 86_400), open: 2, high: 3, low: 1, close: 2.5, volume: 10),
+                 Candle(time: Date(timeIntervalSince1970: 0), open: 1, high: 2, low: 0.5, close: 1.5, volume: 5)]
+        let csv = CSV.candles(k, intraday: false)
+        #expect(csv == "Date,Open,High,Low,Close,Volume\r\n1970-01-01,1.0,2.0,0.5,1.5,5.0\r\n1970-01-02,2.0,3.0,1.0,2.5,10.0\r\n")
+        #expect(CSV.field("a,\"b\"") == "\"a,\"\"b\"\"\"")
+    }
+}

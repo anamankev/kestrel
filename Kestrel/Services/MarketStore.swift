@@ -203,6 +203,17 @@ struct SecurityDetail: Equatable {
         return series.candles
     }
 
+    /// Daily (or weekly for multi-year) bars for HP. Crypto is capped at Coinbase's 300 bars.
+    func history(for i: Instrument, range: String, weekly: Bool) async throws -> [Candle] {
+        if i.isStreaming {
+            let url = URL(string: "https://api.exchange.coinbase.com/products/\(i.symbol)/candles?granularity=86400")!
+            let (data, _) = try await http.data(from: url)
+            return try CoinbaseFeed.candles(data)
+        }
+        let (data, _) = try await http.data(from: YahooChart.url(symbol: i.symbol, range: range, interval: weekly ? "1wk" : "1d"))
+        return try YahooChart.decode(data, intraday: false).candles
+    }
+
     /// Full listed option chain from Deribit's public API (BTC, ETH).
     func optionChain(for i: Instrument) async throws -> OptionChain {
         let (data, _) = try await http.data(from: Deribit.summaryURL(currency: i.ticker))
