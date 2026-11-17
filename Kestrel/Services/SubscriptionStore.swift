@@ -10,6 +10,8 @@ import KestrelCore
     private(set) var entitlement: Entitlement = .free
     private(set) var purchasing: ProPlan?
     private(set) var loadError: String?
+    /// False until the first entitlement check finishes, so subscribers never see the paywall flash.
+    private(set) var checked = false
     var message: String?
 
     #if DEBUG
@@ -62,6 +64,7 @@ import KestrelCore
             willRenew = info.willAutoRenew
         }
         entitlement = Entitlement.from(rows, willRenew: willRenew)
+        checked = true
     }
 
     /// - Parameter account: tags the purchase with the Kestrel account (for a future server).

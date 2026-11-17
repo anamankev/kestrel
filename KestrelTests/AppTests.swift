@@ -90,6 +90,16 @@ import KestrelCore
     }
 }
 
+@Suite struct LaunchScreenTests {
+    @Test func subscriptionComesFirstAndNeedsNoAccount() {
+        #expect(LaunchScreen.decide(checked: false, subscribed: true, signedIn: true) == .checking)    // never flash the paywall
+        #expect(LaunchScreen.decide(checked: true, subscribed: false, signedIn: false) == .subscribe)  // buy without registering
+        #expect(LaunchScreen.decide(checked: true, subscribed: false, signedIn: true) == .subscribe)   // lapsed: data kept, gate shown
+        #expect(LaunchScreen.decide(checked: true, subscribed: true, signedIn: false) == .signIn)
+        #expect(LaunchScreen.decide(checked: true, subscribed: true, signedIn: true) == .terminal)
+    }
+}
+
 @MainActor @Suite struct AuthServiceTests {
     func fresh() -> (URL, MemorySessionStore) {
         let root = FileManager.default.temporaryDirectory.appending(path: "kestrel-auth-\(UUID().uuidString)", directoryHint: .isDirectory)

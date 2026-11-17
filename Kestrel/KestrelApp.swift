@@ -68,20 +68,41 @@ struct KestrelApp: App {
 
 /// Shows sign-in until someone is signed in, then that person's terminal. Their paper account,
 /// watchlists and alerts load from their own folder and are rebuilt when the user changes.
+/// What the window shows. Kestrel is subscription-only: the subscribe page comes first and
+/// needs no account (Apple doesn't allow requiring registration before purchase; the
+/// subscription belongs to the Apple ID). Then sign in, then the terminal.
+enum LaunchScreen: Equatable {
+    case checking, subscribe, signIn, terminal
+
+    static func decide(checked: Bool, subscribed: Bool, signedIn: Bool) -> LaunchScreen {
+        guard checked else { return .checking }
+        guard subscribed else { return .subscribe }
+        return signedIn ? .terminal : .signIn
+    }
+}
+
 struct AuthGate: View {
     @Environment(AuthService.self) private var auth
     @Environment(MarketStore.self) private var market
+    @Environment(SubscriptionStore.self) private var store
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
         Group {
-            if let space = auth.space {
-                WindowRoot()
-                    .environment(space.broker)
-                    .environment(space.data)
-                    .id(space.id)
-            } else {
+            switch LaunchScreen.decide(checked: store.checked, subscribed: store.isPro, signedIn: auth.space != nil) {
+            case .checking:
+                ZStack { Theme.canvas.ignoresSafeArea(); ProgressView().tint(Theme.accent) }
+            case .subscribe:
+                SubscribeGate()
+            case .signIn:
                 AuthView()
+            case .terminal:
+                if let space = auth.space {
+                    WindowRoot()
+                        .environment(space.broker)
+                        .environment(space.data)
+                        .id(space.id)
+                }
             }
         }
         #if os(iOS)

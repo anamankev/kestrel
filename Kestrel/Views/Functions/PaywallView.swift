@@ -2,8 +2,8 @@ import SwiftUI
 import StoreKit
 import KestrelCore
 
-/// PRO, and what a free account sees when it opens a Pro function: the three plans, the
-/// renewal terms App Review requires, restore, and subscription management for subscribers.
+/// The subscribe page (Kestrel is subscription-only) and, for subscribers, PRO's plan status:
+/// the three plans, the renewal terms App Review requires, restore, and management.
 struct PaywallView: View {
     /// The function that led here, if any.
     var feature: ProFeature?
@@ -13,6 +13,15 @@ struct PaywallView: View {
     @Environment(\.openURL) private var openURL
     @State private var selected: ProPlan = .annual
     @State private var managing = false
+
+    static let included = [
+        "Live crypto order book, trades and charts, with indicators and trendlines",
+        "Stocks, indices, FX, commodities and Treasury rates; heat map and movers",
+        "News search, SEC filings, financials and an earnings calendar (ERN)",
+        "Options monitor with greeks, and the strategy builder (OSA)",
+        "Strategy backtester (BT) and correlation matrix (CORR)",
+        "Paper trading with stops, risk and VaR; up to 6 panels; alerts, even when closed",
+    ]
 
     static let terms = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
     static let privacy = URL(string: "https://github.com/anamankev/kestrel/blob/main/docs/PRIVACY.md")!
@@ -38,9 +47,9 @@ struct PaywallView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("KESTREL PRO").font(.ui(12, .semibold)).tracking(1.5).foregroundStyle(Theme.accent)
-            Text(feature.map { "\($0.title) is part of Kestrel Pro." } ?? (store.isPro ? "You're on Kestrel Pro." : "Upgrade to Kestrel Pro."))
-                .font(.ui(22, .semibold)).foregroundStyle(Theme.text)
-            Text("Live quotes, charts, depth, news, alerts and paper trading stay free. Pro adds the analysis tools below.")
+            Text(store.isPro ? "You're subscribed." : "Subscribe to Kestrel")
+                .font(.ui(26, .semibold)).foregroundStyle(Theme.text)
+            Text(store.isPro ? "Your subscription includes everything in Kestrel." : "Kestrel is a subscription. Choose a plan to start; everything below is included.")
                 .font(.ui(13)).foregroundStyle(Theme.dim)
         }
     }
@@ -134,9 +143,9 @@ struct PaywallView: View {
 
     private var features: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Pro includes").font(.ui(11, .bold)).foregroundStyle(Theme.label)
-            ForEach(ProFeature.allCases, id: \.self) { f in
-                Label(f.title, systemImage: "checkmark").font(.ui(12)).foregroundStyle(f == feature ? Theme.text : Theme.dim)
+            Text("Included").font(.ui(11, .bold)).foregroundStyle(Theme.label)
+            ForEach(Self.included, id: \.self) { line in
+                Label(line, systemImage: "checkmark").font(.ui(12)).foregroundStyle(Theme.dim)
             }
         }
     }
@@ -152,5 +161,33 @@ struct PaywallView: View {
             }
             .font(.ui(11, .semibold)).foregroundStyle(Theme.accent).buttonStyle(.plain)
         }
+    }
+}
+
+/// Full-screen subscribe page shown at launch until this Apple ID has an active subscription.
+/// No account is needed to buy (the subscription belongs to the Apple ID); sign-in comes after.
+struct SubscribeGate: View {
+    @Environment(AuthService.self) private var auth
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            Theme.canvas.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    KestrelMark().frame(width: 26, height: 22)
+                    Text("KESTREL").font(.mono(20, .heavy)).tracking(6).foregroundStyle(Theme.text)
+                    Spacer()
+                    if auth.current != nil {
+                        Button("Sign out") { auth.signOut() }
+                            .font(.ui(12, .semibold)).foregroundStyle(Theme.dim).buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 24).padding(.top, 20)
+                PaywallView()
+            }
+        }
+        #if DEBUG
+        .task { if SnapshotTour.isEnabled { await SnapshotTour.subscribeStep() } }
+        #endif
     }
 }

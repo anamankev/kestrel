@@ -241,7 +241,7 @@ struct SubscriptionStatusRow: View {
         HStack {
             switch store.entitlement {
             case .free:
-                Text("Free plan. Pro adds BT, OSA, CORR, ERN, 4- and 6-panel layouts and background alerts.")
+                Text("No active subscription.")
                     .font(.ui(11)).foregroundStyle(Theme.dim)
             case .pro(let plan, let expires, let willRenew):
                 Text("Kestrel Pro · \(plan.title)" + (expires.map { " · \(willRenew ? "renews" : "ends") \($0.formatted(.dateTime.month(.abbreviated).day().year()))" } ?? ""))
