@@ -11,6 +11,10 @@ It uses live data from free public sources and has paper trading built in.
 
 ![Kestrel on iPad: portfolio risk, monitor, live order book and news](docs/screenshots/overview.png)
 
+Sign in or create an account on the first screen. Accounts stay on the device (salted PBKDF2), and each one has its own paper book, watchlists and alerts.
+
+![Sign in](docs/screenshots/sign-in.png)
+
 | Options monitor (`BTC OMON`) | Relative performance (`NVDA GP` VS SPX) |
 |---|---|
 | ![OMON](docs/screenshots/omon.png) | ![Chart compare](docs/screenshots/chart-vs-spx.png) |
@@ -19,8 +23,8 @@ It uses live data from free public sources and has paper trading built in.
 
 ## Run
 Open `Kestrel.xcodeproj` in Xcode 26+, pick an **iPad simulator** or **My Mac**, then press ⌘R.
-Tests: `cd KestrelCore && swift test` (70 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
-(7 app tests: workspace routing, hotspots, pages, persistence regressions, formatting). CI runs both plus an iPad build
+Tests: `cd KestrelCore && swift test` (75 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
+(9 app tests: accounts, workspace routing, hotspots, pages, persistence regressions, formatting). CI runs both plus an iPad build
 (`.github/workflows/ci.yml`).
 
 ## Functions

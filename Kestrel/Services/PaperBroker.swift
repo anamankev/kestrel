@@ -10,16 +10,14 @@ import KestrelCore
     private(set) var curve: [EquityPoint] = []
 
     struct EquityPoint: Codable, Equatable { var t: Date; var v: Double }
-    @ObservationIgnored private let curveURL: URL = URL.applicationSupportDirectory
-        .appending(path: "Kestrel/equity-curve.json")
+    @ObservationIgnored private let curveURL: URL
+    @ObservationIgnored private let url: URL
 
-    @ObservationIgnored private let url: URL = {
-        let dir = URL.applicationSupportDirectory.appending(path: "Kestrel", directoryHint: .isDirectory)
+    /// - Parameter dir: the signed-in user's data folder.
+    init(dir: URL) {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appending(path: "paper-account.json")
-    }()
-
-    init() {
+        url = dir.appending(path: "paper-account.json")
+        curveURL = dir.appending(path: "equity-curve.json")
         account = (try? JSONDecoder().decode(PaperAccount.self, from: Data(contentsOf: url))) ?? PaperAccount()
         curve = (try? JSONDecoder().decode([EquityPoint].self, from: Data(contentsOf: curveURL))) ?? []
         Task { [weak self] in

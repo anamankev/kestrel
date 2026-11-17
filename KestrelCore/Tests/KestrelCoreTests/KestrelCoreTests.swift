@@ -656,3 +656,55 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(back == a)
     }
 }
+
+@Suite struct AccountTests {
+    let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+    let pw = "correct horse battery"
+    func dir() throws -> (AccountDirectory, AccountRecord) {
+        var d = AccountDirectory()
+        let r = try d.register(name: "Ada Lovelace", email: " Ada@Example.com ", password: pw, confirm: pw, iterations: 1_000, now: t0)
+        return (d, r)
+    }
+
+    @Test func pbkdf2MatchesRFC7914Vector() {
+        // RFC 7914 §11: PBKDF2-HMAC-SHA256("passwd", "salt", c=1, dkLen=64), first 32 bytes.
+        let dk = Credentials.derive("passwd", salt: Data("salt".utf8), iterations: 1)
+        #expect(dk.map { String(format: "%02x", $0) }.joined() == "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc")
+    }
+
+    @Test func registersWithNormalisedEmailAndNoPlaintext() throws {
+        let (d, r) = try dir()
+        #expect(r.email == "ada@example.com" && r.initials == "AL")
+        let json = String(decoding: try JSONEncoder().encode(d), as: UTF8.self)
+        #expect(!json.contains(pw))
+    }
+
+    @Test func signInChecksPasswordCaseInsensitiveEmail() throws {
+        var (d, r) = try dir()
+        #expect(try d.signIn(email: "ADA@example.com", password: pw, now: t0).id == r.id)
+        #expect(throws: AuthError.invalidCredentials) { try d.signIn(email: "ada@example.com", password: pw + "x", now: t0) }
+        #expect(throws: AuthError.invalidCredentials) { try d.signIn(email: "nobody@example.com", password: pw, now: t0) }
+    }
+
+    @Test func locksAfterFiveFailuresThenUnlocks() throws {
+        var (d, _) = try dir()
+        for _ in 0..<4 { #expect(throws: AuthError.invalidCredentials) { try d.signIn(email: "ada@example.com", password: "wrong-password", now: t0) } }
+        #expect(throws: AuthError.locked(until: t0.addingTimeInterval(30))) { try d.signIn(email: "ada@example.com", password: "wrong-password", now: t0) }
+        // Even the right password is refused while locked.
+        #expect(throws: AuthError.self) { try d.signIn(email: "ada@example.com", password: pw, now: t0.addingTimeInterval(10)) }
+        #expect(try d.signIn(email: "ada@example.com", password: pw, now: t0.addingTimeInterval(31)).failedAttempts == 0)
+    }
+
+    @Test func rejectsBadSignUps() throws {
+        var (d, _) = try dir()
+        #expect(throws: AuthError.emailTaken) { try d.register(name: "A", email: "ada@example.com", password: pw, confirm: pw, iterations: 1_000) }
+        #expect(throws: AuthError.invalidEmail) { try d.register(name: "A", email: "ada@", password: pw, confirm: pw, iterations: 1_000) }
+        #expect(throws: AuthError.nameRequired) { try d.register(name: "  ", email: "b@example.com", password: pw, confirm: pw, iterations: 1_000) }
+        #expect(throws: AuthError.passwordsDiffer) { try d.register(name: "B", email: "b@example.com", password: pw, confirm: pw + "!", iterations: 1_000) }
+        #expect(Credentials.passwordProblem("short", email: "b@example.com") != nil)
+        #expect(Credentials.passwordProblem("aaaaaaaaaaaa", email: "b@example.com") != nil)
+        #expect(Credentials.passwordProblem("mypassword99", email: "b@example.com") != nil)
+        #expect(Credentials.passwordProblem("bobsmith-trades", email: "bobsmith@example.com") != nil)
+        #expect(Credentials.passwordProblem(pw, email: "b@example.com") == nil)
+    }
+}

@@ -1,12 +1,12 @@
 # Kestrel security review (2026-11-16)
 
-Kestrel is a native client with **no backend, no accounts and no API keys**. It reads public market data
-and keeps a simulated (paper) account on the device. The checklist below is the project-wide bar. Items
+Kestrel is a native client with **no backend and no API keys**. It reads public market data and keeps
+on-device accounts, each with its own simulated (paper) book, watchlists and alerts (updated 2026-11-17). The checklist below is the project-wide bar. Items
 that only apply to servers (cookies, CSRF, CORS, admin routes, databases, password reset) are marked N/A.
 
 | # | Item | Status | Evidence |
 |---|------|--------|----------|
-| 1 | Authentication | N/A | No accounts. All feeds are public. |
+| 1 | Authentication | ✅ | On-device accounts. Passwords are hashed with PBKDF2-HMAC-SHA256, 600,000 rounds (OWASP 2023), with a 16-byte random salt per account; the hash is checked against the RFC 7914 test vector. Comparison is constant-time, and unknown emails cost the same work as known ones, so timing doesn't reveal which accounts exist. After 5 failures an account locks for 30 s, doubling up to 1 h. Passwords follow NIST 800-63B: at least 10 characters, a blocklist, and no email in the password. Deleting an account requires its password. Hashing runs off the main thread. Each account's data lives in its own folder. The session is only an account ID in UserDefaults: these accounts separate people on a shared device, and a stolen unlocked device is out of scope until sync exists (`AccountTests`, `AuthServiceTests`). |
 | 2 | API keys hidden | ✅ | No keys exist. A source scan for `key/secret/token/password` finds none. |
 | 3 | Database locked down | N/A | Local JSON file only (see 5). |
 | 4 | HTTPS enforced | ✅ | Every endpoint is `https://`/`wss://`. App Transport Security is left at its strict default. RSS links are upgraded to HTTPS (`rss()` test). |
@@ -25,7 +25,7 @@ that only apply to servers (cookies, CSRF, CORS, admin routes, databases, passwo
 | — | Untrusted network data | ✅ | WebSocket messages are capped at 16 MB. Decoding uses Swift `Codable` (memory-safe). A sequence gap triggers a full resync. |
 
 Not applicable to a client-only app: 9 (admin routes), 11 (server env vars), 13 (CORS), 14 (security headers),
-15 (cookies), 16 (CSRF), 17 (password reset), 18 (uploads), 26 (GitHub account settings: owner action).
+15 (cookies), 16 (CSRF), 17 (password reset: there is no server to send a reset email, so the sign-in screen says accounts can't be recovered yet), 18 (uploads), 26 (GitHub account settings: owner action).
 
 **Residual risk:** market data comes from free, unauthenticated sources (Yahoo's unofficial chart endpoint and
 Coinbase's public feed). It can be delayed, change format or rate-limit without notice. The app degrades to

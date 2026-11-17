@@ -89,3 +89,39 @@ import KestrelCore
         #expect(Fmt.compact(1_250_000) == "1.25M" && Fmt.compact(nil) == "—")
     }
 }
+
+@MainActor @Suite struct AuthServiceTests {
+    func fresh() -> (URL, UserDefaults) {
+        let root = FileManager.default.temporaryDirectory.appending(path: "kestrel-auth-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let suite = "kestrel-tests-\(UUID().uuidString)"
+        return (root, UserDefaults(suiteName: suite)!)
+    }
+
+    @Test func firstAccountAdoptsExistingPaperBookAndSessionPersists() async throws {
+        let (root, defaults) = fresh()
+        try Data("legacy".utf8).write(to: root.appending(path: "paper-account.json"))
+        let auth = AuthService(root: root, defaults: defaults)
+        try await auth.register(name: "Ada Lovelace", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine")
+        let me = try #require(auth.current)
+        #expect(FileManager.default.fileExists(atPath: auth.folder(for: me.id).appending(path: "paper-account.json").path))
+        #expect(!FileManager.default.fileExists(atPath: root.appending(path: "paper-account.json").path))
+        // Relaunch: still signed in.
+        #expect(AuthService(root: root, defaults: defaults).current?.id == me.id)
+    }
+
+    @Test func signOutSignInAndDeleteNeedsPassword() async throws {
+        let (root, defaults) = fresh()
+        let auth = AuthService(root: root, defaults: defaults)
+        try await auth.register(name: "Grace Hopper", email: "grace@example.com", password: "nanoseconds wire", confirm: "nanoseconds wire")
+        auth.signOut()
+        #expect(auth.current == nil && auth.space == nil)
+        #expect(AuthService(root: root, defaults: defaults).current == nil)
+        try await auth.signIn(email: "GRACE@example.com", password: "nanoseconds wire")
+        #expect(auth.space != nil)
+        await #expect(throws: AuthError.invalidCredentials) { try await auth.deleteAccount(password: "wrong") }
+        #expect(auth.current != nil)
+        try await auth.deleteAccount(password: "nanoseconds wire")
+        #expect(auth.current == nil && auth.directory.accounts.isEmpty)
+    }
+}

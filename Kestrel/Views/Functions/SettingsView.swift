@@ -7,7 +7,11 @@ struct SettingsView: View {
     @Environment(MarketStore.self) private var market
     @Environment(PaperBroker.self) private var broker
     @Environment(UserData.self) private var user
+    @Environment(AuthService.self) private var auth
     @Environment(Theme.self) private var theme
+    @State private var deleting = false
+    @State private var deletePassword = ""
+    @State private var deleteError: String?
     @AppStorage("universeInterval") private var interval: Double = 45
 
     @State private var contactDraft = ""
@@ -19,6 +23,7 @@ struct SettingsView: View {
         @Bindable var theme = theme
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                account
                 section("SEC EDGAR CONTACT (FOR FA)") {
                     Text("SEC's free API requires each app to identify itself with a contact email in its User-Agent. It is stored on this device and sent only to sec.gov.")
                         .font(.ui(11)).foregroundStyle(Theme.dim)
@@ -88,7 +93,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Text("Kestrel \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") · no accounts, no keys, all data stays on this device.")
+                Text("Kestrel \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") · no API keys; accounts and data stay on this device.")
                     .font(.mono(9)).foregroundStyle(Theme.faint)
             }
             .padding(12)
@@ -123,6 +128,52 @@ struct SettingsView: View {
     private func saveContact() {
         let c = contactDraft.trimmingCharacters(in: .whitespaces)
         if SECFacts.isValidContact(c) { sec.contact = c }
+    }
+
+    @ViewBuilder private var account: some View {
+        if let me = auth.current {
+            section("ACCOUNT") {
+                HStack(spacing: 10) {
+                    Text(me.initials).font(.mono(12, .heavy)).foregroundStyle(Theme.canvas)
+                        .frame(width: 32, height: 32).background(Theme.accent, in: .circle)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(me.displayName).font(.ui(13, .semibold)).foregroundStyle(Theme.text)
+                        Text(me.email + " · since " + me.created.formatted(.dateTime.month(.abbreviated).year()))
+                            .font(.mono(10)).foregroundStyle(Theme.dim)
+                    }
+                    Spacer()
+                    Button { auth.signOut() } label: {
+                        Text("Sign out").font(.mono(11, .bold)).foregroundStyle(Theme.text)
+                            .padding(.horizontal, 12).frame(height: 28).overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.rule))
+                    }
+                    .buttonStyle(.plain)
+                }
+                if deleting {
+                    HStack(spacing: 8) {
+                        SecureField("", text: $deletePassword, prompt: Text("Password to confirm").foregroundStyle(Theme.faint))
+                            .font(.mono(12)).foregroundStyle(Theme.text).textFieldStyle(.plain)
+                            .padding(.horizontal, 8).frame(height: 30).background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule))
+                        Button {
+                            Task {
+                                do throws(AuthError) { try await auth.deleteAccount(password: deletePassword) }
+                                catch { deleteError = error.errorDescription; deletePassword = "" }
+                            }
+                        } label: {
+                            Text(auth.busy ? "Deleting…" : "Delete forever").font(.mono(11, .bold)).foregroundStyle(.white)
+                                .padding(.horizontal, 12).frame(height: 30).background(Theme.cancel, in: .rect(cornerRadius: 3))
+                        }
+                        .buttonStyle(.plain).disabled(deletePassword.isEmpty || auth.busy)
+                        Button("Keep") { deleting = false; deletePassword = ""; deleteError = nil }
+                            .font(.mono(11, .bold)).foregroundStyle(Theme.dim).buttonStyle(.plain)
+                    }
+                    Text(deleteError ?? "Removes this account and its paper book, watchlists and alerts from this device. This cannot be undone.")
+                        .font(.mono(10)).foregroundStyle(deleteError == nil ? Theme.dim : Theme.cancel)
+                } else {
+                    Button("Delete account…") { deleting = true }
+                        .font(.mono(10, .semibold)).foregroundStyle(Theme.cancel).buttonStyle(.plain)
+                }
+            }
+        }
     }
 
     private func section(_ title: String, @ViewBuilder _ content: () -> some View) -> some View {

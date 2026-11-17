@@ -5,18 +5,16 @@ import KestrelCore
 struct KestrelApp: App {
     @State private var market = MarketStore()
     @State private var news = NewsService()
-    @State private var broker = PaperBroker()
-    @State private var userData = UserData()
+    @State private var auth = AuthService()
     @State private var fundamentals = FundamentalsService()
     @State private var macro = MacroService()
 
     var body: some Scene {
         WindowGroup {
-            WindowRoot()
+            AuthGate()
                 .environment(market)
                 .environment(news)
-                .environment(broker)
-                .environment(userData)
+                .environment(auth)
                 .environment(fundamentals)
                 .environment(macro)
                 .environment(Theme.shared)
@@ -24,21 +22,7 @@ struct KestrelApp: App {
                 #if os(macOS)
                 .frame(minWidth: 1100, idealWidth: 1600, minHeight: 700, idealHeight: 1000)
                 #endif
-                .onAppear {
-                    let broker = broker
-                    let userData = userData
-                    market.onQuote = { symbol, quote in
-                        broker.mark(symbol, quote)
-                        userData.check(symbol, quote)
-                    }
-                    market.extraSymbols = { userData.watchedSymbols }
-                    market.heldOptions = {
-                        let a = broker.account
-                        let syms = a.openPositions.map(\.symbol) + a.workingOrders.map(\.symbol)
-                        return Set(syms.filter { Deribit.parse($0) != nil })
-                    }
-                    market.start()
-                }
+                .onAppear { market.start() }   // the sign-in screen shows live prices too
         }
         #if os(macOS)
         .defaultSize(width: 1600, height: 1000)
@@ -46,6 +30,49 @@ struct KestrelApp: App {
         .windowStyle(.hiddenTitleBar)
         #endif
         .commands { TerminalCommands() }
+    }
+}
+
+/// Shows sign-in until someone is signed in, then that person's terminal. Their paper account,
+/// watchlists and alerts load from their own folder and are rebuilt when the user changes.
+struct AuthGate: View {
+    @Environment(AuthService.self) private var auth
+    @Environment(MarketStore.self) private var market
+
+    var body: some View {
+        Group {
+            if let space = auth.space {
+                WindowRoot()
+                    .environment(space.broker)
+                    .environment(space.data)
+                    .id(space.id)
+            } else {
+                AuthView()
+            }
+        }
+        .onAppear(perform: wire)
+        .onChange(of: auth.space?.id) { wire() }
+    }
+
+    /// Routes quotes to whoever is signed in. One space is shared by every window.
+    private func wire() {
+        guard let s = auth.space else {
+            market.onQuote = nil
+            market.extraSymbols = { [] }
+            market.heldOptions = { [] }
+            return
+        }
+        let broker = s.broker, userData = s.data
+        market.onQuote = { symbol, quote in
+            broker.mark(symbol, quote)
+            userData.check(symbol, quote)
+        }
+        market.extraSymbols = { userData.watchedSymbols }
+        market.heldOptions = {
+            let a = broker.account
+            let syms = a.openPositions.map(\.symbol) + a.workingOrders.map(\.symbol)
+            return Set(syms.filter { Deribit.parse($0) != nil })
+        }
     }
 }
 

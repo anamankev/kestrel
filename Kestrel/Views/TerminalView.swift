@@ -230,10 +230,12 @@ struct LinkStatus: View {
 
 struct AccountChip: View {
     @Environment(PaperBroker.self) private var broker
+    @Environment(AuthService.self) private var auth
     @Environment(Workspace.self) private var ws
     @Environment(Theme.self) private var theme
 
     var body: some View {
+        HStack(spacing: 8) {
         Button { ws.run("PORT") } label: {
             VStack(alignment: .trailing, spacing: 0) {
                 Text("PAPER · \(Fmt.money(broker.equity))").font(.mono(10, .semibold)).foregroundStyle(Theme.text)
@@ -242,6 +244,15 @@ struct AccountChip: View {
             }
         }
         .buttonStyle(.plain)
+        if let me = auth.current {
+            Button { ws.run("PREF") } label: {
+                Text(me.initials).font(.mono(10, .heavy)).foregroundStyle(Theme.canvas)
+                    .frame(width: 24, height: 24).background(Theme.accent, in: .circle)
+            }
+            .buttonStyle(.plain)
+            .help("\(me.displayName) · \(me.email)")
+        }
+        }
     }
 }
 
