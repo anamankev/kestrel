@@ -68,6 +68,50 @@ import KestrelCore
         }
     }
 
+    // MARK: Screener (EQS)
+
+    enum ScreenState: Equatable { case idle, loading, ready(rows: [ScreenRow], year: Int), failed(String) }
+    private(set) var screen: ScreenState = .idle
+
+    /// Last fiscal-calendar year of revenue, earnings and balance sheets for every SEC filer:
+    /// seven XBRL frame files (~4 MB), joined onto SEC's ticker list.
+    func loadScreen() async {
+        guard hasValidContact else { return }
+        switch screen { case .loading, .ready: return; default: break }
+        screen = .loading
+        let thisYear = Calendar(identifier: .gregorian).component(.year, from: .now)
+        for year in [thisYear - 1, thisYear - 2] {
+            do {
+                async let t = get(SECFacts.tickersURL)
+                async let rev = get(SECFrames.url(concept: "Revenues", period: .year(year)))
+                async let asc = get(SECFrames.url(concept: "RevenueFromContractWithCustomerExcludingAssessedTax", period: .year(year)))
+                async let ni = get(SECFrames.url(concept: "NetIncomeLoss", period: .year(year)))
+                async let at = get(SECFrames.url(concept: "Assets", period: .yearEnd(year)))
+                async let lt = get(SECFrames.url(concept: "Liabilities", period: .yearEnd(year)))
+                async let eq = get(SECFrames.url(concept: "StockholdersEquity", period: .yearEnd(year)))
+                let raw = try await (t, rev, asc, ni, at, lt, eq)
+                // Fallbacks, fetched after the first batch to stay well under SEC's 10 requests/second.
+                async let pl = get(SECFrames.url(concept: "ProfitLoss", period: .year(year)))
+                async let nci = get(SECFrames.url(concept: "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", period: .yearEnd(year)))
+                async let lse = get(SECFrames.url(concept: "LiabilitiesAndStockholdersEquity", period: .yearEnd(year)))
+                let extra = try await (pl, nci, lse)
+                let rows = try await Task.detached(priority: .userInitiated) {
+                    try SECFrames.rows(listings: SECFrames.listings(raw.0), revenues: SECFrames.decode(raw.1),
+                                       contractRevenues: SECFrames.decode(raw.2), netIncome: SECFrames.decode(raw.3),
+                                       assets: SECFrames.decode(raw.4), liabilities: SECFrames.decode(raw.5), equity: SECFrames.decode(raw.6),
+                                       profitLoss: SECFrames.decode(extra.0), equityWithNCI: SECFrames.decode(extra.1),
+                                       liabilitiesAndEquity: SECFrames.decode(extra.2))
+                }.value
+                if rows.count >= 500 { screen = .ready(rows: rows, year: year); return }
+            } catch let e as URLError where e.code == .fileDoesNotExist {
+                continue   // that year's frames aren't published yet
+            } catch {
+                screen = .failed(error.localizedDescription); return
+            }
+        }
+        screen = .failed("SEC has no complete annual frames yet")
+    }
+
     func fundamentals(_ symbol: String) -> CompanyFundamentals? {
         if case .ready(let f) = states[symbol] { f } else { nil }
     }

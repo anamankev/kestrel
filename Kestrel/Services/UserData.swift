@@ -72,7 +72,7 @@ import UserNotifications
     func add(_ text: String) -> String? {
         let t = text.trimmingCharacters(in: .whitespaces)
         guard !t.isEmpty else { return nil }
-        guard t.count <= 12, let i = Universe.resolve(t) else { return "Unknown security: \(t.uppercased())" }
+        guard t.count <= 24, let i = Universe.resolve(t) else { return "Unknown security: \(t.uppercased())" }
         var ok = false
         mutateActive { ok = $0.add(i.symbol) }
         return ok ? nil : (active.symbols.contains(i.symbol) ? "\(i.ticker) is already on \(active.name)" : "List is full (\(Watchlist.maxSymbols))")

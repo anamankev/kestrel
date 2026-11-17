@@ -96,10 +96,22 @@ struct CommandBar: View {
     @Binding var text: String
     var focused: FocusState<Bool>.Binding
     @Environment(Workspace.self) private var ws
+    @Environment(MarketStore.self) private var market
     @State private var selection = 0
+    /// Live matches from every exchange, for the single token being typed.
+    @State private var remote: [CommandParser.Suggestion] = []
 
     private var suggestions: [CommandParser.Suggestion] {
-        focused.wrappedValue ? CommandParser.suggestions(for: text) : []
+        guard focused.wrappedValue else { return [] }
+        let local = CommandParser.suggestions(for: text)
+        let seen = Set(local.map(\.completion))
+        return Array((local + remote.filter { !seen.contains($0.completion) }).prefix(8))
+    }
+
+    private var searchToken: String? {
+        let t = text.trimmingCharacters(in: .whitespaces)
+        guard t.count >= 2, !t.contains(" "), TerminalFunction.from(t.uppercased()) == nil else { return nil }
+        return t
     }
 
     var body: some View {
@@ -123,6 +135,15 @@ struct CommandBar: View {
                 .padding(.horizontal, 6)
                 .onSubmit(submit)
                 .onChange(of: text) { selection = 0 }
+                .task(id: searchToken) {
+                    remote = []
+                    guard let q = searchToken else { return }
+                    try? await Task.sleep(for: .milliseconds(300))
+                    guard !Task.isCancelled else { return }
+                    let hits = await market.search(q, limit: 8)
+                    guard !Task.isCancelled else { return }
+                    remote = hits.map(CommandParser.Suggestion.init)
+                }
                 .onKeyPress(.downArrow) { move(1) }
                 .onKeyPress(.upArrow) { move(-1) }
                 .onKeyPress(.tab) { accept() }
@@ -434,10 +455,14 @@ struct FunctionView: View {
         case .hmap: HeatmapView(panelID: panel.id)
         case .corr: CorrelationView(panelID: panel.id)
         case .ern: EarningsCalendarView(panelID: panel.id)
+        case .secf: SecurityFinderView(panelID: panel.id, initial: c.query)
+        case .comp: ComparisonView(panelID: panel.id)
+        case .mvo: OptimizerView(panelID: panel.id)
+        case .eqs: ScreenerView(panelID: panel.id)
         case .pro: PaywallView()
         case .wei: QuoteBoard(panelID: panel.id, groups: Region.allCases.map { r in (r.rawValue, Universe.indices.filter { $0.region == r }) })
-        case .fx: QuoteBoard(panelID: panel.id, groups: [("G10 & EM SPOT", Universe.currencies)])
-        case .comd: QuoteBoard(panelID: panel.id, groups: [("ENERGY", Array(Universe.commodities.prefix(3))), ("METALS", Array(Universe.commodities[3..<6])), ("AGRICULTURE", Array(Universe.commodities.suffix(2)))])
+        case .fx: QuoteBoard(panelID: panel.id, groups: Universe.currencyGroups)
+        case .comd: QuoteBoard(panelID: panel.id, groups: Universe.commodityGroups)
         case .rates: QuoteBoard(panelID: panel.id, groups: [("US TREASURY YIELDS", Universe.rates)], yields: true)
         case .most: MoversView(panelID: panel.id)
         case .top: NewsView(instrument: nil)
@@ -447,7 +472,7 @@ struct FunctionView: View {
         case .port: PortfolioView(panelID: panel.id)
         case .blot: BlotterView()
         case .help: HelpView(panelID: panel.id)
-        case .des, .fa, .evts, .gp, .hp, .bt, .osa, .depth, .tas, .cn, .omon, .trade:
+        case .des, .fa, .evts, .gp, .hp, .bt, .osa, .beta, .depth, .tas, .cn, .omon, .trade:
             if let i = c.instrument, i.assetClass == .option, c.function != .trade {
                 EmptyNote(title: "\(i.name)", detail: "Option contracts support TRADE. See the full chain, greeks and smile in \(Deribit.parse(i.symbol)?.underlying ?? "BTC") OMON.",
                           icon: "function")
@@ -464,6 +489,7 @@ struct FunctionView: View {
                 case .hp: HistoryView(instrument: i).id(i.symbol)
                 case .bt: BacktestView(instrument: i).id(i.symbol)
                 case .osa: OptionStrategyView(instrument: i).id(i.symbol)
+                case .beta: BetaView(instrument: i, panelID: panel.id).id(i.symbol)
                 case .depth: DepthView(instrument: i)
                 case .tas: TimeAndSalesView(instrument: i)
                 case .cn: NewsView(instrument: i)

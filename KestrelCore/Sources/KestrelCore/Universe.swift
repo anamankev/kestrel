@@ -27,8 +27,8 @@ public struct Instrument: Hashable, Codable, Sendable, Identifiable {
     public let region: Region?
 
     public var id: String { symbol }
-    /// Crypto streams tick-by-tick over WebSocket; everything else is polled.
-    public var isStreaming: Bool { assetClass == .crypto }
+    /// Coinbase-listed crypto streams tick-by-tick over WebSocket; everything else is polled.
+    public var isStreaming: Bool { assetClass == .crypto && Universe.streamed.contains(symbol) }
 
     public init(symbol: String, ticker: String, name: String, assetClass: AssetClass, region: Region? = nil) {
         self.symbol = symbol
@@ -88,6 +88,17 @@ public enum Universe {
         ix("000001.SS", "SHCOMP", "Shanghai Composite", .apac), ix("^AXJO", "AS51", "S&P/ASX 200", .apac),
         ix("^KS11", "KOSPI", "KOSPI", .apac), ix("^BSESN", "SENSEX", "BSE Sensex", .apac),
         ix("^TWII", "TWSE", "Taiwan Weighted", .apac),
+        ix("^VXN", "VXN", "CBOE Nasdaq-100 Volatility", .americas), ix("^MERV", "MERVAL", "S&P Merval", .americas),
+        ix("^SPCOSLCP", "COLCAP", "S&P Colombia Select", .americas),
+        ix("FTSEMIB.MI", "FTSEMIB", "FTSE MIB", .emea), ix("^AEX", "AEX", "AEX", .emea),
+        ix("^N100", "N100", "Euronext 100", .emea), ix("^BFX", "BEL20", "BEL 20", .emea),
+        ix("^ATX", "ATX", "Austrian Traded Index", .emea), ix("^OMXS30", "OMX", "OMX Stockholm 30", .emea),
+        ix("^OMXC25", "OMXC25", "OMX Copenhagen 25", .emea), ix("^TA125.TA", "TA125", "Tel Aviv 125", .emea),
+        ix("^TASI.SR", "SASEIDX", "Tadawul All Share", .emea), ix("^CASE30", "EGX30", "EGX 30", .emea),
+        ix("^J203.JO", "JALSH", "JSE All Share", .emea),
+        ix("^NSEI", "NIFTY", "Nifty 50", .apac), ix("^STI", "FSSTI", "Straits Times Index", .apac),
+        ix("^JKSE", "JCI", "Jakarta Composite", .apac), ix("^KLSE", "FBMKLCI", "FTSE Bursa Malaysia KLCI", .apac),
+        ix("^SET.BK", "SET", "SET Index", .apac), ix("^NZ50", "NZSE50", "S&P/NZX 50", .apac),
     ]
 
     public static let currencies: [Instrument] = [
@@ -95,13 +106,45 @@ public enum Universe {
         fx("USDJPY", "US Dollar / Japanese Yen"), fx("USDCHF", "US Dollar / Swiss Franc"),
         fx("AUDUSD", "Australian Dollar / US Dollar"), fx("USDCAD", "US Dollar / Canadian Dollar"),
         fx("USDCNY", "US Dollar / Chinese Yuan"), fx("USDMXN", "US Dollar / Mexican Peso"),
+        fx("NZDUSD", "New Zealand Dollar / US Dollar"), fx("EURGBP", "Euro / British Pound"),
+        fx("EURJPY", "Euro / Japanese Yen"), fx("GBPJPY", "British Pound / Japanese Yen"),
+        fx("USDINR", "US Dollar / Indian Rupee"), fx("USDBRL", "US Dollar / Brazilian Real"),
+        fx("USDZAR", "US Dollar / South African Rand"), fx("USDKRW", "US Dollar / Korean Won"),
+        fx("USDSGD", "US Dollar / Singapore Dollar"), fx("USDHKD", "US Dollar / Hong Kong Dollar"),
+        fx("USDTRY", "US Dollar / Turkish Lira"),
+        Instrument(symbol: "DX-Y.NYB", ticker: "DXY", name: "US Dollar Index", assetClass: .fx),
     ]
+
+    /// FX board sections.
+    public static var currencyGroups: [(String, [Instrument])] {
+        let g10: Set = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD", "DXY"]
+        let crosses: Set = ["EURGBP", "EURJPY", "GBPJPY"]
+        return [("G10 & DOLLAR INDEX", currencies.filter { g10.contains($0.ticker) }),
+                ("CROSSES", currencies.filter { crosses.contains($0.ticker) }),
+                ("EMERGING MARKETS", currencies.filter { !g10.contains($0.ticker) && !crosses.contains($0.ticker) })]
+    }
 
     public static let commodities: [Instrument] = [
         cm("CL=F", "CL1", "WTI Crude Oil"), cm("BZ=F", "CO1", "Brent Crude Oil"),
         cm("NG=F", "NG1", "Natural Gas"), cm("GC=F", "GC1", "Gold"), cm("SI=F", "SI1", "Silver"),
         cm("HG=F", "HG1", "Copper"), cm("ZC=F", "C1", "Corn"), cm("ZW=F", "W1", "Wheat"),
+        cm("HO=F", "HO1", "Heating Oil"), cm("RB=F", "XB1", "RBOB Gasoline"),
+        cm("PL=F", "PL1", "Platinum"), cm("PA=F", "PA1", "Palladium"),
+        cm("ZS=F", "S1", "Soybeans"), cm("KC=F", "KC1", "Coffee"), cm("SB=F", "SB1", "Sugar No. 11"),
+        cm("CT=F", "CT1", "Cotton"), cm("CC=F", "CC1", "Cocoa"), cm("LE=F", "LC1", "Live Cattle"), cm("HE=F", "LH1", "Lean Hogs"),
+        cm("ES=F", "ES1", "E-mini S&P 500"), cm("NQ=F", "NQ1", "E-mini Nasdaq-100"), cm("YM=F", "DM1", "E-mini Dow"),
+        cm("RTY=F", "RTY1", "E-mini Russell 2000"), cm("ZN=F", "TY1", "10-Year T-Note"), cm("ZB=F", "US1", "US Treasury Bond"),
     ]
+
+    /// COMD board sections, by front-month future.
+    public static var commodityGroups: [(String, [Instrument])] {
+        let sections: [(String, [String])] = [
+            ("ENERGY", ["CL1", "CO1", "NG1", "HO1", "XB1"]), ("METALS", ["GC1", "SI1", "HG1", "PL1", "PA1"]),
+            ("AGRICULTURE & LIVESTOCK", ["C1", "W1", "S1", "KC1", "SB1", "CT1", "CC1", "LC1", "LH1"]),
+            ("EQUITY INDEX & RATE FUTURES", ["ES1", "NQ1", "DM1", "RTY1", "TY1", "US1"]),
+        ]
+        return sections.map { name, tickers in (name, tickers.compactMap { t in commodities.first { $0.ticker == t } }) }
+    }
 
     public static let rates: [Instrument] = [
         rt("^IRX", "US3M", "US Treasury 13-Week Bill"), rt("^FVX", "US5Y", "US Treasury 5-Year"),
@@ -130,8 +173,41 @@ public enum Universe {
                           assetClass: .option)
     }
 
+    /// Coinbase products on the live WebSocket feed.
+    public static let streamed: Set<String> = Set(crypto.map(\.symbol))
+
+    /// Yahoo exchange suffixes for listings outside the US (`7203.T`, `VOD.L`, `SAP.DE`).
+    /// Single letters that are US share classes (`BRK.B`, `BF.A`) are deliberately absent.
+    public static let exchangeSuffixes: [String: Region] = [
+        "TO": .americas, "V": .americas, "NE": .americas, "CN": .americas, "SA": .americas, "MX": .americas,
+        "BA": .americas, "SN": .americas, "L": .emea, "IL": .emea, "DE": .emea, "F": .emea, "PA": .emea,
+        "AS": .emea, "BR": .emea, "LS": .emea, "MI": .emea, "MC": .emea, "SW": .emea, "VI": .emea, "ST": .emea,
+        "OL": .emea, "CO": .emea, "HE": .emea, "IR": .emea, "WA": .emea, "AT": .emea, "IS": .emea, "JO": .emea,
+        "TA": .emea, "SR": .emea, "QA": .emea, "PR": .emea, "BD": .emea, "T": .apac, "HK": .apac, "SS": .apac,
+        "SZ": .apac, "KS": .apac, "KQ": .apac, "TW": .apac, "TWO": .apac, "AX": .apac, "NZ": .apac, "SI": .apac,
+        "NS": .apac, "BO": .apac, "JK": .apac, "BK": .apac, "KL": .apac,
+    ]
+
+    private static let isoCurrencies = Set(Locale.Currency.isoCurrencies.map(\.identifier))
+
+    /// A six-letter token made of two ISO currency codes (`GBPJPY`): an FX cross.
+    static func isCurrencyPair(_ t: String) -> Bool {
+        t.count == 6 && t.allSatisfy(\.isLetter) && isoCurrencies.contains(String(t.prefix(3))) && isoCurrencies.contains(String(t.suffix(3)))
+    }
+
+    /// What to type so `resolve` returns this instrument again.
+    public static func token(for i: Instrument) -> String {
+        switch i.assetClass {
+        case .fx: i.ticker
+        case .crypto: streamed.contains(i.symbol) ? i.ticker : i.symbol
+        case .index, .commodity, .rate: byTicker[i.ticker] != nil ? i.ticker : i.symbol
+        default: i.symbol
+        }
+    }
+
     public static func resolve(_ raw: String, hint: AssetClass? = nil) -> Instrument? {
         if let o = option(raw) { return o }
+        let upper = raw.uppercased()
         let token = raw.uppercased().replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ".", with: "-")
         if hint == .crypto, let c = bySymbol[token.hasSuffix("-USD") ? token : "\(token)-USD"] { return c }
         if let matches = byTicker[token] {
@@ -139,6 +215,29 @@ public enum Universe {
         }
         if let s = bySymbol[token] ?? bySymbol[raw.uppercased()] { return s }
         if hint == .fx, let f = bySymbol["\(token)=X"] { return f }
+        // Any FX cross: GBPJPY, or Yahoo's GBPJPY=X.
+        let pair = upper.hasSuffix("=X") ? String(upper.dropLast(2)) : upper
+        if (hint == nil || hint == .fx), isCurrencyPair(pair) {
+            return Instrument(symbol: "\(pair)=X", ticker: pair, name: "\(pair.prefix(3)) / \(pair.suffix(3))", assetClass: .fx)
+        }
+        // Futures (CL=F, ES=F) and Yahoo index symbols (^N100, ^STI).
+        if upper.hasSuffix("=F"), upper.count <= 10 {
+            return Instrument(symbol: upper, ticker: upper, name: upper, assetClass: .commodity)
+        }
+        if upper.hasPrefix("^"), upper.count <= 12, upper.dropFirst().allSatisfy({ $0.isLetter || $0.isNumber || $0 == "." }) {
+            return Instrument(symbol: upper, ticker: upper, name: upper, assetClass: .index)
+        }
+        // Any coin: Coinbase streams the majors; the rest poll Yahoo's XXX-USD.
+        if hint == .crypto || upper.hasSuffix("-USD"), token.range(of: #"^[A-Z0-9]{2,12}(-USD)?$"#, options: .regularExpression) != nil {
+            let base = token.hasSuffix("-USD") ? String(token.dropLast(4)) : token
+            return Instrument(symbol: "\(base)-USD", ticker: hint == .crypto ? base : "\(base)-USD", name: base, assetClass: .crypto)
+        }
+        // Listed outside the US: keep Yahoo's exchange suffix.
+        if hint == nil || hint == .equity,
+           let dot = upper.lastIndex(of: "."), let region = exchangeSuffixes[String(upper[upper.index(after: dot)...])],
+           upper.range(of: #"^[A-Z0-9][A-Z0-9\-&]{0,11}\.[A-Z]{1,3}$"#, options: .regularExpression) != nil {
+            return Instrument(symbol: upper, ticker: upper, name: upper, assetClass: .equity, region: region)
+        }
         guard hint == nil || hint == .equity,
               token.range(of: #"^[A-Z][A-Z0-9\-]{0,7}$"#, options: .regularExpression) != nil
         else { return nil }

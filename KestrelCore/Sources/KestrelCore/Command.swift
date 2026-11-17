@@ -4,7 +4,7 @@ import Foundation
 public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
     case des = "DES", fa = "FA", evts = "EVTS", gp = "GP", hp = "HP", depth = "DEPTH", tas = "TAS", cn = "CN", omon = "OMON"
     case w = "W", hmap = "HMAP", wei = "WEI", most = "MOST", fx = "FX", comd = "COMD", rates = "RATES"
-    case top = "TOP", eco = "ECO", corr = "CORR", bt = "BT", osa = "OSA", ern = "ERN", pro = "PRO", alrt = "ALRT", pref = "PREF", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
+    case top = "TOP", eco = "ECO", corr = "CORR", bt = "BT", osa = "OSA", ern = "ERN", secf = "SECF", beta = "BETA", comp = "COMP", mvo = "MVO", eqs = "EQS", pro = "PRO", alrt = "ALRT", pref = "PREF", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
 
     public var title: String {
         switch self {
@@ -16,6 +16,11 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         case .bt: "Strategy Backtest"
         case .osa: "Option Strategy Builder"
         case .ern: "Earnings Calendar"
+        case .secf: "Security Finder"
+        case .beta: "Beta & Regression"
+        case .comp: "Comparative Returns"
+        case .mvo: "Portfolio Optimizer"
+        case .eqs: "Equity Screener"
         case .pro: "Kestrel Pro"
         case .gp: "Price Chart"
         case .hp: "Historical Prices"
@@ -43,7 +48,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
     /// Functions that operate on a loaded security.
     public var requiresSecurity: Bool {
         switch self {
-        case .des, .fa, .evts, .gp, .hp, .depth, .tas, .cn, .omon, .trade, .bt, .osa: true
+        case .des, .fa, .evts, .gp, .hp, .depth, .tas, .cn, .omon, .trade, .bt, .osa, .beta: true
         default: false
         }
     }
@@ -53,7 +58,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         "G": .gp, "GIP": .gp, "GPO": .gp, "CHART": .gp, "Q": .des, "BOOK": .depth, "L2": .depth,
         "T&S": .tas, "TS": .tas, "N": .top, "NEWS": .top, "MON": .w, "WATCH": .w, "IMAP": .hmap,
         "MOV": .most, "FXC": .fx, "GLCO": .comd, "GOV": .rates, "BUY": .trade, "SELL": .trade,
-        "OMS": .trade, "ALERT": .alrt, "SETTINGS": .pref, "PDF": .pref, "FIN": .fa, "EVT": .evts, "HIST": .hp, "HISTORY": .hp, "EARN": .ern, "EARNINGS": .ern, "SUBSCRIBE": .pro, "SUBS": .pro, "UPGRADE": .pro, "FILINGS": .evts, "ECON": .eco, "MACRO": .eco, "FINANCIALS": .fa, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help, "CORREL": .corr, "COR": .corr, "BTST": .bt, "BACKTEST": .bt, "STRAT": .osa, "PAYOFF": .osa, "NSE": .top, "SEARCH": .top,
+        "OMS": .trade, "ALERT": .alrt, "SETTINGS": .pref, "PDF": .pref, "FIN": .fa, "EVT": .evts, "HIST": .hp, "HISTORY": .hp, "EARN": .ern, "EARNINGS": .ern, "SUBSCRIBE": .pro, "SUBS": .pro, "UPGRADE": .pro, "FILINGS": .evts, "ECON": .eco, "MACRO": .eco, "FINANCIALS": .fa, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help, "CORREL": .corr, "COR": .corr, "BTST": .bt, "BACKTEST": .bt, "STRAT": .osa, "PAYOFF": .osa, "NSE": .top, "SEARCH": .top, "FIND": .secf, "LOOKUP": .secf, "SECFIND": .secf, "SYMBOL": .secf, "REGRESS": .beta, "REGRESSION": .beta, "COMPARE": .comp, "PERF": .comp, "OPTIMIZE": .mvo, "FRONTIER": .mvo, "PORTOPT": .mvo, "SCREEN": .eqs, "SCREENER": .eqs, "EQSCREEN": .eqs,
     ]
 
     public static func from(_ token: String) -> TerminalFunction? {
@@ -66,9 +71,11 @@ public struct Command: Equatable, Sendable {
     public var instrument: Instrument?
     /// BUY or SELL, when typed (e.g. `BTC BUY`), to prefill the ticket.
     public var side: TradeSide?
+    /// Free text for SECF (`SECF NESTLE`, `TOYOTA SECF`).
+    public var query: String?
 
-    public init(function: TerminalFunction, instrument: Instrument? = nil, side: TradeSide? = nil) {
-        self.function = function; self.instrument = instrument; self.side = side
+    public init(function: TerminalFunction, instrument: Instrument? = nil, side: TradeSide? = nil, query: String? = nil) {
+        self.function = function; self.instrument = instrument; self.side = side; self.query = query
     }
 }
 
@@ -80,7 +87,7 @@ public enum CommandError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .empty: "Enter a security, a function, or HELP <GO>"
-        case .unknownSecurity(let t): "Unknown security: \(t)"
+        case .unknownSecurity(let t): "Unknown security: \(t). Search every market with SECF <GO>"
         case .needsSecurity(let f): "\(f.rawValue) needs a security, e.g. AAPL \(f.rawValue) <GO>"
         }
     }
@@ -112,7 +119,13 @@ public enum CommandParser {
         var hint: AssetClass?
         var ticker: String?
 
-        for token in tokens(input) {
+        let all = tokens(input)
+        if let k = all.firstIndex(where: { TerminalFunction.from($0) == .secf }) {
+            var rest = all
+            rest.remove(at: k)
+            return Command(function: .secf, query: rest.isEmpty ? nil : String(rest.joined(separator: " ").prefix(64)))
+        }
+        for token in all {
             if function == nil, let f = TerminalFunction.from(token) {
                 function = f
                 if token == "BUY" { side = .buy } else if token == "SELL" { side = .sell }
@@ -146,6 +159,14 @@ public enum CommandParser {
         public var label: String
         public var detail: String
         public var id: String { completion }
+        public init(completion: String, label: String, detail: String) {
+            self.completion = completion; self.label = label; self.detail = detail
+        }
+        /// A security finder hit as a command-line suggestion.
+        public init(_ hit: SearchHit) {
+            self.init(completion: hit.token, label: "\(hit.token) \(hit.instrument.assetClass.rawValue)",
+                      detail: [hit.instrument.name, hit.exchange].filter { !$0.isEmpty }.joined(separator: " · "))
+        }
     }
 
     /// Autocomplete for the token being typed: securities first, then functions.

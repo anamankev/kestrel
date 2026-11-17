@@ -32,11 +32,19 @@ struct ChangeText: View {
     let value: Double?
     var percent = false
     var cls: AssetClass? = nil
+    /// Price the change belongs to: the change takes its precision (CL1 +0.76, not +0.7600).
+    var like: Double? = nil
     var size: CGFloat = 12
     @Environment(Theme.self) private var theme
 
+    private var text: String {
+        if percent { return Fmt.pct(value) }
+        guard let like, let v = value, v.isFinite else { return Fmt.signed(value, cls) }
+        return (v > 0 ? "+" : "") + Fmt.price(v, like: like, cls)
+    }
+
     var body: some View {
-        Text(percent ? Fmt.pct(value) : Fmt.signed(value, cls))
+        Text(text)
             .font(.mono(size, .medium))
             .monospacedDigit()
             .foregroundStyle(theme.tint(value))
@@ -192,4 +200,28 @@ extension View {
             if empty { Text(hint).foregroundStyle(Theme.faint).lineLimit(1).allowsHitTesting(false) }
         }
     }
+}
+
+/// Label / value / footnote tile used across the research functions.
+struct StatTile: View {
+    let key: String
+    let value: String
+    var sub: String? = nil
+    var color: Color = Theme.text
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(key).font(.mono(8, .bold)).foregroundStyle(Theme.label)
+            Text(value).font(.mono(16, .semibold)).monospacedDigit().foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.7)
+            Text(sub ?? " ").font(.mono(8)).foregroundStyle(Theme.faint).lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading).padding(8).background(Theme.panel)
+    }
+}
+
+/// Watchlist instruments usable for return analysis (no option contracts), de-duplicated.
+@MainActor func researchBasket(_ symbols: [String], max: Int) -> [Instrument] {
+    var seen = Set<String>()
+    return Array(symbols.compactMap { Universe.instrument(symbol: $0) ?? Universe.resolve($0) }
+        .filter { $0.assetClass != .option && seen.insert($0.symbol).inserted }.prefix(max))
 }

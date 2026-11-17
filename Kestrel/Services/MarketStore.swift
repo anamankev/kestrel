@@ -216,6 +216,15 @@ struct SecurityDetail: Equatable {
         }
     }
 
+    // MARK: Search
+
+    /// Live symbol search across every exchange and asset class (Yahoo, no key).
+    func search(_ query: String, limit: Int = 20) async -> [SearchHit] {
+        guard let url = YahooSearch.url(query, limit: limit),
+              let (data, _) = try? await http.data(from: url) else { return [] }
+        return (try? YahooSearch.decode(data)) ?? []
+    }
+
     // MARK: History
 
     func candles(for i: Instrument, range: ChartRange) async throws -> [Candle] {
@@ -233,6 +242,21 @@ struct SecurityDetail: Equatable {
         }
         return series.candles
     }
+
+    /// Several histories in parallel; series with fewer than `minBars` bars are dropped.
+    func histories(_ list: [Instrument], range: String, weekly: Bool = false, minBars: Int = 20) async -> [String: [Candle]] {
+        var out: [String: [Candle]] = [:]
+        await withTaskGroup(of: (String, [Candle]).self) { g in
+            for i in list {
+                g.addTask { (i.symbol, (try? await self.history(for: i, range: range, weekly: weekly)) ?? []) }
+            }
+            for await (s, c) in g where c.count >= minBars { out[s] = c }
+        }
+        return out
+    }
+
+    /// Annual risk-free rate from the 13-week T-bill (^IRX quotes percent), 0 until it loads.
+    var riskFree: Double { (quotes["^IRX"]?.last).map { $0 / 100 } ?? 0 }
 
     /// Daily (or weekly for multi-year) bars for HP. Crypto is capped at Coinbase's 300 bars.
     func history(for i: Instrument, range: String, weekly: Bool) async throws -> [Candle] {

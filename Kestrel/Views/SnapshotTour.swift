@@ -25,9 +25,16 @@ enum SnapshotTour {
 
     static let screens = [
         "PORT", "W", "BTC GP", "BTC DEPTH", "ETH TAS", "TOP", "TSLA CN", "AAPL DES", "AAPL FA", "AAPL EVTS",
-        "SPY HP", "SPY BT", "BTC OMON", "ETH OSA", "ECO", "CORR", "ERN", "HMAP", "WEI", "MOST", "FX", "COMD", "RATES",
+        "SPY HP", "SPY BT", "BTC OMON", "ETH OSA", "ECO", "CORR", "ERN", "SECF TOYOTA", "NVDA BETA", "COMP", "MVO", "EQS", "HMAP", "WEI", "MOST", "FX", "COMD", "RATES",
         "ALRT", "BLOT", "SOL BUY", "PREF", "PRO", "HELP",
     ]
+
+    /// `-screens "SECF TOYOTA,7203.T DES"` captures just those commands.
+    static var chosen: [String] {
+        let a = ProcessInfo.processInfo.arguments
+        guard let i = a.firstIndex(of: "-screens"), i + 1 < a.count else { return screens }
+        return a[i + 1].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+    }
 
     /// Phase 2, on the subscribe page after sign-up: capture it, then unlock (debug override).
     static func subscribeStep() async {
@@ -54,7 +61,7 @@ enum SnapshotTour {
         try? await Task.sleep(for: .seconds(4))
         ws.maximized = nil
         ws.layout = .one
-        for (n, cmd) in screens.enumerated() {
+        for (n, cmd) in chosen.enumerated() {
             ws.focused = 0
             _ = ws.run(cmd)
             try? await Task.sleep(for: .seconds(cmd.contains("OMON") || cmd.contains("OSA") || cmd.contains("BT") || cmd == "CORR" ? 7 : 4))

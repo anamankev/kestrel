@@ -38,14 +38,19 @@ public enum Risk {
     /// Aligns several daily series on the UTC calendar dates they all share, then returns
     /// per-symbol simple returns over those dates (crypto trades weekends; equities don't).
     public static func alignedReturns(_ series: [String: [Candle]]) -> [String: [Double]] {
+        alignedCloses(series).closes.mapValues(returns)
+    }
+
+    /// Closes on the UTC calendar dates every series shares, oldest first.
+    public static func alignedCloses(_ series: [String: [Candle]]) -> (dates: [Date], closes: [String: [Double]]) {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "UTC")!
         func day(_ d: Date) -> Date { cal.startOfDay(for: d) }
         let maps = series.mapValues { cs in Dictionary(cs.map { (day($0.time), $0.close) }, uniquingKeysWith: { _, b in b }) }
-        guard var common = maps.values.first.map({ Set($0.keys) }) else { return [:] }
+        guard var common = maps.values.first.map({ Set($0.keys) }) else { return ([], [:]) }
         for m in maps.values { common.formIntersection(m.keys) }
         let dates = common.sorted()
-        return maps.mapValues { m in returns(dates.map { m[$0]! }) }
+        return (dates, maps.mapValues { m in dates.map { m[$0]! } })
     }
 
     /// Daily P&L history of a portfolio holding `exposure` (signed market value per symbol).

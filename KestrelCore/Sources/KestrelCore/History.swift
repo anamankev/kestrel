@@ -32,9 +32,12 @@ public struct ReturnStats: Sendable, Equatable {
 }
 
 public enum CSV {
-    /// RFC 4180 field escaping.
+    /// RFC 4180 field escaping. Text starting with = + - @ is prefixed with ' so a spreadsheet
+    /// never evaluates it as a formula (numbers such as -0.5 are left alone).
     public static func field(_ s: String) -> String {
-        s.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" || $0 == "\r" }) ? "\"" + s.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : s
+        var v = s
+        if let f = v.first, "=+-@".contains(f), Double(v) == nil { v = "'" + v }
+        return v.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" || $0 == "\r" }) ? "\"" + v.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : v
     }
 
     /// Date,Open,High,Low,Close,Volume, oldest first, ISO dates (UTC), full precision.

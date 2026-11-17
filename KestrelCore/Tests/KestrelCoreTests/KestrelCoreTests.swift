@@ -1048,3 +1048,133 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(ProPlan.monthly.referencePrice(monthlyPrice: m) == nil)
     }
 }
+
+struct GlobalCoverageTests {
+    @Test func listingsOutsideTheUSKeepTheirExchange() {
+        let toyota = Universe.resolve("7203.t")
+        #expect(toyota?.symbol == "7203.T" && toyota?.assetClass == .equity && toyota?.region == .apac)
+        #expect(Universe.resolve("VOD.L")?.region == .emea)
+        #expect(Universe.resolve("RY.TO")?.symbol == "RY.TO")
+        #expect(Universe.resolve("0700.HK")?.symbol == "0700.HK")
+        #expect(Universe.resolve("BRK.B")?.symbol == "BRK-B")          // US share class, not an exchange
+        #expect(Universe.resolve("3") == nil)                           // hotspot numbers stay numbers
+    }
+
+    @Test func anyCurrencyFutureIndexAndCoinResolves() {
+        let gj = Universe.resolve("GBPJPY")
+        #expect(gj?.symbol == "GBPJPY=X" && gj?.assetClass == .fx)
+        #expect(Universe.resolve("EURUSD") == Universe.currencies.first)
+        #expect(Universe.resolve("ES=F")?.assetClass == .commodity)
+        #expect(Universe.resolve("^STI")?.assetClass == .index)
+        let pepe = Universe.resolve("PEPE", hint: .crypto)
+        #expect(pepe?.symbol == "PEPE-USD" && pepe?.isStreaming == false)
+        #expect(Universe.resolve("BTC")?.isStreaming == true)
+        #expect(Universe.resolve("GOOGLE")?.assetClass == .equity)
+    }
+
+    @Test func tokensRoundTrip() {
+        for t in ["7203.T", "GBPJPY", "ES=F", "^STI", "SPX", "BTC", "DOGE-USD", "AAPL", "PEPE-USD"] {
+            let i = Universe.resolve(t)!
+            #expect(Universe.resolve(Universe.token(for: i)) == i, "\(t)")
+        }
+    }
+
+    @Test func searchDecodesEveryAssetClass() throws {
+        let json = #"""
+        {"quotes":[
+         {"symbol":"7203.T","shortname":"TOYOTA MOTOR CORP","longname":"Toyota Motor Corporation","quoteType":"EQUITY","exchDisp":"Tokyo","typeDisp":"Equity"},
+         {"symbol":"VWRL.L","shortname":"Vanguard FTSE All-World","quoteType":"ETF","exchDisp":"London","typeDisp":"ETF"},
+         {"symbol":"^GSPC","shortname":"S&P 500","quoteType":"INDEX","exchDisp":"SNP","typeDisp":"Index"},
+         {"symbol":"GBPJPY=X","shortname":"GBP/JPY","quoteType":"CURRENCY","exchDisp":"CCY","typeDisp":"Currency"},
+         {"symbol":"ES=F","shortname":"E-Mini S&P 500","quoteType":"FUTURE","exchDisp":"CME","typeDisp":"Futures"},
+         {"symbol":"PEPE24478-USD","shortname":"Pepe USD","quoteType":"CRYPTOCURRENCY","exchDisp":"CCC","typeDisp":"Cryptocurrency"},
+         {"symbol":"BTC-EUR","shortname":"Bitcoin EUR","quoteType":"CRYPTOCURRENCY"},
+         {"symbol":"AAPL250117C00200000","quoteType":"OPTION"}
+        ]}
+        """#
+        let hits = try YahooSearch.decode(Data(json.utf8))
+        #expect(hits.map(\.instrument.assetClass) == [.equity, .equity, .index, .fx, .commodity, .crypto])
+        #expect(hits[0].instrument.name == "Toyota Motor Corporation" && hits[0].exchange == "Tokyo")
+        #expect(hits[2].token == "SPX" && hits[3].token == "GBPJPY")
+        for h in hits { #expect(Universe.resolve(h.token)?.symbol == h.instrument.symbol, "\(h.token)") }
+        #expect(YahooSearch.url("") == nil)
+    }
+}
+
+struct SecurityFinderCommandTests {
+    @Test func secfKeepsFreeText() throws {
+        #expect(try CommandParser.parse("SECF nestle sa", current: nil) == Command(function: .secf, query: "NESTLE SA"))
+        #expect(try CommandParser.parse("toyota secf <GO>", current: nil).query == "TOYOTA")
+        #expect(try CommandParser.parse("FIND", current: nil) == Command(function: .secf))
+        #expect(try CommandParser.parse("7203.T DES", current: nil).instrument?.symbol == "7203.T")
+    }
+}
+
+struct ResearchTests {
+    @Test func olsRecoversAKnownLine() throws {
+        let x = (0..<200).map { sin(Double($0) * 0.37) * 0.02 }
+        let noise = (0..<200).map { cos(Double($0) * 1.91) * 0.001 }
+        let y = zip(x, noise).map { 0.0005 + 1.3 * $0 + $1 }
+        let r = try #require(Regression.ols(y: y, x: x))
+        #expect(abs(r.beta - 1.3) < 0.02 && abs(r.alpha - 0.0005) < 0.0002)
+        #expect(r.r2 > 0.98 && r.n == 200 && r.betaT > 50)
+        #expect(abs(r.adjustedBeta - (0.67 * r.beta + 0.33)) < 1e-12)
+        #expect(Regression.ols(y: [1, 2, 3], x: [1, 1, 1]) == nil)   // no variance in x
+    }
+
+    @Test func performanceSummary() throws {
+        let closes = [100.0, 110, 99, 121]
+        let p = try #require(PerformanceSummary.of(closes, periodsPerYear: 252))
+        #expect(abs(p.totalReturn - 0.21) < 1e-12)
+        #expect(abs(p.maxDrawdown - (99.0 / 110 - 1)) < 1e-12)
+        #expect(PerformanceSummary.rebased(closes).first == 100)
+    }
+
+    @Test func simplexProjection() {
+        let w = Frontier.projectToSimplex([0.9, 0.8, -2])
+        #expect(abs(w.reduce(0, +) - 1) < 1e-12 && w.allSatisfy { $0 >= 0 } && w[2] == 0)
+        #expect(Frontier.projectToSimplex([0.2, 0.3, 0.5]) == [0.2, 0.3, 0.5])
+    }
+
+    @Test func frontierMatchesTwoAssetClosedForm() throws {
+        // Uncorrelated assets: minimum variance weight on A is σB² / (σA² + σB²).
+        let mu = [0.08, 0.12], cov = [[0.04, 0.0], [0.0, 0.09]]
+        let f = try #require(Frontier.build(mu: mu, cov: cov, riskFree: 0.02))
+        #expect(abs(f.minVariance.weights[0] - 0.09 / 0.13) < 1e-4)
+        // Tangency weights ∝ Σ⁻¹(μ − rf) = [1.5, 1.111…] → A ≈ 0.574.
+        #expect(abs(f.maxSharpe.weights[0] - 1.5 / (1.5 + 0.1 / 0.09)) < 0.03)
+        #expect(f.frontier.count >= 5)
+        #expect(zip(f.frontier, f.frontier.dropFirst()).allSatisfy { $1.expectedReturn > $0.expectedReturn })
+        // Long only: never short the low-return asset, even for very high λ.
+        #expect(Frontier.optimize(mu: mu, cov: cov, lambda: 100).weights[0] >= 0)
+    }
+
+    @Test func secFramesJoinOntoListings() throws {
+        let tickers = #"{"0":{"cik_str":320193,"ticker":"AAPL","title":"Apple Inc."},"7":{"cik_str":1652044,"ticker":"GOOGL","title":"Alphabet Inc."},"9":{"cik_str":1652044,"ticker":"GOOG","title":"Alphabet Inc."},"12":{"cik_str":1067983,"ticker":"BRK.B","title":"Berkshire"}}"#
+        let l = try SECFrames.listings(Data(tickers.utf8))
+        #expect(l[1652044]?.ticker == "GOOGL" && l[1067983]?.ticker == "BRK-B")
+        let rev = try SECFrames.decode(Data(#"{"data":[{"cik":320193,"val":400},{"cik":999,"val":5}]}"#.utf8))
+        let rows = SECFrames.rows(listings: l, revenues: rev, contractRevenues: [1652044: 300], netIncome: [320193: 100, 1652044: 60],
+                                  assets: [320193: 350], liabilities: [320193: 280], equity: [320193: 70])
+        #expect(rows.map(\.ticker) == ["AAPL", "GOOGL"])                 // Berkshire has no facts here; 999 isn't listed
+        #expect(abs(rows[0].netMargin! - 0.25) < 1e-12 && abs(rows[0].leverage! - 0.8) < 1e-12)
+        #expect(rows[1].revenue == 300 && rows[1].roe == nil)
+        #expect(SECFrames.url(concept: "Assets", period: .yearEnd(2025)).absoluteString.hasSuffix("/Assets/USD/CY2025Q4I.json"))
+    }
+
+    @Test func csvNeutralizesFormulas() {
+        #expect(CSV.field("=HYPERLINK(\"x\")").hasPrefix("\"'="))
+        #expect(CSV.field("-0.25") == "-0.25")
+        #expect(CSV.make(header: ["a", "b"], rows: [["1", "x,y"]]) == "a,b\r\n1,\"x,y\"\r\n")
+    }
+}
+
+struct ScreenFallbackTests {
+    @Test func derivesMissingTotals() {
+        let l = [1: SECFrames.Listing(ticker: "AMZN", name: "Amazon", rank: 4)]
+        let rows = SECFrames.rows(listings: l, revenues: [:], contractRevenues: [1: 700], netIncome: [:], assets: [:],
+                                  liabilities: [:], equity: [:], profitLoss: [1: 70], equityWithNCI: [1: 300], liabilitiesAndEquity: [1: 800])
+        #expect(rows.first?.liabilities == 500 && rows.first?.assets == 800 && rows.first?.netIncome == 70)
+        #expect(abs((rows.first?.roe ?? 0) - 70.0 / 300) < 1e-12)
+    }
+}

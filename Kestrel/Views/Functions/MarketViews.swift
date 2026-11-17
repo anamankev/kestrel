@@ -176,7 +176,7 @@ struct QuoteRow: View {
                 if yields {
                     ChangeText(value: q?.change.map { $0 * 100 }, cls: .equity)
                 } else {
-                    ChangeText(value: q?.change, cls: i.assetClass)
+                    ChangeText(value: q?.change, cls: i.assetClass, like: q?.last)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -362,7 +362,7 @@ struct DescriptionView: View {
                 }
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     TickText(value: q?.last, cls: i.assetClass, size: 30, weight: .semibold)
-                    ChangeText(value: q?.change, cls: i.assetClass, size: 15)
+                    ChangeText(value: q?.change, cls: i.assetClass, like: q?.last, size: 15)
                     ChangeText(value: q?.changePercent, percent: true, size: 15)
                     Spacer()
                     Text(i.isStreaming ? "STREAMING" : "DELAYED").font(.mono(9, .bold))
