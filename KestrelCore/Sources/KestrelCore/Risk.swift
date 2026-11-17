@@ -54,4 +54,24 @@ public enum Risk {
         guard n > 0 else { return [] }
         return (0..<n).map { t in exposure.reduce(0) { acc, e in acc + e.value * (returns[e.key].map { $0[$0.count - n + t] } ?? 0) } }
     }
+
+    /// Pearson correlation of two date-aligned return series (nil under 20 observations or zero variance).
+    public static func correlation(_ x: [Double], _ y: [Double]) -> Double? {
+        let n = min(x.count, y.count)
+        guard n >= 20 else { return nil }
+        let a = x.suffix(n), b = y.suffix(n)
+        let ma = a.reduce(0, +) / Double(n), mb = b.reduce(0, +) / Double(n)
+        var cov = 0.0, va = 0.0, vb = 0.0
+        for (p, q) in zip(a, b) { cov += (p - ma) * (q - mb); va += (p - ma) * (p - ma); vb += (q - mb) * (q - mb) }
+        guard va > 1e-20, vb > 1e-20 else { return nil }   // flat series: variance is only rounding noise
+        return min(max(cov / (va * vb).squareRoot(), -1), 1)
+    }
+
+    /// Symmetric correlation matrix in `symbols` order; the diagonal is 1 when the series exists.
+    public static func correlationMatrix(_ returns: [String: [Double]], symbols: [String]) -> [[Double?]] {
+        symbols.map { a in symbols.map { b in
+            guard let x = returns[a], let y = returns[b] else { return nil }
+            return a == b ? (x.count >= 20 ? 1 : nil) : correlation(x, y)
+        } }
+    }
 }

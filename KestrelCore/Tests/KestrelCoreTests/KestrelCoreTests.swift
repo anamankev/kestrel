@@ -573,3 +573,25 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(sub.sequence == 1 && sub.sent == nil && sub.events == [.other])
     }
 }
+
+@Suite struct CorrelationTests {
+    let x = (0..<60).map { sin(Double($0)) * 0.01 }
+    @Test func identicalSeriesIsOne() { #expect(abs(Risk.correlation(x, x)! - 1) < 1e-12) }
+    @Test func negatedSeriesIsMinusOne() { #expect(abs(Risk.correlation(x, x.map { -$0 })! + 1) < 1e-12) }
+    @Test func scaleInvariant() { #expect(abs(Risk.correlation(x, x.map { $0 * 3 + 0.002 })! - 1) < 1e-12) }
+    @Test func tooShortOrFlatIsNil() {
+        #expect(Risk.correlation(Array(x.prefix(10)), Array(x.prefix(10))) == nil)
+        #expect(Risk.correlation(x, Array(repeating: 0.01, count: 60)) == nil)
+    }
+    @Test func matrixIsSymmetricWithUnitDiagonal() {
+        let y = (0..<60).map { cos(Double($0)) * 0.02 }
+        let m = Risk.correlationMatrix(["A": x, "B": y], symbols: ["A", "B", "C"])
+        #expect(m[0][0] == 1 && m[1][1] == 1)
+        #expect(m[0][1] == m[1][0])
+        #expect(m[2][0] == nil && m[2][2] == nil)
+    }
+    @Test func parsesCorr() throws {
+        #expect(try CommandParser.parse("CORR", current: nil).function == .corr)
+        #expect(try CommandParser.parse("CORREL", current: nil).function == .corr)
+    }
+}
