@@ -216,7 +216,7 @@ public enum YahooChart {
         guard let last = m.regularMarketPrice ?? candles.last?.close else { throw DecodeError.noPrice }
         let quote = Quote(last: last,
                           previousClose: intraday ? (m.previousClose ?? m.chartPreviousClose) : m.chartPreviousClose,
-                          high: m.regularMarketDayHigh, low: m.regularMarketDayLow, volume: m.regularMarketVolume,
+                          high: m.regularMarketDayHigh.flatMap { $0 > 0 ? $0 : nil }, low: m.regularMarketDayLow.flatMap { $0 > 0 ? $0 : nil }, volume: m.regularMarketVolume.flatMap { $0 > 0 ? $0 : nil },
                           high52: m.fiftyTwoWeekHigh, low52: m.fiftyTwoWeekLow,
                           time: m.regularMarketTime.map { Date(timeIntervalSince1970: $0) } ?? .now)
         return ChartSeries(name: m.longName ?? m.shortName, exchange: m.fullExchangeName, currency: m.currency,

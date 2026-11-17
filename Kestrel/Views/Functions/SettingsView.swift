@@ -28,7 +28,8 @@ struct SettingsView: View {
                     Text("SEC's free API requires each app to identify itself with a contact email in its User-Agent. It is stored on this device and sent only to sec.gov.")
                         .font(.ui(11)).foregroundStyle(Theme.dim)
                     HStack(spacing: 8) {
-                        TextField("", text: $contactDraft, prompt: Text("you@example.com").foregroundStyle(Theme.faint))
+                        TextField("", text: $contactDraft)
+                .placeholder("you@example.com", when: contactDraft.isEmpty)
                             .font(.mono(13)).foregroundStyle(Theme.text).textFieldStyle(.plain)
                             .autocorrectionDisabled()
                             #if os(iOS)
@@ -64,7 +65,7 @@ struct SettingsView: View {
                         Picker("", selection: $interval) {
                             Text("30 s").tag(30.0); Text("45 s").tag(45.0); Text("90 s").tag(90.0)
                         }
-                        .pickerStyle(.segmented).frame(width: 200)
+                        .pickerStyle(.segmented).labelsHidden().frame(width: 200)
                     }
                     Text("Shorter is fresher but sends more requests to a free endpoint. Crypto always streams live.")
                         .font(.ui(10)).foregroundStyle(Theme.faint)
@@ -150,7 +151,8 @@ struct SettingsView: View {
                 }
                 if deleting {
                     HStack(spacing: 8) {
-                        SecureField("", text: $deletePassword, prompt: Text("Password to confirm").foregroundStyle(Theme.faint))
+                        SecureField("", text: $deletePassword)
+                .placeholder("Password to confirm", when: deletePassword.isEmpty)
                             .font(.mono(12)).foregroundStyle(Theme.text).textFieldStyle(.plain)
                             .padding(.horizontal, 8).frame(height: 30).background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule))
                         Button {

@@ -50,10 +50,11 @@ struct AlertsView: View {
                 ChangeText(value: market.quotes[i.symbol]?.changePercent, percent: true, size: 11)
             }
             Picker("", selection: $kind) { ForEach(Kind.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
-                .pickerStyle(.segmented)
+                .pickerStyle(.segmented).labelsHidden()
                 .onChange(of: kind) { prefill(last, i) }
             HStack(spacing: 8) {
-                TextField("", text: $levelText, prompt: Text(kind == .move ? "e.g. 5" : "price").foregroundStyle(Theme.faint))
+                TextField("", text: $levelText)
+                .placeholder(kind == .move ? "e.g. 5" : "price", when: levelText.isEmpty)
                     .font(.mono(15, .semibold)).foregroundStyle(Theme.text).textFieldStyle(.plain)
                     #if os(iOS)
                     .keyboardType(.decimalPad)

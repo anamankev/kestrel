@@ -218,7 +218,8 @@ struct NewsView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.dim)
-                TextField("", text: $text, prompt: Text("Search headlines: fed rate  \"rate cut\"  -crypto").foregroundStyle(Theme.faint))
+                TextField("", text: $text)
+                .placeholder("Search headlines: fed rate  \"rate cut\"  -crypto", when: text.isEmpty)
                     .font(.mono(12)).foregroundStyle(Theme.text).textFieldStyle(.plain)
                     .autocorrectionDisabled()
                     #if os(iOS)

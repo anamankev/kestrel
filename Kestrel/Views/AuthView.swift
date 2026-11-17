@@ -45,7 +45,10 @@ struct AuthView: View {
                 }
             }
         }
-        .onAppear { if auth.directory.accounts.isEmpty { mode = .create } }   // a fresh device starts on sign-up
+        .onAppear { if auth.directory.accounts.isEmpty { mode = .create } }
+        #if DEBUG
+        .task { if SnapshotTour.isEnabled { await SnapshotTour.signIn(auth) } }
+        #endif   // a fresh device starts on sign-up
         .onChange(of: mode) { error = nil; confirm = ""; password = "" }
         .onChange(of: [name, email, password, confirm]) { error = nil }   // stale errors go once you edit
     }
@@ -189,7 +192,8 @@ struct AuthView: View {
     private func input(_ label: String, text: Binding<String>, field: Field, prompt: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(label).font(.mono(9, .bold)).foregroundStyle(Theme.label)
-            TextField("", text: text, prompt: Text(prompt).foregroundStyle(Theme.faint))
+            TextField("", text: text)
+                .placeholder(prompt, when: text.wrappedValue.isEmpty)
                 .font(.mono(14)).foregroundStyle(Theme.text).textFieldStyle(.plain)
                 .autocorrectionDisabled()
                 .focused($focus, equals: field)

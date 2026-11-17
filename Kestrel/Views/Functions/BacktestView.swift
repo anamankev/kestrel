@@ -64,9 +64,9 @@ struct BacktestView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 Picker("Rule", selection: $rule) { ForEach(Rule.allCases, id: \.self) { Text($0.rawValue) } }
-                    .pickerStyle(.segmented).frame(maxWidth: 420)
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 420)
                 Picker("Span", selection: $span) { ForEach(Span.allCases, id: \.self) { Text($0.rawValue) } }
-                    .pickerStyle(.segmented).frame(maxWidth: 150)
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 150)
                 Spacer()
             }
             HStack(spacing: 18) {

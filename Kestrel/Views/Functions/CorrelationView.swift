@@ -61,9 +61,9 @@ struct CorrelationView: View {
     private var controls: some View {
         HStack(spacing: 10) {
             Picker("Basket", selection: $basket) { ForEach(Basket.allCases, id: \.self) { Text($0.rawValue) } }
-                .pickerStyle(.segmented).frame(maxWidth: 260)
+                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 260)
             Picker("Window", selection: $window) { ForEach(Window.allCases, id: \.self) { Text($0.rawValue) } }
-                .pickerStyle(.segmented).frame(maxWidth: 150)
+                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 150)
             Spacer()
             if let (r, c) = hover, let m = matrix, r < m.symbols.count, c < m.symbols.count {
                 Text("\(m.symbols[r].ticker) × \(m.symbols[c].ticker)  \(fmt(m.values[r][c]))")

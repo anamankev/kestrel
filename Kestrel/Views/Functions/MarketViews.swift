@@ -91,7 +91,8 @@ struct MonitorView: View {
 
             HStack(spacing: 0) {
                 Text("ADD").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas).padding(.horizontal, 6).frame(height: 24).background(Theme.accent)
-                TextField("", text: $addText, prompt: Text("ticker ↩").foregroundStyle(Theme.faint))
+                TextField("", text: $addText)
+                .placeholder("ticker ↩", when: addText.isEmpty)
                     .font(.mono(11, .medium)).foregroundStyle(Theme.text).textFieldStyle(.plain)
                     .autocorrectionDisabled()
                     #if os(iOS)
@@ -276,7 +277,7 @@ struct MoversView: View {
     var body: some View {
         VStack(spacing: 0) {
             Picker("", selection: $mode) { ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
-                .pickerStyle(.segmented).padding(6)
+                .pickerStyle(.segmented).labelsHidden().padding(6)
                 .onChange(of: ranked.map(\.0), initial: true) { _, list in ws.hotspots[panelID] = list.map { .link($0) } }
             GeometryReader { g in
                 ScrollView {

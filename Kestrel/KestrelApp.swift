@@ -5,7 +5,12 @@ import KestrelCore
 struct KestrelApp: App {
     @State private var market = MarketStore()
     @State private var news = NewsService()
-    @State private var auth = AuthService()
+    @State private var auth: AuthService = {
+        #if DEBUG
+        if SnapshotTour.isEnabled { return SnapshotTour.makeAuth() }
+        #endif
+        return AuthService()
+    }()
     @State private var fundamentals = FundamentalsService()
     @State private var macro = MacroService()
 

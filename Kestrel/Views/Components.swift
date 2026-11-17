@@ -183,3 +183,13 @@ extension Date {
         return "\(s / 86400)d"
     }
 }
+
+extension View {
+    /// Faint hint text shown while a field is empty. SwiftUI's `prompt:` takes the field's
+    /// foreground colour on macOS, so the hint would render as bright as real input there.
+    func placeholder(_ hint: String, when empty: Bool) -> some View {
+        overlay(alignment: .leading) {
+            if empty { Text(hint).foregroundStyle(Theme.faint).lineLimit(1).allowsHitTesting(false) }
+        }
+    }
+}

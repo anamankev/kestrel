@@ -102,9 +102,10 @@ struct EconomyView: View {
 
     private var header: some View {
         HStack {
-            HeaderCell(text: "INDICATOR", width: 260, align: .leading)
+            Text("INDICATOR").font(.mono(10, .semibold)).foregroundStyle(Theme.label).lineLimit(1)
+                .frame(minWidth: 110, idealWidth: 260, maxWidth: 260, alignment: .leading)
             HeaderCell(text: "LATEST"); HeaderCell(text: "PRIOR"); HeaderCell(text: "CHG")
-            HeaderCell(text: "PERIOD", width: 80)
+            HeaderCell(text: "PERIOD", width: 60)
             HeaderCell(text: "2Y TREND", width: 90, align: .center)
         }
         .padding(.horizontal, 8).padding(.vertical, 3)
@@ -126,13 +127,14 @@ struct EconomyView: View {
         }
         let chg = (last?.value).flatMap { l in prior.map { l - $0.value } }
         return HStack {
-            Text(ind.name).font(.ui(12)).foregroundStyle(Theme.text).frame(width: 260, alignment: .leading).lineLimit(1)
+            Text(ind.name).font(.ui(12)).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.tail)
+                .frame(minWidth: 110, idealWidth: 260, maxWidth: 260, alignment: .leading)
             Text(fmt(last?.value)).font(.mono(12, .semibold)).foregroundStyle(Theme.text).frame(maxWidth: .infinity, alignment: .trailing)
             Text(fmt(prior?.value)).font(.mono(11)).foregroundStyle(Theme.dim).frame(maxWidth: .infinity, alignment: .trailing)
             Text(chg.map { ind.unit == "K" ? String(format: "%+.0fK", $0) : String(format: "%+.1f", $0) } ?? "—")
                 .font(.mono(11)).foregroundStyle(Theme.dim).frame(maxWidth: .infinity, alignment: .trailing)
             Text(last.map { $0.date.formatted(Self.month) } ?? "—")
-                .font(.mono(10)).foregroundStyle(Theme.dim).frame(width: 80, alignment: .trailing)
+                .font(.mono(10)).foregroundStyle(Theme.dim).frame(width: 60, alignment: .trailing)
             Sparkline(values: s.suffix(24).map(\.value)).frame(width: 90, height: 18)
         }
         .monospacedDigit()

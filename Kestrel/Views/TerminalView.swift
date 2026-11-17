@@ -27,7 +27,10 @@ struct TerminalView: View {
             market.focusSymbols = symbols
             for s in symbols { if let i = Universe.instrument(symbol: s) ?? Universe.resolve(s) { market.touch(i) } }
         }
-        .onAppear { if !DemoTour.isEnabled { commandFocused = true } }
+        .onAppear { if !DemoTour.isEnabled && !SnapshotTour.isEnabled { commandFocused = true } }
+        #if DEBUG
+        .task { if SnapshotTour.isEnabled { await SnapshotTour.run(ws) } }
+        #endif
         .task {
             guard DemoTour.isEnabled else { return }
             await DemoTour.run(ws) { commandText = $0 }
@@ -103,7 +106,8 @@ struct CommandBar: View {
                 .frame(width: 22, height: 28)
                 .background(Theme.accent)
             Text(">").font(.mono(13, .bold)).foregroundStyle(Theme.accent).padding(.leading, 8)
-            TextField("", text: $text, prompt: Text("AAPL GP · BTC DEPTH · WEI · HELP").foregroundStyle(Theme.faint))
+            TextField("", text: $text)
+                .placeholder("AAPL GP · BTC DEPTH · WEI · HELP", when: text.isEmpty)
                 .font(.mono(13, .medium))
                 .foregroundStyle(Theme.text)
                 .textFieldStyle(.plain)
@@ -500,7 +504,7 @@ struct FunctionKeyBar: View {
             Picker("Layout", selection: $ws.layout) {
                 ForEach(PanelLayout.allCases) { l in Image(systemName: l.symbol).accessibilityLabel("\(l.count) panels").tag(l) }
             }
-            .pickerStyle(.segmented)
+            .pickerStyle(.segmented).labelsHidden()
             .frame(width: 150)
             .onChange(of: ws.layout) { ws.maximized = nil; if ws.focused >= ws.layout.count { ws.focused = 0 } }
             Toggle(isOn: $theme.colorBlindSafe) {

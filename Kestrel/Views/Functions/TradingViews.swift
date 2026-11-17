@@ -77,7 +77,7 @@ struct TicketView: View {
                 }
 
                 Picker("", selection: $kind) { ForEach(Kind.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.segmented).labelsHidden()
                     .onChange(of: kind) {
                         if isLimit, limitText.isEmpty { prefillLimit() }
                         if isStop { prefillStop() }
