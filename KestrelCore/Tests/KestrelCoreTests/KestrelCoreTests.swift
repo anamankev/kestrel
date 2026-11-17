@@ -751,3 +751,47 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(r.totalReturn == 0)
     }
 }
+
+@Suite struct OptionStrategyTests {
+    let exp = Date(timeIntervalSince1970: 1_900_000_000)
+    func c(_ k: Double, call: Bool, mark: Double) -> OptionContract {
+        OptionContract(name: "BTC-X-\(Int(k))-\(call ? "C" : "P")", underlying: "BTC", expiry: exp, strike: k, isCall: call,
+                       bid: nil, ask: nil, mark: mark, iv: 0.5, openInterest: 0, volume: 0, forward: 100)
+    }
+
+    @Test func longCallHasCappedLossAndUnlimitedProfit() {
+        let a = StrategyAnalysis(legs: [StrategyLeg(c(100, call: true, mark: 5), 1)])
+        #expect(a.netPremium == 5)
+        #expect(a.maxProfit == nil && a.maxLoss == -5)
+        #expect(a.breakevens == [105])
+        #expect(a.payoffAtExpiry(120) == 15)
+    }
+
+    @Test func bullCallSpreadIsBoundedBothWays() {
+        let a = StrategyAnalysis(legs: [StrategyLeg(c(100, call: true, mark: 6), 1), StrategyLeg(c(110, call: true, mark: 2), -1)])
+        #expect(a.netPremium == 4)
+        #expect(a.maxProfit == 6 && a.maxLoss == -4)
+        #expect(a.breakevens == [104])
+    }
+
+    @Test func shortStraddleHasUnlimitedLossAndTwoBreakevens() {
+        let a = StrategyAnalysis(legs: [StrategyLeg(c(100, call: true, mark: 5), -1), StrategyLeg(c(100, call: false, mark: 5), -1)])
+        #expect(a.netPremium == -10)
+        #expect(a.maxLoss == nil && a.maxProfit == 10)
+        #expect(a.breakevens == [90, 110])
+    }
+
+    @Test func todayValueConvergesToPayoffAtExpiry() {
+        let a = StrategyAnalysis(legs: [StrategyLeg(c(100, call: true, mark: 5), 1)])
+        #expect(abs(a.valueToday(120, now: exp) - a.payoffAtExpiry(120)) < 1e-9)
+        #expect(a.valueToday(100, now: exp.addingTimeInterval(-30 * 86_400)) > a.payoffAtExpiry(100))   // time value
+    }
+
+    @Test func templatesPickListedStrikes() throws {
+        let chain = OptionChain(stride(from: 80.0, through: 120, by: 2).flatMap { [c($0, call: true, mark: 3), c($0, call: false, mark: 3)] })
+        let condor = try #require(StrategyTemplate.condor.legs(chain: chain, expiry: exp))
+        #expect(condor.map(\.contract.strike) == [88, 94, 106, 112] && condor.map(\.quantity) == [1, -1, -1, 1])
+        let fly = try #require(StrategyTemplate.butterfly.legs(chain: chain, expiry: exp))
+        #expect(StrategyAnalysis(legs: fly).netPremium == 0)
+    }
+}

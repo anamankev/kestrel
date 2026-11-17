@@ -425,7 +425,7 @@ struct FunctionView: View {
         case .port: PortfolioView(panelID: panel.id)
         case .blot: BlotterView()
         case .help: HelpView(panelID: panel.id)
-        case .des, .fa, .evts, .gp, .hp, .bt, .depth, .tas, .cn, .omon, .trade:
+        case .des, .fa, .evts, .gp, .hp, .bt, .osa, .depth, .tas, .cn, .omon, .trade:
             if let i = c.instrument, i.assetClass == .option, c.function != .trade {
                 EmptyNote(title: "\(i.name)", detail: "Option contracts support TRADE. See the full chain, greeks and smile in \(Deribit.parse(i.symbol)?.underlying ?? "BTC") OMON.",
                           icon: "function")
@@ -441,6 +441,7 @@ struct FunctionView: View {
                 case .gp: ChartView(instrument: i).id(i.symbol)
                 case .hp: HistoryView(instrument: i).id(i.symbol)
                 case .bt: BacktestView(instrument: i).id(i.symbol)
+                case .osa: OptionStrategyView(instrument: i).id(i.symbol)
                 case .depth: DepthView(instrument: i)
                 case .tas: TimeAndSalesView(instrument: i)
                 case .cn: NewsView(instrument: i)

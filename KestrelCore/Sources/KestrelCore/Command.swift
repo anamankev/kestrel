@@ -4,7 +4,7 @@ import Foundation
 public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
     case des = "DES", fa = "FA", evts = "EVTS", gp = "GP", hp = "HP", depth = "DEPTH", tas = "TAS", cn = "CN", omon = "OMON"
     case w = "W", hmap = "HMAP", wei = "WEI", most = "MOST", fx = "FX", comd = "COMD", rates = "RATES"
-    case top = "TOP", eco = "ECO", corr = "CORR", bt = "BT", alrt = "ALRT", pref = "PREF", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
+    case top = "TOP", eco = "ECO", corr = "CORR", bt = "BT", osa = "OSA", alrt = "ALRT", pref = "PREF", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
 
     public var title: String {
         switch self {
@@ -14,6 +14,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         case .eco: "US Economy"
         case .corr: "Correlation Matrix"
         case .bt: "Strategy Backtest"
+        case .osa: "Option Strategy Builder"
         case .gp: "Price Chart"
         case .hp: "Historical Prices"
         case .depth: "Market Depth"
@@ -40,7 +41,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
     /// Functions that operate on a loaded security.
     public var requiresSecurity: Bool {
         switch self {
-        case .des, .fa, .evts, .gp, .hp, .depth, .tas, .cn, .omon, .trade, .bt: true
+        case .des, .fa, .evts, .gp, .hp, .depth, .tas, .cn, .omon, .trade, .bt, .osa: true
         default: false
         }
     }
@@ -50,7 +51,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         "G": .gp, "GIP": .gp, "GPO": .gp, "CHART": .gp, "Q": .des, "BOOK": .depth, "L2": .depth,
         "T&S": .tas, "TS": .tas, "N": .top, "NEWS": .top, "MON": .w, "WATCH": .w, "IMAP": .hmap,
         "MOV": .most, "FXC": .fx, "GLCO": .comd, "GOV": .rates, "BUY": .trade, "SELL": .trade,
-        "OMS": .trade, "ALERT": .alrt, "SETTINGS": .pref, "PDF": .pref, "FIN": .fa, "EVT": .evts, "HIST": .hp, "HISTORY": .hp, "EARN": .evts, "FILINGS": .evts, "ECON": .eco, "MACRO": .eco, "FINANCIALS": .fa, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help, "CORREL": .corr, "COR": .corr, "BTST": .bt, "BACKTEST": .bt,
+        "OMS": .trade, "ALERT": .alrt, "SETTINGS": .pref, "PDF": .pref, "FIN": .fa, "EVT": .evts, "HIST": .hp, "HISTORY": .hp, "EARN": .evts, "FILINGS": .evts, "ECON": .eco, "MACRO": .eco, "FINANCIALS": .fa, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help, "CORREL": .corr, "COR": .corr, "BTST": .bt, "BACKTEST": .bt, "STRAT": .osa, "PAYOFF": .osa,
     ]
 
     public static func from(_ token: String) -> TerminalFunction? {
