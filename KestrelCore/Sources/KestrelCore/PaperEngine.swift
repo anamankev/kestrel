@@ -124,6 +124,8 @@ public enum OrderReject: Error, Equatable, LocalizedError {
 public struct PaperAccount: Codable, Sendable, Equatable {
     public static let startingCash: Decimal = 1_000_000
     public static let shortRequirement: Decimal = 1.5
+    public static let maxQuantity: Decimal = 1_000_000_000
+    public static let maxPrice: Decimal = 1_000_000_000_000
 
     public private(set) var cash: Decimal
     public private(set) var positions: [String: Position] = [:]
@@ -169,7 +171,9 @@ public struct PaperAccount: Codable, Sendable, Equatable {
     @discardableResult
     public mutating func submit(symbol: String, side: TradeSide, quantity: Decimal, type: OrderType,
                                 touch: Touch?, now: Date = .now) throws(OrderReject) -> Order {
-        guard quantity > 0 else { throw .invalidQuantity }
+        // Bounds stop absurd input (fat fingers, pasted garbage) before it can reach the book.
+        guard quantity > 0, quantity <= Self.maxQuantity else { throw .invalidQuantity }
+        for p in [type.limitPrice, type.stopPrice].compactMap({ $0 }) where p > Self.maxPrice { throw .invalidLimit }
         if let lp = type.limitPrice, lp <= 0 { throw .invalidLimit }
         if let sp = type.stopPrice {
             guard sp > 0 else { throw .invalidStop }

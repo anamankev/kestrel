@@ -827,3 +827,83 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(NewsQuery.mentions("Pineapple prices rise").isEmpty)
     }
 }
+
+@Suite struct SessionTests {
+    let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+    func setup() throws -> (AccountDirectory, AccountRecord, Data) {
+        var d = AccountDirectory()
+        let r = try d.register(name: "Ada", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine", iterations: 1_000, now: t0)
+        let token = AccountDirectory.newSessionToken()
+        d.beginSession(id: r.id, token: token, now: t0)
+        return (d, r, token)
+    }
+
+    @Test func validTokenResumesAndSlidesExpiry() throws {
+        var (d, r, token) = try setup()
+        #expect(token.count == 32)
+        let later = t0.addingTimeInterval(20 * 86_400)
+        #expect(d.resumeSession(id: r.id, token: token, now: later)?.id == r.id)
+        #expect(d.account(id: r.id)?.sessionExpires == later.addingTimeInterval(AccountDirectory.sessionLifetime))
+    }
+
+    @Test func wrongExpiredOrRevokedTokensFail() throws {
+        var (d, r, token) = try setup()
+        #expect(d.resumeSession(id: r.id, token: AccountDirectory.newSessionToken(), now: t0) == nil)   // forged
+        #expect(d.resumeSession(id: UUID(), token: token, now: t0) == nil)                               // other id
+        #expect(d.resumeSession(id: r.id, token: token, now: t0.addingTimeInterval(31 * 86_400)) == nil) // expired
+        d.endSession(id: r.id)
+        #expect(d.resumeSession(id: r.id, token: token, now: t0) == nil)                                 // revoked
+    }
+
+    @Test func tokenNeverStoredInPlaintext() throws {
+        let (d, _, token) = try setup()
+        let json = try JSONEncoder().encode(d)
+        #expect(json.range(of: token) == nil && json.range(of: Data(token.base64EncodedString().utf8)) == nil)
+    }
+}
+
+
+@Suite struct InputBoundsTests {
+    let touch = Touch(bid: 99, ask: 101, last: 100)
+    @Test func rejectsAbsurdOrders() {
+        var a = PaperAccount()
+        #expect(throws: OrderReject.invalidQuantity) { try a.submit(symbol: "BTC-USD", side: .buy, quantity: Decimal(string: "1e12")!, type: .market, touch: touch) }
+        #expect(throws: OrderReject.invalidLimit) { try a.submit(symbol: "BTC-USD", side: .buy, quantity: 1, type: .limit(Decimal(string: "1e15")!), touch: touch) }
+        #expect(throws: OrderReject.invalidQuantity) { try a.submit(symbol: "BTC-USD", side: .buy, quantity: -1, type: .market, touch: touch) }
+    }
+
+    @Test func parsersSurviveHostileInput() {
+        let junk = [String(repeating: "A", count: 10_000), "\u{0}\u{202E}DES", "'; DROP TABLE x;--", "<script>alert(1)</script> GP", "../../etc/passwd", "%00%0d%0a"]
+        for j in junk {
+            _ = try? CommandParser.parse(j, current: nil)
+            #expect(NewsQuery(j).include.joined().count <= NewsQuery.maxLength)
+            #expect(!Credentials.isValidEmail(j))
+        }
+    }
+}
+
+
+@Suite struct BacktestRiskFreeTests {
+    func bars(_ closes: [Double]) -> [Candle] {
+        closes.enumerated().map { i, c in
+            Candle(time: Date(timeIntervalSince1970: 1_700_000_000 + Double(i) * 86_400), open: i == 0 ? c : closes[i - 1], high: c, low: c, close: c, volume: 1)
+        }
+    }
+
+    @Test func idleCashEarnsTheRiskFreeRate() throws {
+        // Flat market, a rule that never trades: equity should compound at the T-bill rate.
+        let flat = bars(Array(repeating: 100, count: 253))
+        let r = try #require(Backtest.run(flat, strategy: .smaCross(fast: 300, slow: 400), costBps: 0, periodsPerYear: 252,
+                                         riskFree: Array(repeating: 0.05, count: 253)))
+        #expect(abs(r.totalReturn - (pow(1 + 0.05 / 252, 252) - 1)) < 1e-9)
+        #expect(abs(r.riskFree - 0.05) < 1e-12)
+    }
+
+    @Test func sharpeIsOnExcessReturns() throws {
+        let up = bars((0..<253).map { 100 * pow(1.0004, Double($0)) + ($0 % 2 == 0 ? 0.05 : -0.05) })
+        let zero = try #require(Backtest.run(up, strategy: .buyAndHold, costBps: 0))
+        let withRF = try #require(Backtest.run(up, strategy: .buyAndHold, costBps: 0, riskFree: Array(repeating: 0.08, count: 253)))
+        #expect(withRF.sharpe! < zero.sharpe!)          // a higher hurdle lowers Sharpe
+        #expect(zero.sortino != nil && zero.volatility! > 0 && zero.calmar != nil)
+    }
+}

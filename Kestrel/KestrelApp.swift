@@ -43,6 +43,7 @@ struct KestrelApp: App {
 struct AuthGate: View {
     @Environment(AuthService.self) private var auth
     @Environment(MarketStore.self) private var market
+    @Environment(\.scenePhase) private var phase
 
     var body: some View {
         Group {
@@ -55,6 +56,10 @@ struct AuthGate: View {
                 AuthView()
             }
         }
+        #if os(iOS)
+        // Hide balances and positions from the app switcher snapshot.
+        .overlay { if phase != .active { PrivacyCover() } }
+        #endif
         .onAppear(perform: wire)
         .onChange(of: auth.space?.id) { wire() }
     }
@@ -133,6 +138,19 @@ struct TerminalCommands: Commands {
                 let all = PanelLayout.allCases
                 w.layout = all[(all.firstIndex(of: w.layout)! + 1) % all.count]
             }.keyboardShortcut("l", modifiers: .command)
+        }
+    }
+}
+
+/// Shown over the terminal while the app isn't active (iPad app switcher, Control Center).
+struct PrivacyCover: View {
+    var body: some View {
+        ZStack {
+            Theme.canvas.ignoresSafeArea()
+            HStack(spacing: 12) {
+                KestrelMark().frame(width: 30, height: 26)
+                Text("KESTREL").font(.mono(22, .heavy)).tracking(6).foregroundStyle(Theme.text)
+            }
         }
     }
 }

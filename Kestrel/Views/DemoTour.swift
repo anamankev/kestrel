@@ -7,7 +7,13 @@ import KestrelCore
 /// Workspace.run path a user hits, so the recording shows the actual app, not a mock.
 @MainActor
 enum DemoTour {
-    static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("-demo") }
+    static var isEnabled: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-demo")
+        #else
+        false
+        #endif
+    }
 
     struct Step {
         var panel: Int?

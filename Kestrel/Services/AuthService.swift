@@ -1,5 +1,54 @@
 import Foundation
 import KestrelCore
+import Security
+import os
+
+let securityLog = Logger(subsystem: "dev.kestrel.terminal", category: "security")
+
+/// Where the session token lives between launches.
+protocol SessionStore {
+    func load() -> (id: UUID, token: Data)?
+    func save(id: UUID, token: Data)
+    func clear()
+}
+
+/// The system Keychain: device-only, readable after first unlock, never synced or backed up.
+struct KeychainSessionStore: SessionStore {
+    var service = "dev.kestrel.terminal.session"
+    private var query: [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: "current"]
+    }
+
+    func load() -> (id: UUID, token: Data)? {
+        var q = query
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var out: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data, data.count == 48 else { return nil }
+        let id = UUID(uuid: data.prefix(16).withUnsafeBytes { $0.loadUnaligned(as: uuid_t.self) })
+        return (id, Data(data.suffix(32)))
+    }
+
+    func save(id: UUID, token: Data) {
+        clear()
+        var raw = id.uuid
+        var q = query
+        q[kSecValueData as String] = Data(bytes: &raw, count: 16) + token
+        q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        let status = SecItemAdd(q as CFDictionary, nil)
+        if status != errSecSuccess { securityLog.error("keychain save failed: \(status, privacy: .public)") }
+    }
+
+    func clear() { SecItemDelete(query as CFDictionary) }
+}
+
+/// Tests and the snapshot tour: never touches the real Keychain.
+final class MemorySessionStore: SessionStore {
+    private var value: (UUID, Data)?
+    func load() -> (id: UUID, token: Data)? { value.map { ($0.0, $0.1) } }
+    func save(id: UUID, token: Data) { value = (id, token) }
+    func clear() { value = nil }
+}
 
 /// Accounts on this device. Hashing runs off the main thread (600k PBKDF2 rounds take a few
 /// hundred milliseconds by design), and each account's data lives in its own folder.
@@ -12,21 +61,28 @@ import KestrelCore
 
     static let root = URL.applicationSupportDirectory.appending(path: "Kestrel", directoryHint: .isDirectory)
     @ObservationIgnored private let fileURL: URL
-    @ObservationIgnored private let defaults: UserDefaults
-    private static let sessionKey = "auth.session"
+    @ObservationIgnored private let sessions: SessionStore
     /// Files from before accounts existed; the first account on the device adopts them.
     private static let legacyFiles = ["paper-account.json", "equity-curve.json", "user-data.json"]
 
-    init(root: URL = AuthService.root, defaults: UserDefaults = .standard) {
+    init(root: URL = AuthService.root, sessions: SessionStore = KeychainSessionStore()) {
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         fileURL = root.appending(path: "accounts.json")
-        self.defaults = defaults
-        let dir = (try? JSONDecoder().decode(AccountDirectory.self, from: Data(contentsOf: fileURL))) ?? AccountDirectory()
-        directory = dir
+        self.sessions = sessions
+        var dir = (try? JSONDecoder().decode(AccountDirectory.self, from: Data(contentsOf: fileURL))) ?? AccountDirectory()
         self.root = root
-        if let id = defaults.string(forKey: Self.sessionKey).flatMap(UUID.init), let r = dir.account(id: id) {
-            current = r
+        // Older builds kept a bare account ID in UserDefaults; it proves nothing, so drop it.
+        UserDefaults.standard.removeObject(forKey: "auth.session")
+        if let stored = sessions.load() {
+            if let r = dir.resumeSession(id: stored.id, token: stored.token) {
+                current = r
+            } else {
+                securityLog.notice("stored session rejected (expired, revoked or tampered)")
+                sessions.clear()
+            }
         }
+        directory = dir
+        if current != nil { save() }   // persist the slid expiry
         if let r = current { space = UserSpace(id: r.id, folder: folder(for: r.id)) }
     }
     @ObservationIgnored private let root: URL
@@ -34,8 +90,16 @@ import KestrelCore
     func folder(for id: UUID) -> URL { root.appending(path: "users/\(id.uuidString)", directoryHint: .isDirectory) }
 
     func signIn(email: String, password: String) async throws(AuthError) {
-        let r = try await run { d throws(AuthError) in try d.signIn(email: email, password: password) }
-        begin(r)
+        do {
+            let r = try await run { d throws(AuthError) in try d.signIn(email: email, password: password) }
+            begin(r)
+        } catch {
+            switch error {
+            case .locked: securityLog.warning("account locked after repeated failures: \(Credentials.normalize(email), privacy: .private(mask: .hash))")
+            default: securityLog.notice("failed sign-in: \(Credentials.normalize(email), privacy: .private(mask: .hash))")
+            }
+            throw error
+        }
     }
 
     func register(name: String, email: String, password: String, confirm: String) async throws(AuthError) {
@@ -46,9 +110,14 @@ import KestrelCore
     }
 
     func signOut() {
+        if let me = current {
+            directory.endSession(id: me.id)   // the token stops working even if a copy survives
+            save()
+            securityLog.info("signed out")
+        }
         current = nil
         space = nil
-        defaults.removeObject(forKey: Self.sessionKey)
+        sessions.clear()
     }
 
     /// Deleting needs the password again, so a borrowed, unlocked device can't wipe an account.
@@ -57,6 +126,7 @@ import KestrelCore
         _ = try await run { d throws(AuthError) in try d.signIn(email: me.email, password: password) }
         directory.remove(id: me.id)
         save()
+        securityLog.info("account deleted")
         try? FileManager.default.removeItem(at: folder(for: me.id))
         signOut()
     }
@@ -79,9 +149,12 @@ import KestrelCore
     }
 
     private func begin(_ r: AccountRecord) {
-        current = r
+        let token = AccountDirectory.newSessionToken()
+        directory.beginSession(id: r.id, token: token)
+        save()
+        sessions.save(id: r.id, token: token)
+        current = directory.account(id: r.id) ?? r
         space = UserSpace(id: r.id, folder: folder(for: r.id))
-        defaults.set(r.id.uuidString, forKey: Self.sessionKey)
     }
 
     private func save() {

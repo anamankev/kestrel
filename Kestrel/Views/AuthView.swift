@@ -66,7 +66,7 @@ struct AuthView: View {
         VStack(alignment: .leading, spacing: 28) {
             header
             VStack(alignment: .leading, spacing: 10) {
-                Text("The market, one command away.")
+                Text("Command-line market terminal")
                     .font(.ui(34, .semibold)).foregroundStyle(Theme.text)
                 Text("Live crypto depth and tape, delayed equities, FX, rates, options with greeks, filings, macro, and a paper book to trade it all.")
                     .font(.ui(15)).foregroundStyle(Theme.dim).frame(maxWidth: 560, alignment: .leading)
@@ -124,7 +124,7 @@ struct AuthView: View {
                 Spacer()
             }
 
-            Text(mode == .signIn ? "Welcome back." : "Set up your desk.")
+            Text(mode == .signIn ? "Sign in" : "Create an account")
                 .font(.ui(24, .semibold)).foregroundStyle(Theme.text)
 
             if mode == .create {

@@ -1,5 +1,6 @@
 import Foundation
 import CommonCrypto
+import CryptoKit
 
 /// On-device accounts: each person on a shared iPad or Mac gets their own paper account,
 /// watchlists and alerts. Passwords are never stored; only a salted PBKDF2-SHA256 hash is.
@@ -13,6 +14,9 @@ public struct AccountRecord: Codable, Sendable, Equatable, Identifiable {
     public let created: Date
     public internal(set) var failedAttempts = 0
     public internal(set) var lockedUntil: Date?
+    /// SHA-256 of the current session token (the token itself lives only in the Keychain).
+    var sessionHash: Data?
+    public internal(set) var sessionExpires: Date?
 
     public var initials: String {
         let parts = displayName.split(separator: " ").prefix(2)
@@ -148,4 +152,35 @@ public struct AccountDirectory: Codable, Sendable, Equatable {
     }
 
     public mutating func remove(id: UUID) { accounts.removeAll { $0.id == id } }
+
+    // MARK: Sessions
+
+    /// Idle sessions expire after 30 days; each successful restore extends them.
+    public static let sessionLifetime: TimeInterval = 30 * 86_400
+
+    public static func newSessionToken() -> Data { Credentials.salt() + Credentials.salt() }   // 256 random bits
+
+    static func tokenHash(_ token: Data) -> Data { Data(SHA256.hash(data: token)) }
+
+    public mutating func beginSession(id: UUID, token: Data, now: Date = .now) {
+        guard let i = accounts.firstIndex(where: { $0.id == id }) else { return }
+        accounts[i].sessionHash = Self.tokenHash(token)
+        accounts[i].sessionExpires = now.addingTimeInterval(Self.sessionLifetime)
+    }
+
+    /// The account a stored token belongs to, if it matches and hasn't expired. Slides the expiry.
+    public mutating func resumeSession(id: UUID, token: Data, now: Date = .now) -> AccountRecord? {
+        guard let i = accounts.firstIndex(where: { $0.id == id }),
+              let hash = accounts[i].sessionHash, let exp = accounts[i].sessionExpires, exp > now,
+              Credentials.constantTimeEqual(Self.tokenHash(token), hash) else { return nil }
+        accounts[i].sessionExpires = now.addingTimeInterval(Self.sessionLifetime)
+        return accounts[i]
+    }
+
+    /// Revokes the session server-side style: the old token stops working even if a copy survives.
+    public mutating func endSession(id: UUID) {
+        guard let i = accounts.firstIndex(where: { $0.id == id }) else { return }
+        accounts[i].sessionHash = nil
+        accounts[i].sessionExpires = nil
+    }
 }

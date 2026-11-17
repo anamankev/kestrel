@@ -19,6 +19,8 @@ struct BacktestView: View {
     @AppStorage("bt.cost") private var costBps = 5.0
 
     @State private var bars: [Candle] = []
+    /// 3-month T-bill yield (Yahoo ^IRX, in %) by UTC day, for cash yield and excess returns.
+    @State private var tbill: [Date: Double] = [:]
     @State private var loading = false
     @State private var failed = false
 
@@ -31,7 +33,22 @@ struct BacktestView: View {
         }
     }
     private var perYear: Double { instrument.isStreaming ? 365 : 252 }
-    private var result: BacktestResult? { Backtest.run(bars, strategy: strategy, costBps: costBps, periodsPerYear: perYear) }
+    private var result: BacktestResult? {
+        Backtest.run(bars, strategy: strategy, costBps: costBps, periodsPerYear: perYear, riskFree: riskFreeSeries)
+    }
+
+    /// T-bill rate aligned to each bar (carried forward over holidays and weekends), as a decimal.
+    private var riskFreeSeries: [Double]? {
+        guard !tbill.isEmpty else { return nil }
+        var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
+        let days = tbill.keys.sorted()
+        var last = tbill[days[0]]! / 100, j = 0
+        return bars.map { b in
+            let d = cal.startOfDay(for: b.time)
+            while j < days.count, days[j] <= d { last = tbill[days[j]]! / 100; j += 1 }
+            return last
+        }
+    }
 
     var body: some View {
         let r = result
@@ -44,7 +61,7 @@ struct BacktestView: View {
                     BacktestChart(result: r).frame(height: 220).padding(.horizontal, 8)
                     legend
                     trades(r)
-                    Text("Hypothetical results on past data: long or flat, signals at the close, fills at the next open, \(Int(costBps)) bp per side. Not a forecast.")
+                    Text("Hypothetical results on past data: long or flat, signals at the close, fills at the next open, \(Int(costBps)) bp per side; idle cash earns the 3-month T-bill. Not a forecast.")
                         .font(.mono(9)).foregroundStyle(Theme.faint).padding(.horizontal, 8)
                 } else if loading {
                     ProgressView().tint(Theme.accent).frame(maxWidth: .infinity, minHeight: 200)
@@ -106,7 +123,10 @@ struct BacktestView: View {
             tile("TOTAL RETURN", pct(r.totalReturn), "B&H " + pct(r.benchmarkReturn), theme.tint(r.totalReturn))
             tile("EXCESS vs B&H", pct(r.totalReturn - r.benchmarkReturn), nil, theme.tint(r.totalReturn - r.benchmarkReturn))
             tile("CAGR", r.cagr.map(pct) ?? "—", nil, theme.tint(r.cagr))
-            tile("SHARPE", r.sharpe.map { String(format: "%.2f", $0) } ?? "—", "annualised, rf = 0", Theme.text)
+            tile("SHARPE", r.sharpe.map { String(format: "%.2f", $0) } ?? "—", r.riskFree > 0 ? String(format: "vs %.2f%% T-bill", r.riskFree * 100) : "rf = 0 (no T-bill data)", Theme.text)
+            tile("SORTINO", r.sortino.map { String(format: "%.2f", $0) } ?? "—", "downside risk only", Theme.text)
+            tile("VOLATILITY", r.volatility.map { String(format: "%.1f%%", $0 * 100) } ?? "—", "annualised", Theme.text)
+            tile("CALMAR", r.calmar.map { String(format: "%.2f", $0) } ?? "—", "CAGR / max DD", Theme.text)
             tile("MAX DRAWDOWN", "-" + String(format: "%.1f%%", r.maxDrawdown * 100), nil, theme.down)
             tile("WIN RATE", r.winRate.map { String(format: "%.0f%%", $0 * 100) } ?? "—", "\(r.trades.count) trades", Theme.text)
             tile("TIME IN MARKET", String(format: "%.0f%%", r.exposure * 100), nil, Theme.text)
@@ -164,6 +184,11 @@ struct BacktestView: View {
         do {
             bars = try await market.history(for: instrument, range: range, weekly: false)
             failed = bars.isEmpty
+            if let irx = Universe.instrument(symbol: "^IRX"),
+               let t = try? await market.history(for: irx, range: range, weekly: false) {
+                var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
+                tbill = Dictionary(t.filter { $0.close > 0 }.map { (cal.startOfDay(for: $0.time), $0.close) }, uniquingKeysWith: { _, b in b })
+            }
         } catch {
             bars = []; failed = true
         }

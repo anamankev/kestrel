@@ -20,7 +20,7 @@ enum SnapshotTour {
     /// Accounts live in a scratch folder for the tour.
     static func makeAuth() -> AuthService {
         let root = FileManager.default.temporaryDirectory.appending(path: "kestrel-snapshot-auth-\(UUID().uuidString)", directoryHint: .isDirectory)
-        return AuthService(root: root, defaults: UserDefaults(suiteName: "kestrel-snapshot-\(UUID().uuidString)")!)
+        return AuthService(root: root, sessions: MemorySessionStore())
     }
 
     static let screens = [

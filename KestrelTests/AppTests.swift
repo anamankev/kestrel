@@ -91,37 +91,77 @@ import KestrelCore
 }
 
 @MainActor @Suite struct AuthServiceTests {
-    func fresh() -> (URL, UserDefaults) {
+    func fresh() -> (URL, MemorySessionStore) {
         let root = FileManager.default.temporaryDirectory.appending(path: "kestrel-auth-\(UUID().uuidString)", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let suite = "kestrel-tests-\(UUID().uuidString)"
-        return (root, UserDefaults(suiteName: suite)!)
+        return (root, MemorySessionStore())
     }
 
     @Test func firstAccountAdoptsExistingPaperBookAndSessionPersists() async throws {
         let (root, defaults) = fresh()
         try Data("legacy".utf8).write(to: root.appending(path: "paper-account.json"))
-        let auth = AuthService(root: root, defaults: defaults)
+        let auth = AuthService(root: root, sessions: defaults)
         try await auth.register(name: "Ada Lovelace", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine")
         let me = try #require(auth.current)
         #expect(FileManager.default.fileExists(atPath: auth.folder(for: me.id).appending(path: "paper-account.json").path))
         #expect(!FileManager.default.fileExists(atPath: root.appending(path: "paper-account.json").path))
         // Relaunch: still signed in.
-        #expect(AuthService(root: root, defaults: defaults).current?.id == me.id)
+        #expect(AuthService(root: root, sessions: defaults).current?.id == me.id)
     }
 
     @Test func signOutSignInAndDeleteNeedsPassword() async throws {
         let (root, defaults) = fresh()
-        let auth = AuthService(root: root, defaults: defaults)
+        let auth = AuthService(root: root, sessions: defaults)
         try await auth.register(name: "Grace Hopper", email: "grace@example.com", password: "nanoseconds wire", confirm: "nanoseconds wire")
         auth.signOut()
         #expect(auth.current == nil && auth.space == nil)
-        #expect(AuthService(root: root, defaults: defaults).current == nil)
+        #expect(AuthService(root: root, sessions: defaults).current == nil)
         try await auth.signIn(email: "GRACE@example.com", password: "nanoseconds wire")
         #expect(auth.space != nil)
         await #expect(throws: AuthError.invalidCredentials) { try await auth.deleteAccount(password: "wrong") }
         #expect(auth.current != nil)
         try await auth.deleteAccount(password: "nanoseconds wire")
         #expect(auth.current == nil && auth.directory.accounts.isEmpty)
+    }
+}
+
+
+@MainActor @Suite struct SessionHardeningTests {
+    @Test func signOutRevokesACopiedToken() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "kestrel-auth-\(UUID().uuidString)", directoryHint: .isDirectory)
+        let store = MemorySessionStore()
+        let auth = AuthService(root: root, sessions: store)
+        try await auth.register(name: "Ada Lovelace", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine")
+        let stolen = try #require(store.load())
+        auth.signOut()
+        // Replaying the old token (e.g. restored from a backup) must not sign anyone in.
+        let replay = MemorySessionStore(); replay.save(id: stolen.id, token: stolen.token)
+        #expect(AuthService(root: root, sessions: replay).current == nil)
+        #expect(replay.load() == nil)   // and the rejected token is wiped
+    }
+
+    @Test func editingTheAccountIdDoesNotSwitchAccounts() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "kestrel-auth-\(UUID().uuidString)", directoryHint: .isDirectory)
+        let store = MemorySessionStore()
+        let auth = AuthService(root: root, sessions: store)
+        try await auth.register(name: "Ada Lovelace", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine")
+        auth.signOut()
+        try await auth.register(name: "Grace Hopper", email: "grace@example.com", password: "nanoseconds wire", confirm: "nanoseconds wire")
+        let mine = try #require(store.load())
+        let ada = try #require(auth.directory.accounts.first { $0.email == "ada@example.com" })
+        let forged = MemorySessionStore(); forged.save(id: ada.id, token: mine.token)   // Grace's token, Ada's id
+        #expect(AuthService(root: root, sessions: forged).current == nil)
+    }
+
+    @Test func keychainRoundTrip() {
+        let kc = KeychainSessionStore(service: "dev.kestrel.terminal.tests.\(UUID().uuidString)")
+        let id = UUID(), token = AccountDirectory.newSessionToken()
+        kc.save(id: id, token: token)
+        defer { kc.clear() }
+        // The session must really round-trip through the Keychain (verified on iPad and Mac).
+        let got = kc.load()
+        #expect(got?.id == id && got?.token == token)
+        kc.clear()
+        #expect(kc.load() == nil)
     }
 }
