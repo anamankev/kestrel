@@ -6,6 +6,7 @@ struct KestrelApp: App {
     @State private var market = MarketStore()
     @State private var news = NewsService()
     @State private var broker = PaperBroker()
+    @State private var userData = UserData()
     @State private var workspace = Workspace()
 
     var body: some Scene {
@@ -14,6 +15,7 @@ struct KestrelApp: App {
                 .environment(market)
                 .environment(news)
                 .environment(broker)
+                .environment(userData)
                 .environment(workspace)
                 .environment(Theme.shared)
                 .preferredColorScheme(.dark)
@@ -22,7 +24,12 @@ struct KestrelApp: App {
                 #endif
                 .onAppear {
                     let broker = broker
-                    market.onQuote = { symbol, quote in broker.mark(symbol, quote) }
+                    let userData = userData
+                    market.onQuote = { symbol, quote in
+                        broker.mark(symbol, quote)
+                        userData.check(symbol, quote)
+                    }
+                    market.extraSymbols = { userData.watchedSymbols }
                     market.start()
                 }
         }

@@ -5,12 +5,12 @@ It uses live data from free public sources and has paper trading built in.
 
 ## Run
 Open `Kestrel.xcodeproj` in Xcode 26+, pick an **iPad simulator** or **My Mac**, then press ⌘R.
-Core logic tests: `cd KestrelCore && swift test` (30 tests).
+Core logic tests: `cd KestrelCore && swift test` (36 tests).
 
 ## Functions
 | Security | Markets | Trading |
 |---|---|---|
-| `DES` description · `GP` chart · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure · `CN` news | `W` monitor · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `TOP` news | `TRADE` ticket (`SOL BUY`) · `PORT` P&L · `BLOT` orders & fills |
+| `DES` description · `GP` chart · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure · `CN` news | `W` editable watchlists · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `TOP` news | `TRADE` ticket (`SOL BUY`) · `PORT` P&L · `BLOT` orders & fills · `ALRT` price alerts |
 
 Keys: ⌘1–⌘6 focus a panel, ⌘[ back, ⌘↩ maximize, ⌘L layout, ↑↓/Tab for autocomplete, Esc to cancel.
 Tap a row to **link** that security into every security panel. Long-press a row for its functions.
@@ -24,6 +24,7 @@ KestrelCore (Swift package, no UI, fully tested)
   PaperAccount    Decimal cash/positions, market & limit orders, reservations, realized P&L
   Indicators      SMA, EMA, Bollinger, Wilder RSI, VWAP
   Options         Black-76 greeks, implied-vol solver, chain analytics (ATM IV, max pain, P/C)
+  Watchlists      named lists (add/remove/reorder) + AlertBook (above/below/move%, fire-once)
   Decoders        Coinbase WS / REST, Yahoo chart, RSS (hardened)
 Kestrel (SwiftUI app, iPadOS + macOS from one target)
   CoinbaseStream  actor: decodes ~100–200 msg/s off the main thread, coalesced to the UI at 10 Hz,

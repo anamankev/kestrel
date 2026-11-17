@@ -61,6 +61,8 @@ struct SecurityDetail: Equatable {
     @ObservationIgnored var onQuote: ((String, Quote) -> Void)?
     /// Securities visible in panels: refreshed every few seconds instead of every cycle.
     @ObservationIgnored var focusSymbols: Set<String> = []
+    /// Watchlist/alert symbols outside the built-in universe, polled on the slow cycle.
+    @ObservationIgnored var extraSymbols: () -> Set<String> = { [] }
 
     @ObservationIgnored private let stream = CoinbaseStream(products: Universe.crypto.map(\.symbol))
     @ObservationIgnored private var tasks: [Task<Void, Never>] = []
@@ -121,7 +123,9 @@ struct SecurityDetail: Equatable {
     // MARK: Polling
 
     func refreshUniverse() async {
-        await refresh(Universe.all.filter { !$0.isStreaming })
+        let known = Set(Universe.all.map(\.symbol))
+        let extra = extraSymbols().subtracting(known).compactMap { Universe.resolve($0) }
+        await refresh(Universe.all.filter { !$0.isStreaming } + extra)
         lastEquityRefresh = .now
     }
 

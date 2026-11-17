@@ -10,8 +10,8 @@ that only apply to servers (cookies, CSRF, CORS, admin routes, databases, passwo
 | 2 | API keys hidden | ✅ | No keys exist. A source scan for `key/secret/token/password` finds none. |
 | 3 | Database locked down | N/A | Local JSON file only (see 5). |
 | 4 | HTTPS enforced | ✅ | Every endpoint is `https://`/`wss://`. App Transport Security is left at its strict default. RSS links are upgraded to HTTPS (`rss()` test). |
-| 5 | Data at rest | ✅ | Paper account is written atomically with `completeFileProtection` inside the app container. |
-| 6 | Input validated | ✅ | Command line is capped at 64 chars. Ad-hoc tickers must match `^[A-Z][A-Z0-9-]{0,7}$`. URLs are built with `URLComponents`. Quantity and limit must be positive `Decimal`s (`rejectsGarbage`, `rejectsOverspend…` tests). |
+| 5 | Data at rest | ✅ | Paper account, watchlists and alerts are written atomically with `completeFileProtection` inside the app container. |
+| 6 | Input validated | ✅ | Command line is capped at 64 chars. Watchlists cap at 100 symbols and 24-char names, and alerts at 200 active; alert levels must be positive and finite and on the far side of the last price. Ad-hoc tickers must match `^[A-Z][A-Z0-9-]{0,7}$`. URLs are built with `URLComponents`. Quantity and limit must be positive `Decimal`s (`rejectsGarbage`, `rejectsOverspend…` tests). |
 | 7 | XSS / injection | ✅ | Native UI with no web views. Feed links are restricted to http(s) with a host, so `javascript:` and `file:` are dropped (`rss()` test). XML external entities are disabled. |
 | 8 | Suspicious activity logged | ✅ | Feed failures and HTTP errors go to `os.Logger`, with only symbols marked public. |
 | 10 | Parameterized queries | N/A | No SQL. |

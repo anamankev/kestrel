@@ -25,6 +25,12 @@ import Testing
         #expect(throws: CommandError.needsSecurity(.gp)) { try CommandParser.parse("GP", current: nil) }
     }
 
+    @Test func alertUsesLoadedSecurityWhenPresent() throws {
+        let btc = Universe.resolve("BTC")!
+        #expect(try CommandParser.parse("ALRT", current: btc).instrument == btc)
+        #expect(try CommandParser.parse("ALRT", current: nil).instrument == nil)
+    }
+
     @Test func marketFunctionNeedsNoSecurity() throws {
         #expect(try CommandParser.parse("WEI <GO>", current: nil).function == .wei)
     }
@@ -253,5 +259,59 @@ import Testing
         let c = chain.rows(expiry: e)[0].call!
         #expect(c.bid == 0.08 * 65_000 && c.isITM)
         #expect(chain.rows(expiry: e)[2].call?.bid == nil) // zero bid = no bid
+    }
+}
+
+@Suite struct WatchlistTests {
+    @Test func addRemoveMoveAndLimits() {
+        var w = Watchlist(name: "  tech  ", symbols: ["AAPL", "MSFT", "AAPL"])
+        #expect(w.name == "TECH" && w.symbols == ["AAPL", "MSFT"])
+        #expect(w.add("NVDA") && !w.add("NVDA"))
+        w.move("NVDA", by: -5)
+        #expect(w.symbols == ["NVDA", "AAPL", "MSFT"])
+        w.remove("AAPL")
+        #expect(w.symbols == ["NVDA", "MSFT"])
+        var full = Watchlist(name: "X", symbols: (0..<150).map { "S\($0)" })
+        #expect(full.symbols.count == Watchlist.maxSymbols && !full.add("NEW"))
+        w.rename(String(repeating: "a", count: 50))
+        #expect(w.name.count == Watchlist.maxNameLength)
+    }
+}
+
+@Suite struct AlertTests {
+    @Test func levelAlertsFireOnceWhenCrossed() throws {
+        var b = AlertBook()
+        try b.add(symbol: "BTC-USD", condition: .above(70_000), last: 65_000)
+        try b.add(symbol: "BTC-USD", condition: .below(60_000), last: 65_000)
+        #expect(b.evaluate(symbol: "BTC-USD", last: 69_999, changePercent: nil).isEmpty)
+        let fired = b.evaluate(symbol: "BTC-USD", last: 70_010, changePercent: nil)
+        #expect(fired.count == 1 && fired[0].triggerPrice == 70_010)
+        #expect(b.evaluate(symbol: "BTC-USD", last: 71_000, changePercent: nil).isEmpty) // once only
+        #expect(b.active.count == 1 && b.history.count == 1)
+    }
+
+    @Test func rejectsLevelsAlreadyThroughAndBadInput() {
+        var b = AlertBook()
+        #expect(throws: AlertError.alreadyThrough(100)) { try b.add(symbol: "X", condition: .above(90), last: 100) }
+        #expect(throws: AlertError.alreadyThrough(100)) { try b.add(symbol: "X", condition: .below(100), last: 100) }
+        #expect(throws: AlertError.invalidLevel) { try b.add(symbol: "X", condition: .above(-1), last: nil) }
+        #expect(throws: AlertError.invalidLevel) { try b.add(symbol: "X", condition: .movePercent(0), last: nil) }
+        #expect(throws: AlertError.invalidLevel) { try b.add(symbol: "X", condition: .above(.infinity), last: nil) }
+    }
+
+    @Test func percentMoveEitherDirection() throws {
+        var b = AlertBook()
+        try b.add(symbol: "AAPL", condition: .movePercent(3), last: 100)
+        #expect(b.evaluate(symbol: "AAPL", last: 98, changePercent: -2.5).isEmpty)
+        #expect(b.evaluate(symbol: "AAPL", last: 96, changePercent: -3.2).count == 1)
+    }
+
+    @Test func cancelAndPersist() throws {
+        var b = AlertBook()
+        let a = try b.add(symbol: "X", condition: .above(10), last: 5)
+        let copy = try JSONDecoder().decode(AlertBook.self, from: JSONEncoder().encode(b))
+        #expect(copy == b)
+        b.cancel(a.id)
+        #expect(b.active.isEmpty && b.watchedSymbols.isEmpty)
     }
 }

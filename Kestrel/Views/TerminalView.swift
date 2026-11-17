@@ -16,7 +16,9 @@ struct TerminalView: View {
             FunctionKeyBar(commandText: $commandText, commandFocused: $commandFocused)
         }
         .background(Theme.canvas)
-        .overlay(alignment: .topTrailing) { FillToast().padding(.top, 92).padding(.trailing, 12) }
+        .overlay(alignment: .topTrailing) {
+            VStack(alignment: .trailing, spacing: 8) { FillToast(); AlertToast() }.padding(.top, 92).padding(.trailing, 12)
+        }
         .onChange(of: ws.symbolsOnScreen, initial: true) { _, symbols in
             market.focusSymbols = symbols
             for s in symbols { if let i = Universe.instrument(symbol: s) ?? Universe.resolve(s) { market.touch(i) } }
@@ -395,6 +397,7 @@ struct FunctionView: View {
         case .rates: QuoteBoard(panelID: panel.id, groups: [("US TREASURY YIELDS", Universe.rates)], yields: true)
         case .most: MoversView(panelID: panel.id)
         case .top: NewsView(instrument: nil)
+        case .alrt: AlertsView(instrument: c.instrument, panelID: panel.id)
         case .port: PortfolioView(panelID: panel.id)
         case .blot: BlotterView()
         case .help: HelpView(panelID: panel.id)
@@ -428,7 +431,7 @@ struct FunctionKeyBar: View {
     @Environment(Workspace.self) private var ws
     @Environment(Theme.self) private var theme
 
-    private static let quick: [TerminalFunction] = [.w, .wei, .most, .hmap, .top, .fx, .comd, .rates, .port, .blot]
+    private static let quick: [TerminalFunction] = [.w, .wei, .most, .hmap, .top, .fx, .comd, .rates, .alrt, .port, .blot]
 
     var body: some View {
         @Bindable var ws = ws

@@ -3,24 +3,112 @@ import KestrelCore
 
 // MARK: - W: monitor
 
+/// W: the active user watchlist, editable in place. Streaming and delayed securities are split
+/// into separate sections so nobody mistakes a delayed print for a live one.
 struct MonitorView: View {
     let panelID: Int
     @Environment(MarketStore.self) private var market
+    @Environment(UserData.self) private var user
+
+    @State private var addText = ""
+    @State private var addError: String?
+    @State private var naming: NameMode?
+    @State private var nameText = ""
+    @State private var confirmDelete = false
+
+    enum NameMode { case new, rename }
+
+    private var instruments: [Instrument] {
+        user.active.symbols.compactMap { Universe.instrument(symbol: $0) ?? Universe.resolve($0) }
+    }
 
     var body: some View {
-        GeometryReader { g in
-            let wide = g.size.width > 900
-            ScrollView {
-                LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
-                    Section { rows(Universe.crypto, wide) } header: {
-                        VStack(spacing: 0) { SectionBar(title: "CRYPTO · STREAMING", trailing: "COINBASE"); QuoteHeader(wide: wide) }
+        VStack(spacing: 0) {
+            toolbar
+            GeometryReader { g in
+                let wide = g.size.width > 900
+                let live = instruments.filter(\.isStreaming), delayed = instruments.filter { !$0.isStreaming }
+                ScrollView {
+                    LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
+                        if !live.isEmpty {
+                            Section { rows(live, wide) } header: {
+                                VStack(spacing: 0) { SectionBar(title: "STREAMING", trailing: "COINBASE"); QuoteHeader(wide: wide) }
+                            }
+                        }
+                        if !delayed.isEmpty {
+                            Section { rows(delayed, wide) } header: {
+                                VStack(spacing: 0) { SectionBar(title: "DELAYED", trailing: refreshed); QuoteHeader(wide: wide) }
+                            }
+                        }
                     }
-                    Section { rows(Universe.equities, wide) } header: {
-                        VStack(spacing: 0) { SectionBar(title: "US EQUITIES · DELAYED", trailing: refreshed); QuoteHeader(wide: wide) }
+                }
+                .overlay {
+                    if instruments.isEmpty {
+                        EmptyNote(title: "\(user.active.name) is empty", detail: "Type a ticker in the ADD box (AAPL, BTC, SPX, EURUSD).", icon: "list.bullet")
                     }
                 }
             }
         }
+        .alert(naming == .new ? "New watchlist" : "Rename watchlist", isPresented: Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })) {
+            TextField("Name", text: $nameText)
+            Button("Cancel", role: .cancel) {}
+            Button(naming == .new ? "Create" : "Rename") {
+                if naming == .new { user.newList(nameText) } else { user.renameActive(nameText) }
+            }
+        }
+        .confirmationDialog("Delete \(user.active.name)?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete list", role: .destructive) { user.deleteActive() }
+        }
+    }
+
+    private var toolbar: some View {
+        HStack(spacing: 8) {
+            Menu {
+                Section("Watchlists") {
+                    ForEach(user.watchlists) { w in
+                        Button { user.activeID = w.id } label: {
+                            if w.id == user.activeID { Label("\(w.name) (\(w.symbols.count))", systemImage: "checkmark") }
+                            else { Text("\(w.name) (\(w.symbols.count))") }
+                        }
+                    }
+                }
+                Divider()
+                Button("New list…") { nameText = ""; naming = .new }
+                Button("Rename…") { nameText = user.active.name; naming = .rename }
+                if user.watchlists.count > 1 { Button("Delete list…", role: .destructive) { confirmDelete = true } }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(user.active.name).font(.mono(11, .heavy)).foregroundStyle(Theme.text)
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.dim)
+                }
+                .padding(.horizontal, 8).frame(height: 24)
+                .background(Theme.header, in: .rect(cornerRadius: 3))
+            }
+            .menuStyle(.button).buttonStyle(.plain).fixedSize()
+
+            HStack(spacing: 0) {
+                Text("ADD").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas).padding(.horizontal, 6).frame(height: 24).background(Theme.accent)
+                TextField("", text: $addText, prompt: Text("ticker ↩").foregroundStyle(Theme.faint))
+                    .font(.mono(11, .medium)).foregroundStyle(Theme.text).textFieldStyle(.plain)
+                    .autocorrectionDisabled()
+                    #if os(iOS)
+                    .textInputAutocapitalization(.characters)
+                    #endif
+                    .padding(.horizontal, 6)
+                    .onSubmit {
+                        addError = user.add(addText)
+                        if addError == nil { addText = "" }
+                    }
+                    .onChange(of: addText) { addError = nil }
+            }
+            .frame(maxWidth: 200).frame(height: 24)
+            .background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule))
+
+            if let addError { Text(addError).font(.mono(10, .medium)).foregroundStyle(Theme.cancel).lineLimit(1) }
+            Spacer(minLength: 0)
+            Text("\(user.active.symbols.count)/\(Watchlist.maxSymbols)").font(.mono(9)).foregroundStyle(Theme.faint)
+        }
+        .padding(.horizontal, 6).padding(.vertical, 4)
     }
 
     private var refreshed: String {
@@ -29,7 +117,7 @@ struct MonitorView: View {
 
     private func rows(_ list: [Instrument], _ wide: Bool) -> some View {
         ForEach(Array(list.enumerated()), id: \.element.id) { n, i in
-            QuoteRow(instrument: i, panelID: panelID, wide: wide).rowBackground(n)
+            QuoteRow(instrument: i, panelID: panelID, wide: wide, editable: true).rowBackground(n)
         }
     }
 }
@@ -61,8 +149,10 @@ struct QuoteRow: View {
     let panelID: Int
     var wide: Bool
     var yields = false
+    var editable = false
     @Environment(MarketStore.self) private var market
     @Environment(Workspace.self) private var ws
+    @Environment(UserData.self) private var user
 
     var body: some View {
         let i = instrument
@@ -98,6 +188,15 @@ struct QuoteRow: View {
         .contextMenu {
             ForEach([TerminalFunction.des, .gp, .depth, .tas, .cn, .omon, .trade], id: \.self) { f in
                 Button("\(f.rawValue) — \(f.title)") { ws.load(Command(function: f, instrument: i), in: panelID) }
+            }
+            Divider()
+            Button("Set alert…", systemImage: "bell") { ws.load(Command(function: .alrt, instrument: i), in: panelID) }
+            if editable {
+                Button("Move up", systemImage: "arrow.up") { user.move(i.symbol, by: -1) }
+                Button("Move down", systemImage: "arrow.down") { user.move(i.symbol, by: 1) }
+                Button("Remove from \(user.active.name)", systemImage: "minus.circle", role: .destructive) { user.remove(i.symbol) }
+            } else if !user.active.symbols.contains(i.symbol) {
+                Button("Add to \(user.active.name)", systemImage: "plus.circle") { _ = user.add(i.symbol) }
             }
         }
     }

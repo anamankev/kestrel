@@ -4,7 +4,7 @@ import Foundation
 public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
     case des = "DES", gp = "GP", depth = "DEPTH", tas = "TAS", cn = "CN", omon = "OMON"
     case w = "W", hmap = "HMAP", wei = "WEI", most = "MOST", fx = "FX", comd = "COMD", rates = "RATES"
-    case top = "TOP", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
+    case top = "TOP", alrt = "ALRT", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
 
     public var title: String {
         switch self {
@@ -22,6 +22,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         case .comd: "Commodities"
         case .rates: "US Treasury Yields"
         case .top: "Top News"
+        case .alrt: "Price Alerts"
         case .trade: "Order Ticket"
         case .port: "Portfolio & P&L"
         case .blot: "Order Blotter"
@@ -42,7 +43,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         "G": .gp, "GIP": .gp, "GPO": .gp, "CHART": .gp, "Q": .des, "BOOK": .depth, "L2": .depth,
         "T&S": .tas, "TS": .tas, "N": .top, "NEWS": .top, "MON": .w, "WATCH": .w, "IMAP": .hmap,
         "MOV": .most, "FXC": .fx, "GLCO": .comd, "GOV": .rates, "BUY": .trade, "SELL": .trade,
-        "OMS": .trade, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help,
+        "OMS": .trade, "ALERT": .alrt, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help,
     ]
 
     public static func from(_ token: String) -> TerminalFunction? {
@@ -119,9 +120,13 @@ public enum CommandParser {
         }
 
         guard let fn = function ?? (instrument != nil ? .des : nil) else { throw .empty }
-        if fn.requiresSecurity, instrument == nil {
-            guard let current else { throw .needsSecurity(fn) }
-            instrument = current
+        if instrument == nil {
+            if fn.requiresSecurity {
+                guard let current else { throw .needsSecurity(fn) }
+                instrument = current
+            } else if fn == .alrt {
+                instrument = current // optional: alerts default to the loaded security
+            }
         }
         return Command(function: fn, instrument: instrument, side: side)
     }

@@ -1,0 +1,118 @@
+import Foundation
+import KestrelCore
+import UserNotifications
+
+/// Watchlists and price alerts, persisted as JSON in the app container.
+/// Alert hits raise an in-app toast and a local notification (so they reach you in the background).
+@Observable final class UserData {
+    private(set) var watchlists: [Watchlist]
+    var activeID: UUID { didSet { save() } }
+    private(set) var alerts: AlertBook
+    var lastAlert: PriceAlert?
+
+    private struct Snapshot: Codable {
+        var watchlists: [Watchlist]
+        var activeID: UUID
+        var alerts: AlertBook
+    }
+
+    @ObservationIgnored private let url: URL = {
+        let dir = URL.applicationSupportDirectory.appending(path: "Kestrel", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appending(path: "user-data.json")
+    }()
+    @ObservationIgnored private var askedForNotifications = false
+
+    init() {
+        let core = Watchlist.core
+        watchlists = [core]
+        activeID = core.id
+        alerts = AlertBook()
+        if let data = try? Data(contentsOf: url), let s = try? JSONDecoder().decode(Snapshot.self, from: data), !s.watchlists.isEmpty {
+            watchlists = s.watchlists
+            activeID = s.watchlists.contains { $0.id == s.activeID } ? s.activeID : s.watchlists[0].id
+            alerts = s.alerts
+        }
+    }
+
+    private func save() {
+        guard let data = try? JSONEncoder().encode(Snapshot(watchlists: watchlists, activeID: activeID, alerts: alerts)) else { return }
+        try? data.write(to: url, options: [.atomic, .completeFileProtection])
+    }
+
+    // MARK: Watchlists
+
+    var active: Watchlist { watchlists.first { $0.id == activeID } ?? watchlists[0] }
+
+    private func mutateActive(_ f: (inout Watchlist) -> Void) {
+        guard let i = watchlists.firstIndex(where: { $0.id == activeID }) else { return }
+        f(&watchlists[i])
+        save()
+    }
+
+    /// Resolves a typed ticker and adds it to the active list. Returns an error message on failure.
+    func add(_ text: String) -> String? {
+        let t = text.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty else { return nil }
+        guard t.count <= 12, let i = Universe.resolve(t) else { return "Unknown security: \(t.uppercased())" }
+        var ok = false
+        mutateActive { ok = $0.add(i.symbol) }
+        return ok ? nil : (active.symbols.contains(i.symbol) ? "\(i.ticker) is already on \(active.name)" : "List is full (\(Watchlist.maxSymbols))")
+    }
+
+    func remove(_ symbol: String) { mutateActive { $0.remove(symbol) } }
+    func move(_ symbol: String, by offset: Int) { mutateActive { $0.move(symbol, by: offset) } }
+    func renameActive(_ name: String) { mutateActive { $0.rename(name) } }
+
+    func newList(_ name: String) {
+        guard watchlists.count < 20 else { return }
+        let w = Watchlist(name: name)
+        watchlists.append(w)
+        activeID = w.id
+    }
+
+    func deleteActive() {
+        guard watchlists.count > 1 else { return }
+        watchlists.removeAll { $0.id == activeID }
+        activeID = watchlists[0].id
+    }
+
+    /// Every symbol any list or alert needs quotes for.
+    var watchedSymbols: Set<String> { Set(watchlists.flatMap(\.symbols)).union(alerts.watchedSymbols) }
+
+    // MARK: Alerts
+
+    func addAlert(_ i: Instrument, _ condition: AlertCondition, last: Double?) throws(AlertError) {
+        try alerts.add(symbol: i.symbol, condition: condition, last: last)
+        save()
+        requestNotificationPermission()
+    }
+
+    func cancelAlert(_ id: UUID) { alerts.cancel(id); save() }
+    func clearAlertHistory() { alerts.clearHistory(); save() }
+
+    /// Called with every fresh quote.
+    func check(_ symbol: String, _ q: Quote) {
+        guard alerts.watchedSymbols.contains(symbol) else { return }
+        let fired = alerts.evaluate(symbol: symbol, last: q.last, changePercent: q.changePercent)
+        guard !fired.isEmpty else { return }
+        save()
+        for a in fired { notify(a) }
+        lastAlert = fired.last
+    }
+
+    private func requestNotificationPermission() {
+        guard !askedForNotifications else { return }
+        askedForNotifications = true
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    private func notify(_ a: PriceAlert) {
+        let ticker = Universe.instrument(symbol: a.symbol)?.ticker ?? a.symbol
+        let content = UNMutableNotificationContent()
+        content.title = "\(ticker) alert"
+        content.body = "\(a.condition.label) · last \(Fmt.price(a.triggerPrice))"
+        content.sound = .default
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: a.id.uuidString, content: content, trigger: nil))
+    }
+}
