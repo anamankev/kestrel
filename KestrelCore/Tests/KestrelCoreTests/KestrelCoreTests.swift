@@ -1299,6 +1299,10 @@ struct EventStudyTests {
         let dates = eventIdx.map { days[$0] } + [days[300].addingTimeInterval(3600)]
         let s = try #require(EventStudy.run(asset: bars(ra), market: bars(rm), events: dates))
         #expect(s.events.count == 3)                                       // 300, 420, 540
+        // 617 is the newest release: its window is still open, so it's pending, not averaged.
+        let p = try #require(s.pending.first)
+        #expect(s.pending.count == 1 && s.lastDay(p) < 5 && s.lastDay(p) >= 0)
+        #expect(abs(s.car(p, from: 0, to: 0) - 0.05) < 0.003)
         #expect(s.events.allSatisfy { abs($0.beta - 1.2) < 0.02 })
         let day0 = s.summary(from: 0, to: 0), around = s.summary(from: -1, to: 1), before = s.summary(from: -5, to: -2)
         #expect(abs(day0.mean - 0.05) < 0.002 && abs(around.mean - 0.04) < 0.003)

@@ -15,6 +15,9 @@ public struct EventStudy: Sendable, Equatable {
 
     public var window: ClosedRange<Int>
     public var events: [Event]
+    /// Recent releases whose window hasn't finished (e.g. today's): abnormal returns for the days
+    /// that exist so far. Shown, but kept out of the averages and t-statistics.
+    public var pending: [Event] = []
     /// Average abnormal return per window day, and its cumulative sum (CAAR).
     public var aar: [Double]
     public var caar: [Double]
@@ -25,8 +28,13 @@ public struct EventStudy: Sendable, Equatable {
 
     /// Cumulative abnormal return of one event over [from, to] (window-relative days).
     public func car(_ e: Event, from: Int, to: Int) -> Double {
-        let lo = max(from, window.lowerBound) - window.lowerBound, hi = min(to, window.upperBound) - window.lowerBound
+        let lo = max(from, window.lowerBound) - window.lowerBound
+        let hi = min(min(to, window.upperBound) - window.lowerBound, e.abnormal.count - 1)
         return lo <= hi ? e.abnormal[lo...hi].reduce(0, +) : 0
+    }
+
+    /// The last window day an event has data for (the full window unless it is pending).
+    public func lastDay(_ e: Event) -> Int { window.lowerBound + e.abnormal.count - 1
     }
 
     /// Mean CAR across events with a cross-sectional t-statistic.
@@ -67,10 +75,11 @@ public struct EventStudy: Sendable, Equatable {
         var contaminated = Set<Int>()
         for k in zero { for d in window { contaminated.insert(k + d) } }
 
-        var events: [Event] = []
+        var events: [Event] = [], pending: [Event] = []
         for k in zero {
-            let first = k + window.lowerBound, last = k + window.upperBound
-            guard first >= 0, last < ra.count else { continue }
+            let first = k + window.lowerBound
+            let last = min(k + window.upperBound, ra.count - 1)
+            guard first >= 0 else { continue }
             let estEnd = first - gap
             var idx: [Int] = []
             var i = estEnd - 1
@@ -81,9 +90,11 @@ public struct EventStudy: Sendable, Equatable {
             guard idx.count >= minimumEstimation,
                   let fit = Regression.ols(y: idx.map { ra[$0] }, x: idx.map { rm[$0] }) else { continue }
             let ar = (first...last).map { ra[$0] - (fit.alpha + fit.beta * rm[$0]) }
-            events.append(Event(day0: rdates[k], abnormal: ar, alpha: fit.alpha, beta: fit.beta, estimationDays: idx.count))
+            let e = Event(day0: rdates[k], abnormal: ar, alpha: fit.alpha, beta: fit.beta, estimationDays: idx.count)
+            if ar.count == window.count { events.append(e) } else { pending.append(e) }
         }
-        guard !events.isEmpty else { return nil }
+        guard !events.isEmpty || !pending.isEmpty else { return nil }
+        guard !events.isEmpty else { return EventStudy(window: window, events: [], pending: pending, aar: [], caar: [], caarSE: []) }
 
         let width = window.count, n = Double(events.count)
         let aar = (0..<width).map { d in events.map { $0.abnormal[d] }.reduce(0, +) / n }
@@ -95,6 +106,6 @@ public struct EventStudy: Sendable, Equatable {
             let sd = events.count >= 2 ? (cars.map { ($0 - running) * ($0 - running) }.reduce(0, +) / (n - 1)).squareRoot() : 0
             se.append(sd / n.squareRoot())
         }
-        return EventStudy(window: window, events: events, aar: aar, caar: caar, caarSE: se)
+        return EventStudy(window: window, events: events, pending: pending, aar: aar, caar: caar, caarSE: se)
     }
 }

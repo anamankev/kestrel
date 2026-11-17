@@ -737,7 +737,7 @@ struct EventStudyView: View {
             }
             .padding(8)
             SectionBar(title: "\(instrument.ticker) · EARNINGS EVENT STUDY · MARKET MODEL VS \(benchmark)",
-                       trailing: loading ? "LOADING…" : study.map { "\($0.events.count) RELEASES" })
+                       trailing: loading ? "LOADING…" : study.map { "\($0.events.count) RELEASES" + ($0.pending.isEmpty ? "" : " · \($0.pending.count) IN PROGRESS") })
             content
         }
         .task(id: instrument.symbol) { await sec.loadFilings(instrument) }
@@ -757,10 +757,12 @@ struct EventStudyView: View {
         } else if let s = study {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
-                    tiles(s)
-                    chart(s).frame(height: 220).padding(.horizontal, 8)
+                    if !s.events.isEmpty {
+                        tiles(s)
+                        chart(s).frame(height: 220).padding(.horizontal, 8)
+                    }
                     table(s)
-                    Text("Day 0 is the first session on or after the earnings 8-K filing date. Companies usually file it the day of the release, but a filing can trail the announcement by a day or two; releases after the close move the stock on day +1, so [−1, +1] is the headline window. Each event's market model is fitted on up to 250 earlier sessions, ending 10 days before the window and skipping other earnings windows. Total returns. t-stats are cross-sectional; |t| > 2 ≈ 95% significance; the band is ±1.96 standard errors.")
+                    Text("Day 0 is the first session on or after the earnings 8-K filing date. Companies usually file it the day of the release, but a filing can trail the announcement by a day or two; releases after the close move the stock on day +1, so [−1, +1] is the headline window. Each event's market model is fitted on up to 250 earlier sessions, ending 10 days before the window and skipping other earnings windows. Total returns. Releases whose window is still open (such as today's) are shown as IN PROGRESS and left out of the averages. t-stats are cross-sectional; |t| > 2 ≈ 95% significance; the band is ±1.96 standard errors.")
                         .font(.ui(10)).foregroundStyle(Theme.faint).padding(.horizontal, 8).padding(.bottom, 8)
                 }
             }
@@ -819,13 +821,24 @@ struct EventStudyView: View {
                 ForEach(["CAR [−1,+1]", "DAY 0", "DRIFT [+2,+\(w)]", "β (EST.)"], id: \.self) { Text($0).frame(width: 104, alignment: .trailing) }
             }
             .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
-            ForEach(Array(s.events.reversed().enumerated()), id: \.offset) { n, e in
-                let a = s.car(e, from: -1, to: 1), d0 = s.car(e, from: 0, to: 0), dr = s.car(e, from: 2, to: w)
+            ForEach(Array((s.pending.reversed() + s.events.reversed()).enumerated()), id: \.offset) { n, e in
+                let last = s.lastDay(e)
+                let a: Double? = last >= 1 ? s.car(e, from: -1, to: 1) : nil
+                let d0: Double? = last >= 0 ? s.car(e, from: 0, to: 0) : nil
+                let dr: Double? = last >= w ? s.car(e, from: 2, to: w) : nil
                 HStack {
-                    Text(Self.utcDay.string(from: e.day0)).foregroundStyle(Theme.text).frame(maxWidth: .infinity, alignment: .leading)
-                    Text(percent(a, digits: 2)).foregroundStyle(theme.tint(a)).frame(width: 104, alignment: .trailing)
-                    Text(percent(d0, digits: 2)).foregroundStyle(theme.tint(d0)).frame(width: 104, alignment: .trailing)
-                    Text(percent(dr, digits: 2)).foregroundStyle(theme.tint(dr)).frame(width: 104, alignment: .trailing)
+                    HStack(spacing: 6) {
+                        Text(Self.utcDay.string(from: e.day0)).foregroundStyle(Theme.text)
+                        if last < w {
+                            Text("IN PROGRESS · DAY \(last >= 0 ? "+" : "")\(last) OF +\(w)").font(.mono(8, .bold)).foregroundStyle(Theme.canvas)
+                                .padding(.horizontal, 4).frame(height: 14).background(Theme.warn, in: .rect(cornerRadius: 2))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(a.map { percent($0, digits: 2) } ?? "—").foregroundStyle(a.map { theme.tint($0) } ?? Theme.faint).frame(width: 104, alignment: .trailing)
+                    Text(d0.map { percent($0, digits: 2) } ?? "—").foregroundStyle(d0.map { theme.tint($0) } ?? Theme.faint).frame(width: 104, alignment: .trailing)
+                    Text(dr.map { percent($0, digits: 2) } ?? (last >= 2 ? "SO FAR " + percent(s.car(e, from: 2, to: last), digits: 2) : "—"))
+                        .foregroundStyle(dr.map { theme.tint($0) } ?? Theme.faint).frame(width: 104, alignment: .trailing)
                     Text(String(format: "%.2f", e.beta)).foregroundStyle(Theme.dim).frame(width: 104, alignment: .trailing)
                 }
                 .font(.mono(11)).monospacedDigit().padding(.horizontal, 8).padding(.vertical, 4).rowBackground(n)
@@ -837,7 +850,7 @@ struct EventStudyView: View {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withFullDate]
         return CSV.make(header: ["Day 0", "Alpha", "Beta", "Estimation days"] + s.days.map { "AR[\($0)]" },
-                        rows: s.events.map { e in
+                        rows: (s.events + s.pending).map { e in
                             [f.string(from: e.day0), CSV.number(e.alpha, digits: 8), CSV.number(e.beta, digits: 4), String(e.estimationDays)]
                                 + e.abnormal.map { CSV.number($0, digits: 8) }
                         })
