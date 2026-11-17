@@ -7,6 +7,7 @@ struct KestrelApp: App {
     @State private var news = NewsService()
     @State private var broker = PaperBroker()
     @State private var userData = UserData()
+    @State private var fundamentals = FundamentalsService()
     @State private var workspace = Workspace()
 
     var body: some Scene {
@@ -16,6 +17,7 @@ struct KestrelApp: App {
                 .environment(news)
                 .environment(broker)
                 .environment(userData)
+                .environment(fundamentals)
                 .environment(workspace)
                 .environment(Theme.shared)
                 .preferredColorScheme(.dark)

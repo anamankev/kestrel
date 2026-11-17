@@ -2,13 +2,14 @@ import Foundation
 
 /// Terminal functions, addressed by mnemonic like a professional terminal.
 public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
-    case des = "DES", gp = "GP", depth = "DEPTH", tas = "TAS", cn = "CN", omon = "OMON"
+    case des = "DES", fa = "FA", gp = "GP", depth = "DEPTH", tas = "TAS", cn = "CN", omon = "OMON"
     case w = "W", hmap = "HMAP", wei = "WEI", most = "MOST", fx = "FX", comd = "COMD", rates = "RATES"
-    case top = "TOP", alrt = "ALRT", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
+    case top = "TOP", alrt = "ALRT", pref = "PREF", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
 
     public var title: String {
         switch self {
         case .des: "Security Description"
+        case .fa: "Financial Analysis"
         case .gp: "Price Chart"
         case .depth: "Market Depth"
         case .tas: "Time & Sales"
@@ -23,6 +24,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         case .rates: "US Treasury Yields"
         case .top: "Top News"
         case .alrt: "Price Alerts"
+        case .pref: "Settings"
         case .trade: "Order Ticket"
         case .port: "Portfolio & P&L"
         case .blot: "Order Blotter"
@@ -33,7 +35,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
     /// Functions that operate on a loaded security.
     public var requiresSecurity: Bool {
         switch self {
-        case .des, .gp, .depth, .tas, .cn, .omon, .trade: true
+        case .des, .fa, .gp, .depth, .tas, .cn, .omon, .trade: true
         default: false
         }
     }
@@ -43,7 +45,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         "G": .gp, "GIP": .gp, "GPO": .gp, "CHART": .gp, "Q": .des, "BOOK": .depth, "L2": .depth,
         "T&S": .tas, "TS": .tas, "N": .top, "NEWS": .top, "MON": .w, "WATCH": .w, "IMAP": .hmap,
         "MOV": .most, "FXC": .fx, "GLCO": .comd, "GOV": .rates, "BUY": .trade, "SELL": .trade,
-        "OMS": .trade, "ALERT": .alrt, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help,
+        "OMS": .trade, "ALERT": .alrt, "SETTINGS": .pref, "PDF": .pref, "FIN": .fa, "FINANCIALS": .fa, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help,
     ]
 
     public static func from(_ token: String) -> TerminalFunction? {

@@ -6,7 +6,9 @@ import UserNotifications
 /// Alert hits raise an in-app toast and a local notification (so they reach you in the background).
 @Observable final class UserData {
     private(set) var watchlists: [Watchlist]
-    var activeID: UUID { didSet { save() } }
+    /// Change with `select(_:)`, which persists. (No `didSet`: under @Observable it also fires
+    /// during `init`, which once saved a half-loaded state and wiped alerts on launch.)
+    private(set) var activeID: UUID
     private(set) var alerts: AlertBook
     var lastAlert: PriceAlert?
 
@@ -24,15 +26,24 @@ import UserNotifications
     @ObservationIgnored private var askedForNotifications = false
 
     init() {
-        let core = Watchlist.core
-        watchlists = [core]
-        activeID = core.id
-        alerts = AlertBook()
+        // Build the complete state in locals, then assign once: init must never write to disk.
+        var lists = [Watchlist.core]
+        var active = lists[0].id
+        var book = AlertBook()
         if let data = try? Data(contentsOf: url), let s = try? JSONDecoder().decode(Snapshot.self, from: data), !s.watchlists.isEmpty {
-            watchlists = s.watchlists
-            activeID = s.watchlists.contains { $0.id == s.activeID } ? s.activeID : s.watchlists[0].id
-            alerts = s.alerts
+            lists = s.watchlists
+            active = s.watchlists.contains { $0.id == s.activeID } ? s.activeID : s.watchlists[0].id
+            book = s.alerts
         }
+        watchlists = lists
+        activeID = active
+        alerts = book
+    }
+
+    func select(_ id: UUID) {
+        guard watchlists.contains(where: { $0.id == id }) else { return }
+        activeID = id
+        save()
     }
 
     private func save() {
@@ -69,12 +80,14 @@ import UserNotifications
         let w = Watchlist(name: name)
         watchlists.append(w)
         activeID = w.id
+        save()
     }
 
     func deleteActive() {
         guard watchlists.count > 1 else { return }
         watchlists.removeAll { $0.id == activeID }
         activeID = watchlists[0].id
+        save()
     }
 
     /// Every symbol any list or alert needs quotes for.
@@ -86,6 +99,15 @@ import UserNotifications
         try alerts.add(symbol: i.symbol, condition: condition, last: last)
         save()
         requestNotificationPermission()
+    }
+
+    func resetAlerts() { alerts = AlertBook(); save() }
+
+    func resetWatchlists() {
+        let core = Watchlist.core
+        watchlists = [core]
+        activeID = core.id
+        save()
     }
 
     func cancelAlert(_ id: UUID) { alerts.cancel(id); save() }

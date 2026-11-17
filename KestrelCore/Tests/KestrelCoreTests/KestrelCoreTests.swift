@@ -315,3 +315,66 @@ import Testing
         #expect(b.active.isEmpty && b.watchedSymbols.isEmpty)
     }
 }
+
+@Suite struct FundamentalsTests {
+    static let json = #"""
+    {"cik":320193,"entityName":"Apple Inc.","facts":{
+     "dei":{"EntityCommonStockSharesOutstanding":{"units":{"shares":[
+       {"end":"2025-10-01","val":15000000000,"filed":"2025-10-30"},{"end":"2026-10-01","val":14800000000,"filed":"2026-11-03"}]}}},
+     "us-gaap":{
+      "Revenues":{"units":{"USD":[{"start":"2023-10-01","end":"2024-09-28","val":1,"form":"10-K","filed":"2024-11-01"}]}},
+      "RevenueFromContractWithCustomerExcludingAssessedTax":{"units":{"USD":[
+        {"start":"2024-09-29","end":"2025-09-27","val":400,"form":"10-K","filed":"2025-10-31"},
+        {"start":"2025-06-29","end":"2025-09-27","val":100,"form":"10-K","filed":"2025-10-31"},
+        {"start":"2025-09-28","end":"2026-09-26","val":480,"form":"10-K","filed":"2026-11-03"},
+        {"start":"2025-09-28","end":"2026-09-26","val":470,"form":"10-Q","filed":"2026-08-01"}]}},
+      "NetIncomeLoss":{"units":{"USD":[
+        {"start":"2023-10-01","end":"2024-09-28","val":90,"form":"10-K","filed":"2024-11-01"},
+        {"start":"2024-09-29","end":"2025-09-27","val":100,"form":"10-K","filed":"2025-10-31"},
+        {"start":"2024-09-29","end":"2025-09-27","val":110,"form":"10-K/A","filed":"2026-01-15"},
+        {"start":"2025-09-28","end":"2026-09-26","val":132,"form":"10-K","filed":"2026-11-03"}]}},
+      "EarningsPerShareDiluted":{"units":{"USD/shares":[{"start":"2025-09-28","end":"2026-09-26","val":8.98,"form":"10-K","filed":"2026-11-03"}]}},
+      "NetCashProvidedByUsedInOperatingActivities":{"units":{"USD":[{"start":"2025-09-28","end":"2026-09-26","val":145,"form":"10-K","filed":"2026-11-03"}]}},
+      "PaymentsToAcquirePropertyPlantAndEquipment":{"units":{"USD":[{"start":"2025-09-28","end":"2026-09-26","val":9,"form":"10-K","filed":"2026-11-03"}]}},
+      "StockholdersEquity":{"units":{"USD":[{"end":"2026-09-26","val":112,"form":"10-K","filed":"2026-11-03"}]}},
+      "LongTermDebt":{"units":{"USD":[{"end":"2026-09-26","val":78,"form":"10-K","filed":"2026-11-03"}]}}
+     }}}
+    """#
+
+    @Test func annualSeriesFromTenKs() throws {
+        let f = try SECFacts.decode(Data(Self.json.utf8))
+        #expect(f.name == "Apple Inc." && f.cik == 320193)
+        #expect(f.years.map(\.year) == [2024, 2025, 2026])
+        // Preferred concept wins; fallback concept only fills 2024; quarterly + 10-Q values ignored.
+        #expect(f.years.map(\.revenue) == [1, 400, 480])
+        // Restatement (later 10-K/A) wins.
+        #expect(f.years[1].netIncome == 110)
+        let y = f.latest!
+        #expect(y.freeCashFlow == 136 && y.debtToEquity == 78.0 / 112.0)
+        #expect(abs(y.netMargin! - 132.0 / 480.0) < 1e-12)
+        #expect(f.growth(\.revenue, year: 2026) == 0.2)
+        #expect(f.sharesOutstanding == 14_800_000_000)
+        #expect(abs(f.priceToEarnings(price: 269.4)! - 30) < 1e-9)
+        #expect(f.marketCap(price: 100) == 1_480_000_000_000)
+    }
+
+    @Test func tickersAndContact() throws {
+        let m = try SECFacts.decodeTickers(Data(#"{"0":{"cik_str":320193,"ticker":"AAPL","title":"Apple"},"1":{"cik_str":1067983,"ticker":"BRK.B","title":"Berkshire"}}"#.utf8))
+        #expect(m["AAPL"] == 320193 && m["BRK-B"] == 1067983)
+        #expect(SECFacts.factsURL(cik: 320193).absoluteString.hasSuffix("CIK0000320193.json"))
+        #expect(SECFacts.isValidContact("me@school.edu"))
+        #expect(!SECFacts.isValidContact("not an email") && !SECFacts.isValidContact("a@b"))
+    }
+}
+
+/// Opt-in check against real EDGAR downloads: KESTREL_FACTS_DIR=/path swift test --filter liveFacts
+@Test func liveFacts() throws {
+    guard let dir = ProcessInfo.processInfo.environment["KESTREL_FACTS_DIR"] else { return }
+    for file in try FileManager.default.contentsOfDirectory(atPath: dir) where file.hasPrefix("facts-") {
+        let f = try SECFacts.decode(Data(contentsOf: URL(fileURLWithPath: dir).appending(path: file)))
+        let rows = f.years.map { "FY\($0.year) rev=\(Fmt($0.revenue)) ni=\(Fmt($0.netIncome)) eps=\($0.epsDiluted ?? .nan) fcf=\(Fmt($0.freeCashFlow)) eq=\(Fmt($0.equity))" }
+        print("LIVE \(f.name) shares=\(Fmt(f.sharesOutstanding))\n  " + rows.joined(separator: "\n  "))
+        #expect(f.years.count >= 3)
+    }
+}
+private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 1e9) } ?? "nil" }

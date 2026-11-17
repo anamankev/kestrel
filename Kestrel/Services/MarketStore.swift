@@ -91,7 +91,8 @@ struct SecurityDetail: Equatable {
             await self?.loadCryptoSparks()
             while !Task.isCancelled {
                 await self?.refreshUniverse()
-                try? await Task.sleep(for: .seconds(45))
+                let every = UserDefaults.standard.double(forKey: "universeInterval")
+                try? await Task.sleep(for: .seconds(every >= 15 ? every : 45))
             }
         })
         tasks.append(Task { [weak self] in

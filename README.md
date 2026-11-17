@@ -5,12 +5,12 @@ It uses live data from free public sources and has paper trading built in.
 
 ## Run
 Open `Kestrel.xcodeproj` in Xcode 26+, pick an **iPad simulator** or **My Mac**, then press ⌘R.
-Core logic tests: `cd KestrelCore && swift test` (36 tests).
+Core logic tests: `cd KestrelCore && swift test` (39 tests).
 
 ## Functions
 | Security | Markets | Trading |
 |---|---|---|
-| `DES` description · `GP` chart · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure · `CN` news | `W` editable watchlists · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `TOP` news | `TRADE` ticket (`SOL BUY`) · `PORT` P&L · `BLOT` orders & fills · `ALRT` price alerts |
+| `DES` description (market cap, P/E) · `FA` 10-K financials · `GP` chart · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure · `CN` news | `W` editable watchlists · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `TOP` news | `TRADE` ticket (`SOL BUY`) · `PORT` P&L · `BLOT` orders & fills · `ALRT` price alerts · `PREF` settings |
 
 Keys: ⌘1–⌘6 focus a panel, ⌘[ back, ⌘↩ maximize, ⌘L layout, ↑↓/Tab for autocomplete, Esc to cancel.
 Tap a row to **link** that security into every security panel. Long-press a row for its functions.
@@ -25,6 +25,7 @@ KestrelCore (Swift package, no UI, fully tested)
   Indicators      SMA, EMA, Bollinger, Wilder RSI, VWAP
   Options         Black-76 greeks, implied-vol solver, chain analytics (ATM IV, max pain, P/C)
   Watchlists      named lists (add/remove/reorder) + AlertBook (above/below/move%, fire-once)
+  Fundamentals    SEC XBRL company facts → 5-year 10-K series (tag fallbacks, restatements, margins, FCF)
   Decoders        Coinbase WS / REST, Yahoo chart, RSS (hardened)
 Kestrel (SwiftUI app, iPadOS + macOS from one target)
   CoinbaseStream  actor: decodes ~100–200 msg/s off the main thread, coalesced to the UI at 10 Hz,
@@ -37,6 +38,7 @@ Kestrel (SwiftUI app, iPadOS + macOS from one target)
 - **Crypto:** Coinbase Advanced Trade WebSocket, tick-by-tick, full L2 depth.
 - **Equities, indices, FX, futures, rates:** Yahoo Finance chart endpoint (delayed snapshots).
 - **Options:** Deribit public API (BTC, ETH), with greeks computed locally.
+- **Fundamentals:** SEC EDGAR XBRL (needs a contact email set in PREF, as SEC requires).
 - **News:** CNBC, MarketWatch and CoinDesk RSS, plus Yahoo per-ticker headlines.
 
 ## Honest comparison with Bloomberg

@@ -66,7 +66,7 @@ struct MonitorView: View {
             Menu {
                 Section("Watchlists") {
                     ForEach(user.watchlists) { w in
-                        Button { user.activeID = w.id } label: {
+                        Button { user.select(w.id) } label: {
                             if w.id == user.activeID { Label("\(w.name) (\(w.symbols.count))", systemImage: "checkmark") }
                             else { Text("\(w.name) (\(w.symbols.count))") }
                         }
@@ -186,7 +186,7 @@ struct QuoteRow: View {
         .contentShape(.rect)
         .onTapGesture { ws.link(i, from: panelID) }
         .contextMenu {
-            ForEach([TerminalFunction.des, .gp, .depth, .tas, .cn, .omon, .trade], id: \.self) { f in
+            ForEach([TerminalFunction.des, .fa, .gp, .depth, .tas, .cn, .omon, .trade], id: \.self) { f in
                 Button("\(f.rawValue) — \(f.title)") { ws.load(Command(function: f, instrument: i), in: panelID) }
             }
             Divider()
@@ -328,6 +328,7 @@ struct DescriptionView: View {
     let instrument: Instrument
     let panelID: Int
     @Environment(MarketStore.self) private var market
+    @Environment(FundamentalsService.self) private var sec
     @Environment(Workspace.self) private var ws
 
     var body: some View {
@@ -357,6 +358,12 @@ struct DescriptionView: View {
                     GridRow { stat("PREV CLOSE", Fmt.price(q?.previousClose, i.assetClass)); stat("VOLUME", Fmt.compact(q?.volume)) }
                     GridRow { stat(i.isStreaming ? "24H HIGH" : "DAY HIGH", Fmt.price(q?.high, i.assetClass)); stat(i.isStreaming ? "24H LOW" : "DAY LOW", Fmt.price(q?.low, i.assetClass)) }
                     GridRow { stat("BID", Fmt.price(q?.bid, i.assetClass)); stat("ASK", Fmt.price(q?.ask, i.assetClass)) }
+                    if let f = sec.fundamentals(i.symbol), let last = q?.last {
+                        GridRow {
+                            stat("MARKET CAP", f.marketCap(price: last).map { "$" + Fmt.compact($0) } ?? "—")
+                            stat("P/E (FY)", f.priceToEarnings(price: last).map { String(format: "%.1fx", $0) } ?? "—")
+                        }
+                    }
                     GridRow {
                         stat("SPREAD", spread(q))
                         stat("UPDATED", q.map { $0.time.formatted(Fmt.clock) } ?? "—")
@@ -371,12 +378,13 @@ struct DescriptionView: View {
                     }
                     RangeBar(low: q?.low52, high: q?.high52, value: q?.last)
                 }
-                FlowHotspots(items: [(.gp, "Price Chart"), (.depth, "Market Depth"), (.tas, "Time & Sales"), (.cn, "News"), (.omon, "Options"), (.trade, "Trade")]) { f in
+                FlowHotspots(items: [(.gp, "Price Chart"), (.fa, "Financials"), (.depth, "Market Depth"), (.tas, "Time & Sales"), (.cn, "News"), (.omon, "Options"), (.trade, "Trade")]) { f in
                     ws.load(Command(function: f, instrument: i), in: panelID)
                 }
             }
             .padding(14)
         }
+        .task(id: i.symbol) { await sec.load(i) }
     }
 
     private func spread(_ q: Quote?) -> String {

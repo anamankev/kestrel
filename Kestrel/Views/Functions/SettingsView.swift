@@ -1,0 +1,130 @@
+import SwiftUI
+import KestrelCore
+
+/// PREF: data-source settings, display options and data resets.
+struct SettingsView: View {
+    @Environment(FundamentalsService.self) private var sec
+    @Environment(MarketStore.self) private var market
+    @Environment(PaperBroker.self) private var broker
+    @Environment(UserData.self) private var user
+    @Environment(Theme.self) private var theme
+    @AppStorage("universeInterval") private var interval: Double = 45
+
+    @State private var contactDraft = ""
+    @State private var confirm: Reset?
+
+    enum Reset: String, Identifiable { case paper, alerts, lists; var id: String { rawValue } }
+
+    var body: some View {
+        @Bindable var theme = theme
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                section("SEC EDGAR CONTACT (FOR FA)") {
+                    Text("SEC's free API requires each app to identify itself with a contact email in its User-Agent. It is stored on this device and sent only to sec.gov.")
+                        .font(.ui(11)).foregroundStyle(Theme.dim)
+                    HStack(spacing: 8) {
+                        TextField("", text: $contactDraft, prompt: Text("you@example.com").foregroundStyle(Theme.faint))
+                            .font(.mono(13)).foregroundStyle(Theme.text).textFieldStyle(.plain)
+                            .autocorrectionDisabled()
+                            #if os(iOS)
+                            .textInputAutocapitalization(.never).keyboardType(.emailAddress)
+                            #endif
+                            .padding(.horizontal, 8).frame(height: 32)
+                            .background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule))
+                            .onSubmit(saveContact)
+                        Button("SAVE", action: saveContact).font(.mono(11, .heavy)).foregroundStyle(Theme.canvas)
+                            .frame(width: 64, height: 32).background(Theme.accent, in: .rect(cornerRadius: 3)).buttonStyle(.plain)
+                            .disabled(!SECFacts.isValidContact(contactDraft))
+                            .opacity(SECFacts.isValidContact(contactDraft) ? 1 : 0.4)
+                    }
+                    Text(sec.hasValidContact ? "Active: \(sec.contact)" : "Not set: FA is disabled.")
+                        .font(.mono(10)).foregroundStyle(sec.hasValidContact ? theme.up : Theme.warn)
+                    if sec.hasValidContact {
+                        Button("Remove contact") { sec.contact = ""; contactDraft = "" }
+                            .font(.mono(10, .bold)).foregroundStyle(Theme.cancel).buttonStyle(.plain)
+                    }
+                }
+
+                section("DISPLAY") {
+                    Toggle(isOn: $theme.colorBlindSafe) {
+                        Text("Colour-vision-safe up/down colours (blue/orange)").font(.ui(12)).foregroundStyle(Theme.text)
+                    }
+                    .tint(Theme.accent)
+                }
+
+                section("DATA") {
+                    HStack {
+                        Text("Delayed-quote refresh").font(.ui(12)).foregroundStyle(Theme.text)
+                        Spacer()
+                        Picker("", selection: $interval) {
+                            Text("30 s").tag(30.0); Text("45 s").tag(45.0); Text("90 s").tag(90.0)
+                        }
+                        .pickerStyle(.segmented).frame(width: 200)
+                    }
+                    Text("Shorter is fresher but sends more requests to a free endpoint. Crypto always streams live.")
+                        .font(.ui(10)).foregroundStyle(Theme.faint)
+                    sourceRow("Crypto quotes, depth, tape", "Coinbase WebSocket", market.link.rawValue)
+                    sourceRow("Equities, indices, FX, rates", "Yahoo Finance (delayed)", market.lastEquityRefresh.map { "UPDATED \($0.formatted(Fmt.clock))" } ?? "LOADING")
+                    sourceRow("Options", "Deribit public API", "ON DEMAND")
+                    sourceRow("Fundamentals", "SEC EDGAR", sec.hasValidContact ? "READY" : "NEEDS CONTACT")
+                    sourceRow("News", "CNBC, MarketWatch, CoinDesk, Yahoo RSS", "2 MIN")
+                }
+
+                section("RESET") {
+                    HStack(spacing: 8) {
+                        resetButton("Reset paper account", .paper)
+                        resetButton("Clear alerts", .alerts)
+                        resetButton("Reset watchlists", .lists)
+                    }
+                }
+
+                Text("Kestrel \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") · no accounts, no keys, all data stays on this device.")
+                    .font(.mono(9)).foregroundStyle(Theme.faint)
+            }
+            .padding(12)
+        }
+        .onAppear { contactDraft = sec.contact }
+        .confirmationDialog("This cannot be undone.", isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }), titleVisibility: .visible) {
+            Button("Reset", role: .destructive) {
+                switch confirm {
+                case .paper: broker.reset()
+                case .alerts: user.resetAlerts()
+                case .lists: user.resetWatchlists()
+                case nil: break
+                }
+            }
+        }
+    }
+
+    private func saveContact() {
+        let c = contactDraft.trimmingCharacters(in: .whitespaces)
+        if SECFacts.isValidContact(c) { sec.contact = c }
+    }
+
+    private func section(_ title: String, @ViewBuilder _ content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.mono(10, .heavy)).foregroundStyle(Theme.accent)
+            content()
+        }
+        .padding(10)
+        .frame(maxWidth: 720, alignment: .leading)
+        .background(Theme.header, in: .rect(cornerRadius: 4))
+    }
+
+    private func sourceRow(_ what: String, _ source: String, _ status: String) -> some View {
+        HStack {
+            Text(what).font(.ui(11)).foregroundStyle(Theme.text)
+            Spacer()
+            Text(source).font(.ui(11)).foregroundStyle(Theme.dim)
+            Text(status).font(.mono(9, .bold)).foregroundStyle(Theme.label).frame(width: 140, alignment: .trailing)
+        }
+    }
+
+    private func resetButton(_ title: String, _ r: Reset) -> some View {
+        Button(title) { confirm = r }
+            .font(.mono(10, .bold)).foregroundStyle(Theme.cancel)
+            .padding(.horizontal, 10).frame(height: 26)
+            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.cancel.opacity(0.5)))
+            .buttonStyle(.plain)
+    }
+}
