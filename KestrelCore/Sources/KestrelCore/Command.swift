@@ -4,7 +4,7 @@ import Foundation
 public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
     case des = "DES", fa = "FA", evts = "EVTS", gp = "GP", hp = "HP", depth = "DEPTH", tas = "TAS", cn = "CN", omon = "OMON"
     case w = "W", hmap = "HMAP", wei = "WEI", most = "MOST", fx = "FX", comd = "COMD", rates = "RATES"
-    case top = "TOP", eco = "ECO", corr = "CORR", bt = "BT", osa = "OSA", ern = "ERN", secf = "SECF", beta = "BETA", comp = "COMP", mvo = "MVO", eqs = "EQS", pro = "PRO", alrt = "ALRT", pref = "PREF", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
+    case top = "TOP", eco = "ECO", corr = "CORR", bt = "BT", osa = "OSA", ern = "ERN", secf = "SECF", beta = "BETA", comp = "COMP", mvo = "MVO", eqs = "EQS", fact = "FACT", dvd = "DVD", pro = "PRO", alrt = "ALRT", pref = "PREF", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
 
     public var title: String {
         switch self {
@@ -21,6 +21,8 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         case .comp: "Comparative Returns"
         case .mvo: "Portfolio Optimizer"
         case .eqs: "Equity Screener"
+        case .fact: "Factor Regression"
+        case .dvd: "Dividends"
         case .pro: "Kestrel Pro"
         case .gp: "Price Chart"
         case .hp: "Historical Prices"
@@ -48,7 +50,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
     /// Functions that operate on a loaded security.
     public var requiresSecurity: Bool {
         switch self {
-        case .des, .fa, .evts, .gp, .hp, .depth, .tas, .cn, .omon, .trade, .bt, .osa, .beta: true
+        case .des, .fa, .evts, .gp, .hp, .depth, .tas, .cn, .omon, .trade, .bt, .osa, .beta, .fact, .dvd: true
         default: false
         }
     }
@@ -58,7 +60,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         "G": .gp, "GIP": .gp, "GPO": .gp, "CHART": .gp, "Q": .des, "BOOK": .depth, "L2": .depth,
         "T&S": .tas, "TS": .tas, "N": .top, "NEWS": .top, "MON": .w, "WATCH": .w, "IMAP": .hmap,
         "MOV": .most, "FXC": .fx, "GLCO": .comd, "GOV": .rates, "BUY": .trade, "SELL": .trade,
-        "OMS": .trade, "ALERT": .alrt, "SETTINGS": .pref, "PDF": .pref, "FIN": .fa, "EVT": .evts, "HIST": .hp, "HISTORY": .hp, "EARN": .ern, "EARNINGS": .ern, "SUBSCRIBE": .pro, "SUBS": .pro, "UPGRADE": .pro, "FILINGS": .evts, "ECON": .eco, "MACRO": .eco, "FINANCIALS": .fa, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help, "CORREL": .corr, "COR": .corr, "BTST": .bt, "BACKTEST": .bt, "STRAT": .osa, "PAYOFF": .osa, "NSE": .top, "SEARCH": .top, "FIND": .secf, "LOOKUP": .secf, "SECFIND": .secf, "SYMBOL": .secf, "REGRESS": .beta, "REGRESSION": .beta, "COMPARE": .comp, "PERF": .comp, "OPTIMIZE": .mvo, "FRONTIER": .mvo, "PORTOPT": .mvo, "SCREEN": .eqs, "SCREENER": .eqs, "EQSCREEN": .eqs,
+        "OMS": .trade, "ALERT": .alrt, "SETTINGS": .pref, "PDF": .pref, "FIN": .fa, "EVT": .evts, "HIST": .hp, "HISTORY": .hp, "EARN": .ern, "EARNINGS": .ern, "SUBSCRIBE": .pro, "SUBS": .pro, "UPGRADE": .pro, "FILINGS": .evts, "ECON": .eco, "MACRO": .eco, "FINANCIALS": .fa, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help, "CORREL": .corr, "COR": .corr, "BTST": .bt, "BACKTEST": .bt, "STRAT": .osa, "PAYOFF": .osa, "NSE": .top, "SEARCH": .top, "FIND": .secf, "LOOKUP": .secf, "SECFIND": .secf, "SYMBOL": .secf, "REGRESS": .beta, "REGRESSION": .beta, "COMPARE": .comp, "PERF": .comp, "OPTIMIZE": .mvo, "FRONTIER": .mvo, "PORTOPT": .mvo, "SCREEN": .eqs, "SCREENER": .eqs, "EQSCREEN": .eqs, "FF": .fact, "FAMA": .fact, "FACTOR": .fact, "FACTORS": .fact, "CARHART": .fact, "DIV": .dvd, "DIVIDEND": .dvd, "DIVIDENDS": .dvd, "DVDH": .dvd,
     ]
 
     public static func from(_ token: String) -> TerminalFunction? {

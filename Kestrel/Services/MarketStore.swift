@@ -244,11 +244,12 @@ struct SecurityDetail: Equatable {
     }
 
     /// Several histories in parallel; series with fewer than `minBars` bars are dropped.
-    func histories(_ list: [Instrument], range: String, weekly: Bool = false, minBars: Int = 20) async -> [String: [Candle]] {
+    /// `adjusted` gives total-return bars (dividends reinvested), the right input for return statistics.
+    func histories(_ list: [Instrument], range: String, weekly: Bool = false, adjusted: Bool = false, minBars: Int = 20) async -> [String: [Candle]] {
         var out: [String: [Candle]] = [:]
         await withTaskGroup(of: (String, [Candle]).self) { g in
             for i in list {
-                g.addTask { (i.symbol, (try? await self.history(for: i, range: range, weekly: weekly)) ?? []) }
+                g.addTask { (i.symbol, (try? await self.history(for: i, range: range, weekly: weekly, adjusted: adjusted)) ?? []) }
             }
             for await (s, c) in g where c.count >= minBars { out[s] = c }
         }
@@ -259,15 +260,44 @@ struct SecurityDetail: Equatable {
     var riskFree: Double { (quotes["^IRX"]?.last).map { $0 / 100 } ?? 0 }
 
     /// Daily (or weekly for multi-year) bars for HP. Crypto is capped at Coinbase's 300 bars.
-    func history(for i: Instrument, range: String, weekly: Bool) async throws -> [Candle] {
+    func history(for i: Instrument, range: String, weekly: Bool, adjusted: Bool = false) async throws -> [Candle] {
         guard i.assetClass != .option else { return [] }
         if i.isStreaming {
             let url = URL(string: "https://api.exchange.coinbase.com/products/\(i.symbol)/candles?granularity=86400")!
             let (data, _) = try await http.data(from: url)
             return try CoinbaseFeed.candles(data)
         }
-        let (data, _) = try await http.data(from: YahooChart.url(symbol: i.symbol, range: range, interval: weekly ? "1wk" : "1d"))
-        return try YahooChart.decode(data, intraday: false).candles
+        let (data, _) = try await http.data(from: YahooChart.url(symbol: i.symbol, range: range, interval: weekly ? "1wk" : "1d", events: adjusted))
+        return try YahooChart.decode(data, intraday: false, adjusted: adjusted).candles
+    }
+
+    /// Ten years of cash dividends (monthly bars keep the payload small) and the latest price.
+    func dividends(for i: Instrument) async throws -> (dividends: [Dividend], price: Double?) {
+        let (data, _) = try await http.data(from: YahooChart.url(symbol: i.symbol, range: "10y", interval: "1mo", events: true))
+        let s = try YahooChart.decode(data, intraday: true)
+        return (s.dividends, s.quote.last)
+    }
+
+    // MARK: Factors
+
+    @ObservationIgnored private var factorCache: [FactorSet: FactorTable] = [:]
+
+    /// Fama-French daily factors for a model, downloaded once per session (~150 KB per file).
+    func factors(_ model: FactorModel) async throws -> FactorTable {
+        var tables: [FactorTable] = []
+        for set in model.sets {
+            if let t = factorCache[set] { tables.append(t); continue }
+            let (zip, resp) = try await http.data(from: set.url)
+            guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+            let t = try await Task.detached(priority: .userInitiated) { () throws -> FactorTable in
+                guard let csv = String(data: try Zip.firstFile(zip), encoding: .utf8) else { throw Zip.ZipError.corrupt }
+                return FactorTable.parse(csv)
+            }.value
+            guard !t.rows.isEmpty else { throw Zip.ZipError.corrupt }
+            factorCache[set] = t
+            tables.append(t)
+        }
+        return tables.dropFirst().reduce(tables[0]) { $0.merged(with: $1) }
     }
 
     /// Publishes a contract's Deribit touch as a quote (paper broker marks and fills from it).

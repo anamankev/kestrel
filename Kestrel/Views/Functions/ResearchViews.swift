@@ -137,7 +137,7 @@ struct BetaView: View {
         loading = true
         defer { loading = false }
         failure = nil
-        let h = await market.histories([instrument, bench], range: window.yahoo, weekly: frequency == .weekly, minBars: 10)
+        let h = await market.histories([instrument, bench], range: window.yahoo, weekly: frequency == .weekly, adjusted: true, minBars: 10)
         guard !Task.isCancelled else { return }
         guard h.count == 2 else { result = nil; failure = "No price history for \(h[instrument.symbol] == nil ? instrument.ticker : benchmark)"; return }
         let aligned = Risk.alignedCloses(h)
@@ -243,7 +243,7 @@ struct ComparisonView: View {
                 }
                 .padding(.horizontal, 8).padding(.vertical, 5).rowBackground(n)
             }
-            Text(String(format: "Sharpe uses the 13-week T-bill (%.2f%%) as the risk-free rate. Returns are price returns on shared trading days; dividends are not included.", rf * 100))
+            Text(String(format: "Sharpe uses the 13-week T-bill (%.2f%%) as the risk-free rate. Total returns (dividends reinvested) on shared trading days.", rf * 100))
                 .font(.ui(10)).foregroundStyle(Theme.faint).frame(maxWidth: .infinity, alignment: .leading).padding(8)
         }
     }
@@ -260,7 +260,7 @@ struct ComparisonView: View {
         guard list.count >= 2 else { series = []; dates = []; return }
         loading = true
         defer { loading = false }
-        let h = await market.histories(list, range: window.yahoo)
+        let h = await market.histories(list, range: window.yahoo, adjusted: true)
         guard !Task.isCancelled else { return }
         let aligned = Risk.alignedCloses(h)
         dates = aligned.dates
@@ -406,7 +406,7 @@ struct OptimizerView: View {
         guard list.count >= 2 else { out = nil; return }
         loading = true
         defer { loading = false }
-        let h = await market.histories(list, range: window.yahoo, minBars: 40)
+        let h = await market.histories(list, range: window.yahoo, adjusted: true, minBars: 40)
         guard !Task.isCancelled else { return }
         let kept = list.filter { h[$0.symbol] != nil }
         let returns = Risk.alignedReturns(h)
@@ -423,5 +423,275 @@ struct OptimizerView: View {
         out = Output(assets: kept, mu: s.mu, vol: s.cov.indices.map { s.cov[$0][$0].squareRoot() },
                      frontier: s.f.frontier, minVariance: s.f.minVariance, maxSharpe: s.f.maxSharpe,
                      days: series.first?.count ?? 0)
+    }
+}
+
+// MARK: - FACT
+
+/// FACT: Fama-French factor regression of the security's daily excess total returns
+/// (CAPM, three-factor, Carhart four-factor, five-factor), with loadings, t-stats and alpha.
+struct FactorView: View {
+    let instrument: Instrument
+    let panelID: Int
+    @Environment(MarketStore.self) private var market
+    @Environment(Theme.self) private var theme
+
+    @AppStorage("fact.model") private var model: FactorModel = .ff3
+    @AppStorage("fact.window") private var window: StudyWindow = .y2
+
+    struct Output { var fit: LinearFit; var first: Int; var last: Int; var dataEnds: Int }
+    @State private var out: Output?
+    @State private var loading = false
+    @State private var failure: String?
+
+    private var supported: Bool { instrument.assetClass == .equity || instrument.assetClass == .index }
+    private var key: String { "\(instrument.symbol)|\(model.rawValue)|\(window.rawValue)" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Picker("Model", selection: $model) { ForEach(FactorModel.allCases, id: \.self) { Text($0.rawValue) } }
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 340)
+                Picker("Window", selection: $window) { ForEach([StudyWindow.y1, .y2, .y5], id: \.self) { Text($0.rawValue) } }
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 150)
+                Spacer()
+                if let o = out {
+                    ShareLink(item: CSVFile(name: "\(instrument.ticker)-\(model.rawValue.replacingOccurrences(of: " ", with: ""))-\(window.rawValue).csv", text: csv(o)),
+                              preview: SharePreview("Factor loadings")) {
+                        Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
+                    }
+                    .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                }
+            }
+            .padding(8)
+            SectionBar(title: "\(instrument.ticker) · \(model.rawValue) · DAILY EXCESS TOTAL RETURNS",
+                       trailing: loading ? "LOADING FACTORS…" : out.map { "\($0.fit.n) DAYS · \(day($0.first)) → \(day($0.last))" })
+            if !supported {
+                EmptyNote(title: "Factor models describe stock returns", detail: "Load a US stock or ETF, e.g. MSFT FACT or SPY FACT.", icon: "function")
+            } else if let o = out {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        tiles(o.fit)
+                        loadings(o.fit)
+                        chart(o.fit).frame(height: 180).padding(.horizontal, 8)
+                        Text("Excess return (total return − 1-month T-bill) regressed on Fama-French factors from the Kenneth R. French Data Library, built from US stocks; data runs to \(day(o.dataEnds)), so the regression uses the overlap. Alpha is annualized ×252. |t| > 2 ≈ 95% significance; bars show ±1.96 standard errors.")
+                            .font(.ui(10)).foregroundStyle(Theme.faint).padding(.horizontal, 8).padding(.bottom, 8)
+                    }
+                }
+            } else if loading {
+                ProgressView().tint(Theme.accent).frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                EmptyNote(title: failure ?? "Not enough overlapping history", detail: "Try a longer window.", icon: "function")
+            }
+        }
+        .task(id: key) { await compute() }
+    }
+
+    private func day(_ d: Int) -> String { String(format: "%04d-%02d-%02d", d / 10000, d / 100 % 100, d % 100) }
+
+    private func tiles(_ f: LinearFit) -> some View {
+        let a = f.terms[0]
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: 4), spacing: 1) {
+            StatTile(key: "ALPHA (ANNUAL)", value: percent(a.coefficient * 252, digits: 2), sub: String(format: "t %.2f%@", a.t, abs(a.t) > 2 ? " · SIGNIFICANT" : ""), color: theme.tint(a.coefficient))
+            StatTile(key: "MARKET BETA", value: String(format: "%.3f", f.terms[1].coefficient), sub: String(format: "t %.1f", f.terms[1].t), color: Theme.accent)
+            StatTile(key: "R² / ADJ. R²", value: String(format: "%.3f", f.r2), sub: String(format: "ADJUSTED %.3f", f.adjustedR2))
+            StatTile(key: "RESIDUAL VOL", value: String(format: "%.1f%%", f.residualSD * 252.0.squareRoot() * 100), sub: "ANNUALIZED, UNEXPLAINED")
+        }
+        .padding(.horizontal, 8)
+    }
+
+    private func loadings(_ f: LinearFit) -> some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("FACTOR").frame(width: 70, alignment: .leading)
+                Text("MEANING").frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(["LOADING", "STD ERR", "T-STAT"], id: \.self) { Text($0).frame(width: 84, alignment: .trailing) }
+            }
+            .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
+            ForEach(Array(f.terms.dropFirst().enumerated()), id: \.offset) { n, t in
+                HStack {
+                    Text(t.name).font(.mono(11, .bold)).foregroundStyle(Theme.text).frame(width: 70, alignment: .leading)
+                    Text(FactorModel.describe(t.name)).font(.ui(11)).foregroundStyle(Theme.dim).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                    Group {
+                        Text(String(format: "%+.3f", t.coefficient)).foregroundStyle(abs(t.t) > 2 ? Theme.text : Theme.dim)
+                        Text(String(format: "%.3f", t.standardError)).foregroundStyle(Theme.dim)
+                        Text(String(format: "%.2f", t.t) + (abs(t.t) > 2.58 ? " **" : abs(t.t) > 1.96 ? " *" : "")).foregroundStyle(abs(t.t) > 1.96 ? Theme.accent : Theme.dim)
+                    }
+                    .font(.mono(11)).monospacedDigit().frame(width: 84, alignment: .trailing)
+                }
+                .padding(.horizontal, 8).padding(.vertical, 5).rowBackground(n)
+            }
+        }
+    }
+
+    private func chart(_ f: LinearFit) -> some View {
+        let terms = Array(f.terms.dropFirst())
+        return Chart {
+            ForEach(Array(terms.enumerated()), id: \.offset) { _, t in
+                BarMark(x: .value("Factor", t.name), y: .value("Loading", t.coefficient))
+                    .foregroundStyle(t.coefficient >= 0 ? Theme.accent.opacity(0.75) : Theme.warn.opacity(0.75))
+                RuleMark(x: .value("Factor", t.name), yStart: .value("Low", t.coefficient - 1.96 * t.standardError),
+                         yEnd: .value("High", t.coefficient + 1.96 * t.standardError))
+                    .foregroundStyle(Theme.text).lineStyle(.init(lineWidth: 1))
+            }
+            RuleMark(y: .value("Zero", 0)).foregroundStyle(Theme.faint)
+        }
+        .chartXAxis { AxisMarks { AxisValueLabel().foregroundStyle(Theme.dim) } }
+        .chartYAxis { AxisMarks { AxisGridLine().foregroundStyle(Theme.rule); AxisValueLabel().foregroundStyle(Theme.dim) } }
+    }
+
+    private func csv(_ o: Output) -> String {
+        CSV.make(header: ["Term", "Coefficient", "Std error", "t-stat"],
+                 rows: o.fit.terms.map { [$0.name, CSV.number($0.coefficient, digits: 8), CSV.number($0.standardError, digits: 8), CSV.number($0.t, digits: 4)] }
+                     + [["R2", CSV.number(o.fit.r2), "", ""], ["Adjusted R2", CSV.number(o.fit.adjustedR2), "", ""], ["Observations", String(o.fit.n), "", ""],
+                        ["Model", model.rawValue, "", ""], ["From", day(o.first), "", ""], ["To", day(o.last), "", ""]])
+    }
+
+    private func compute() async {
+        guard supported else { out = nil; return }
+        loading = true
+        defer { loading = false }
+        failure = nil
+        do {
+            async let table = market.factors(model)
+            async let bars = market.history(for: instrument, range: window.yahoo, weekly: false, adjusted: true)
+            let (t, candles) = try await (table, bars)
+            guard !Task.isCancelled else { return }
+            guard let rf = t.column("RF") else { out = nil; failure = "Factor file has no risk-free column"; return }
+            let idx = model.factors.compactMap { t.column($0) }
+            guard idx.count == model.factors.count else { out = nil; failure = "Factor file is missing a column"; return }
+            var y: [Double] = [], cols = Array(repeating: [Double](), count: idx.count), dates: [Int] = []
+            for (prev, cur) in zip(candles, candles.dropFirst()) where prev.close > 0 {
+                let d = yyyymmdd(cur.time)
+                guard let row = t.rows[d] else { continue }
+                y.append(cur.close / prev.close - 1 - row[rf])
+                for (k, c) in idx.enumerated() { cols[k].append(row[c]) }
+                dates.append(d)
+            }
+            guard let fit = LinearFit.ols(y: y, columns: cols, names: model.factors), let first = dates.first, let last = dates.last else {
+                out = nil; failure = "Not enough days overlap the factor data"; return
+            }
+            out = Output(fit: fit, first: first, last: last, dataEnds: t.lastDate)
+        } catch {
+            out = nil
+            failure = "Couldn't load factor data: \(error.localizedDescription)"
+        }
+    }
+}
+
+// MARK: - DVD
+
+/// DVD: ten years of cash dividends: trailing yield, frequency, 5-year growth, annual totals and every payment.
+struct DividendView: View {
+    let instrument: Instrument
+    let panelID: Int
+    @Environment(MarketStore.self) private var market
+    @Environment(Theme.self) private var theme
+
+    @State private var divs: [Dividend] = []
+    @State private var price: Double?
+    @State private var loading = true
+    @State private var failure: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionBar(title: "\(instrument.ticker) · CASH DIVIDENDS · 10 YEARS", trailing: loading ? "LOADING…" : "\(divs.count) PAYMENTS")
+            if let s = DividendSummary.of(divs, price: market.quotes[instrument.symbol]?.last ?? price) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Spacer()
+                            ShareLink(item: CSVFile(name: "\(instrument.ticker)-dividends.csv", text: csv), preview: SharePreview("Dividends")) {
+                                Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
+                            }
+                            .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                        }
+                        .padding(.horizontal, 8).padding(.top, 6)
+                        tiles(s)
+                        annual(s).frame(height: 170).padding(.horizontal, 8)
+                        payments
+                    }
+                }
+            } else if loading {
+                ProgressView().tint(Theme.accent).frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                EmptyNote(title: failure ?? "No cash dividends in the last 10 years", detail: failure == nil ? "\(instrument.ticker) hasn't paid a dividend in this period." : nil, icon: "dollarsign.circle")
+            }
+        }
+        .task(id: instrument.symbol) {
+            loading = true
+            defer { loading = false }
+            do {
+                let r = try await market.dividends(for: instrument)
+                divs = r.dividends; price = r.price; failure = nil
+            } catch { failure = "Couldn't load dividends: \(error.localizedDescription)" }
+        }
+    }
+
+    /// Dividends per share: cents precision, more only for sub-cent payouts.
+    private func amount(_ v: Double) -> String { String(format: v >= 0.1 ? "%.2f" : "%.4f", v) }
+
+    /// The 10-year window starts mid-year, so the first year is usually partial: leave it out.
+    private func fullYears(_ s: DividendSummary) -> [(year: Int, total: Double)] {
+        guard let first = s.annual.first, s.paymentsPerYear > 0 else { return s.annual }
+        let cal = Calendar(identifier: .gregorian)
+        let count = divs.filter { cal.component(.year, from: $0.date) == first.year }.count
+        return count < s.paymentsPerYear ? Array(s.annual.dropFirst()) : s.annual
+    }
+
+    private func frequency(_ n: Int) -> String {
+        switch n { case 12: "MONTHLY"; case 4: "QUARTERLY"; case 2: "SEMIANNUAL"; case 1: "ANNUAL"; case 0: "IRREGULAR"; default: "\(n)× A YEAR" }
+    }
+
+    private func tiles(_ s: DividendSummary) -> some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: 4), spacing: 1) {
+            StatTile(key: "TRAILING 12M", value: amount(s.trailing12M), sub: "PER SHARE", color: Theme.accent)
+            StatTile(key: "YIELD (TTM)", value: s.yield.map { String(format: "%.2f%%", $0 * 100) } ?? "—", sub: "ON THE LAST PRICE")
+            StatTile(key: "5Y GROWTH", value: s.growth5Y.map { percent($0, digits: 1) } ?? "—", sub: "CAGR, COMPLETE YEARS", color: theme.tint(s.growth5Y))
+            StatTile(key: "FREQUENCY", value: frequency(s.paymentsPerYear),
+                     sub: divs.last.map { "LAST \(amount($0.amount)) · \($0.date.formatted(.dateTime.month(.abbreviated).day().year()).uppercased())" })
+        }
+        .padding(.horizontal, 8)
+    }
+
+    private func annual(_ s: DividendSummary) -> some View {
+        let thisYear = Calendar(identifier: .gregorian).component(.year, from: .now)
+        return Chart {
+            ForEach(fullYears(s), id: \.year) { a in
+                BarMark(x: .value("Year", String(a.year)), y: .value("Dividends", a.total))
+                    .foregroundStyle(a.year == thisYear ? Theme.accent.opacity(0.35) : Theme.accent.opacity(0.8))
+                    .annotation(position: .top) { Text(amount(a.total)).font(.mono(8)).foregroundStyle(Theme.dim) }
+            }
+        }
+        .chartXAxis { AxisMarks { AxisValueLabel().foregroundStyle(Theme.dim) } }
+        .chartYAxis { AxisMarks { AxisGridLine().foregroundStyle(Theme.rule); AxisValueLabel().foregroundStyle(Theme.dim) } }
+    }
+
+    private var payments: some View {
+        let rows = Array(divs.enumerated().reversed())
+        return VStack(spacing: 0) {
+            HStack {
+                Text("EX-DATE").frame(maxWidth: .infinity, alignment: .leading)
+                Text("AMOUNT").frame(width: 100, alignment: .trailing)
+                Text("CHANGE").frame(width: 100, alignment: .trailing)
+            }
+            .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
+            ForEach(Array(rows.enumerated()), id: \.offset) { n, e in
+                let change = e.offset > 0 ? e.element.amount / divs[e.offset - 1].amount - 1 : nil
+                HStack {
+                    Text(e.element.date.formatted(.dateTime.year().month(.abbreviated).day())).foregroundStyle(Theme.text).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(amount(e.element.amount)).foregroundStyle(Theme.text).frame(width: 100, alignment: .trailing)
+                    Text(change.map { abs($0) < 0.0005 ? "—" : percent($0) } ?? "—").foregroundStyle(change.map { abs($0) < 0.0005 ? Theme.faint : theme.tint($0) } ?? Theme.faint)
+                        .frame(width: 100, alignment: .trailing)
+                }
+                .font(.mono(11)).monospacedDigit().padding(.horizontal, 8).padding(.vertical, 4).rowBackground(n)
+            }
+        }
+    }
+
+    private var csv: String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withFullDate]
+        return CSV.make(header: ["Ex-date", "Amount"], rows: divs.map { [f.string(from: $0.date), CSV.number($0.amount)] })
     }
 }

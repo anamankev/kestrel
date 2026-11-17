@@ -1178,3 +1178,58 @@ struct ScreenFallbackTests {
         #expect(abs((rows.first?.roe ?? 0) - 70.0 / 300) < 1e-12)
     }
 }
+
+struct FactorTests {
+    @Test func unzipsAndParsesAFrenchFile() throws {
+        let zip = try #require(Data(base64Encoded: "UEsDBBQAAAAIAK5ycV3w2s7pjQAAAMsAAAAFAAAAZi5jc3ZFjUEKgzAURPc5xRzgKzGi6LItSBcVSuwFvprWULFgIqW3r9JId4+Zx8xtsA53Oxq82aGbDXvTo/1gcXZ6wA8GSqpcljjp5oqePbfsTCwE1U8f6Yqa+kjn+kK6Ej9TlQQgkrFKAsg0QCY3wJokQU7lLuehSlVIiuIvCxymaeERFXf+Nbv9fVvJCMkqiS9QSwECFAMUAAAACACucnFd8NrO6Y0AAADLAAAABQAAAAAAAAAAAAAAgAEAAAAAZi5jc3ZQSwUGAAAAAAEAAQAzAAAAsAAAAAAA"))
+        let csv = try #require(String(data: try Zip.firstFile(zip), encoding: .utf8))
+        let t = FactorTable.parse(csv)
+        #expect(t.names == ["Mkt-RF", "SMB", "HML", "RF"])
+        #expect(t.rows.count == 2 && t.lastDate == 20260930)          // stops before the annual block
+        #expect(abs(t.rows[20260930]![2] - (-0.0088)) < 1e-12)
+        let mom = FactorTable(names: ["Mom"], rows: [20260930: [0.0032]])
+        let m = t.merged(with: mom)
+        #expect(m.names.last == "Mom" && m.rows.count == 1 && m.rows[20260930]!.count == 5)
+        #expect(throws: Zip.ZipError.self) { try Zip.firstFile(Data("not a zip at all, honestly".utf8)) }
+    }
+
+    @Test func multipleRegressionRecoversLoadings() throws {
+        let n = 300
+        let a = (0..<n).map { sin(Double($0) * 0.3) * 0.01 }
+        let b = (0..<n).map { cos(Double($0) * 0.71) * 0.01 }
+        let c = (0..<n).map { sin(Double($0) * 1.37 + 1) * 0.01 }
+        let e = (0..<n).map { sin(Double($0) * 5.1) * 0.0005 }
+        let y = (0..<n).map { 0.0002 + 1.1 * a[$0] + 0.4 * b[$0] - 0.3 * c[$0] + e[$0] }
+        let f = try #require(LinearFit.ols(y: y, columns: [a, b, c], names: ["A", "B", "C"]))
+        #expect(f.terms.map(\.name) == ["Alpha", "A", "B", "C"])
+        #expect(abs(f.terms[1].coefficient - 1.1) < 0.01 && abs(f.terms[2].coefficient - 0.4) < 0.01 && abs(f.terms[3].coefficient + 0.3) < 0.01)
+        #expect(abs(f.terms[0].coefficient - 0.0002) < 0.0001 && f.r2 > 0.99 && f.adjustedR2 <= f.r2)
+        // Agrees with the single-regressor OLS.
+        let one = try #require(LinearFit.ols(y: y, columns: [a], names: ["A"]))
+        let simple = try #require(Regression.ols(y: y, x: a))
+        #expect(abs(one.terms[1].coefficient - simple.beta) < 1e-9 && abs(one.terms[1].standardError - simple.betaSE) < 1e-9)
+        #expect(LinearFit.ols(y: y, columns: [a, a], names: ["A", "A2"]) == nil)   // collinear
+    }
+
+    @Test func dividendSummary() throws {
+        func d(_ s: String) -> Date { ISO8601DateFormatter().date(from: s + "T12:00:00Z")! }
+        var divs: [Dividend] = []
+        for (year, amount) in [(2019, 0.40), (2020, 0.41), (2021, 0.42), (2022, 0.44), (2023, 0.46), (2024, 0.485), (2025, 0.51)] {
+            for m in ["03", "06", "09", "11"] { divs.append(Dividend(date: d("\(year)-\(m)-14"), amount: amount)) }
+        }
+        let s = try #require(DividendSummary.of(divs, price: 68, now: d("2026-01-10")))
+        #expect(s.paymentsPerYear == 4)
+        #expect(abs(s.trailing12M - 0.51 * 4) < 1e-9 && abs(s.yield! - 2.04 / 68) < 1e-9)
+        #expect(abs(s.growth5Y! - (pow(0.51 / 0.41, 0.2) - 1)) < 1e-9)
+        #expect(DividendSummary.of([], price: 10) == nil)
+    }
+
+    @Test func yahooAdjustedClosesAndDividends() throws {
+        let json = #"{"chart":{"result":[{"meta":{"regularMarketPrice":99},"timestamp":[1,2],"events":{"dividends":{"2":{"amount":0.5,"date":2}}},"indicators":{"quote":[{"open":[100,100],"high":[101,101],"low":[99,99],"close":[100,100],"volume":[1,1]}],"adjclose":[{"adjclose":[99.5,100]}]}}]}}"#
+        let raw = try YahooChart.decode(Data(json.utf8), adjusted: false)
+        let adj = try YahooChart.decode(Data(json.utf8), adjusted: true)
+        #expect(raw.candles[0].close == 100 && adj.candles[0].close == 99.5 && abs(adj.candles[0].high - 100.495) < 1e-9)
+        #expect(adj.dividends == [Dividend(date: Date(timeIntervalSince1970: 2), amount: 0.5)])
+        #expect(YahooChart.url(symbol: "KO", range: "1y", interval: "1d", events: true).query?.contains("events=div") == true)
+    }
+}

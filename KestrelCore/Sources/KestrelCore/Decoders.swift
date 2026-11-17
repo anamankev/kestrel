@@ -158,14 +158,24 @@ public struct ChartSeries: Sendable, Equatable {
     public var instrumentType: String?
     public var quote: Quote
     public var candles: [Candle]
+    /// Cash dividends (ex-date, amount per share), when requested with `events: true`.
+    public var dividends: [Dividend] = []
+}
+
+public struct Dividend: Sendable, Equatable, Hashable {
+    public var date: Date
+    public var amount: Double
+    public init(date: Date, amount: Double) { self.date = date; self.amount = amount }
 }
 
 public enum YahooChart {
-    public static func url(symbol: String, range: String, interval: String) -> URL {
+    /// - Parameter events: also return dividends and splits (and dividend-adjusted closes).
+    public static func url(symbol: String, range: String, interval: String, events: Bool = false) -> URL {
         var c = URLComponents(string: "https://query1.finance.yahoo.com/v8/finance/chart/")!
         c.path += symbol
         c.queryItems = [.init(name: "range", value: range), .init(name: "interval", value: interval),
                         .init(name: "includePrePost", value: "false")]
+        if events { c.queryItems?.append(.init(name: "events", value: "div,splits")) }
         return c.url!
     }
 
@@ -175,7 +185,10 @@ public enum YahooChart {
         let meta: Meta
         let timestamp: [Double]?
         let indicators: Ind
+        let events: Events?
     }
+    private struct Events: Decodable { let dividends: [String: Div]? }
+    private struct Div: Decodable { let amount: Double; let date: Double }
     private struct Meta: Decodable {
         let currency: String?
         let fullExchangeName: String?
@@ -192,7 +205,8 @@ public enum YahooChart {
         let fiftyTwoWeekLow: Double?
         let regularMarketTime: Double?
     }
-    private struct Ind: Decodable { let quote: [Q]? }
+    private struct Ind: Decodable { let quote: [Q]?; let adjclose: [Adj]? }
+    private struct Adj: Decodable { let adjclose: [Double?]? }
     private struct Q: Decodable {
         let open, high, low, close, volume: [Double?]?
     }
@@ -201,18 +215,25 @@ public enum YahooChart {
 
     /// - Parameter intraday: when true, `previousClose` is yesterday's close (for day change);
     ///   otherwise it is the close before the chart window.
-    public static func decode(_ data: Data, intraday: Bool = true) throws -> ChartSeries {
+    /// - Parameter adjusted: scale each bar by adjclose / close, so closes include reinvested
+    ///   dividends (total return). Needs a URL built with `events: true`.
+    public static func decode(_ data: Data, intraday: Bool = true, adjusted: Bool = false) throws -> ChartSeries {
         guard let r = try JSONDecoder().decode(Root.self, from: data).chart.result?.first else { throw DecodeError.noResult }
         let m = r.meta
         var candles: [Candle] = []
+        let adj = adjusted ? r.indicators.adjclose?.first?.adjclose : nil
         if let ts = r.timestamp, let q = r.indicators.quote?.first {
             for (i, t) in ts.enumerated() {
                 guard let o = q.open?[safe: i] ?? nil, let h = q.high?[safe: i] ?? nil,
                       let l = q.low?[safe: i] ?? nil, let c = q.close?[safe: i] ?? nil else { continue }
-                candles.append(Candle(time: Date(timeIntervalSince1970: t), open: o, high: h, low: l, close: c,
+                var k = 1.0
+                if let a = adj?[safe: i] ?? nil, c > 0, a > 0 { k = a / c }
+                candles.append(Candle(time: Date(timeIntervalSince1970: t), open: o * k, high: h * k, low: l * k, close: c * k,
                                       volume: (q.volume?[safe: i] ?? nil) ?? 0))
             }
         }
+        let dividends = (r.events?.dividends?.values.map { Dividend(date: Date(timeIntervalSince1970: $0.date), amount: $0.amount) } ?? [])
+            .filter { $0.amount > 0 }.sorted { $0.date < $1.date }
         guard let last = m.regularMarketPrice ?? candles.last?.close else { throw DecodeError.noPrice }
         let quote = Quote(last: last,
                           previousClose: intraday ? (m.previousClose ?? m.chartPreviousClose) : m.chartPreviousClose,
@@ -220,7 +241,7 @@ public enum YahooChart {
                           high52: m.fiftyTwoWeekHigh, low52: m.fiftyTwoWeekLow,
                           time: m.regularMarketTime.map { Date(timeIntervalSince1970: $0) } ?? .now)
         return ChartSeries(name: m.longName ?? m.shortName, exchange: m.fullExchangeName, currency: m.currency,
-                           instrumentType: m.instrumentType, quote: quote, candles: candles)
+                           instrumentType: m.instrumentType, quote: quote, candles: candles, dividends: dividends)
     }
 }
 
