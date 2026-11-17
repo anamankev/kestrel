@@ -3,9 +3,19 @@
 A native SwiftUI market terminal built around a command line: type `AAPL GP`, `BTC DEPTH` or `WEI`, press GO.
 It uses live data from free public sources and has paper trading built in.
 
+![Kestrel on iPad: portfolio risk, monitor, live order book and news](docs/screenshots/overview.png)
+
+| Options monitor (`BTC OMON`) | Relative performance (`NVDA GP` VS SPX) |
+|---|---|
+| ![OMON](docs/screenshots/omon.png) | ![Chart compare](docs/screenshots/chart-vs-spx.png) |
+| **US economy (`ECO`)** | **History and stats (`SPY HP`)** |
+| ![ECO](docs/screenshots/eco.png) | ![HP](docs/screenshots/hp.png) |
+
 ## Run
 Open `Kestrel.xcodeproj` in Xcode 26+, pick an **iPad simulator** or **My Mac**, then press ⌘R.
-Core logic tests: `cd KestrelCore && swift test` (53 tests).
+Tests: `cd KestrelCore && swift test` (53 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
+(7 app tests: workspace routing, hotspots, pages, persistence regressions, formatting). CI runs both plus an iPad build
+(`.github/workflows/ci.yml`).
 
 ## Functions
 | Security | Markets | Trading |

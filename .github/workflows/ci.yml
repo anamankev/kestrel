@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    # Needs Xcode 26+ (Swift 6 default actor isolation, iOS/macOS 26 SDKs).
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+      - name: Core tests (KestrelCore)
+        run: swift test --package-path KestrelCore
+      - name: App tests (macOS host)
+        run: xcodebuild test -project Kestrel.xcodeproj -scheme Kestrel -destination 'platform=macOS' CODE_SIGN_IDENTITY=- | tail -n 30
+      - name: iPad build (simulator)
+        run: xcodebuild build -project Kestrel.xcodeproj -scheme Kestrel -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO | tail -n 5

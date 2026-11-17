@@ -191,6 +191,9 @@ struct QuoteRow: View {
         .padding(.horizontal, 8)
         .frame(height: 26)
         .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(i.ticker), \(market.displayName(i)), last \(Fmt.price(q?.last, i.assetClass)), \(Fmt.pct(q?.changePercent))")
+        .accessibilityAddTraits(.isButton)
         .onTapGesture { ws.link(i, from: panelID) }
         .contextMenu {
             ForEach([TerminalFunction.des, .fa, .evts, .gp, .hp, .depth, .tas, .cn, .omon, .trade], id: \.self) { f in

@@ -18,14 +18,18 @@ import UserNotifications
         var alerts: AlertBook
     }
 
-    @ObservationIgnored private let url: URL = {
+    @ObservationIgnored private let url: URL
+
+    static let defaultURL: URL = {
         let dir = URL.applicationSupportDirectory.appending(path: "Kestrel", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appending(path: "user-data.json")
     }()
     @ObservationIgnored private var askedForNotifications = false
 
-    init() {
+    /// - Parameter url: storage location (tests pass a temporary file).
+    init(url: URL = UserData.defaultURL) {
+        self.url = url
         // Build the complete state in locals, then assign once: init must never write to disk.
         var lists = [Watchlist.core]
         var active = lists[0].id

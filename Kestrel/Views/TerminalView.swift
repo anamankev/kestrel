@@ -357,7 +357,7 @@ struct PanelView: View {
             if panel.canGoBack {
                 Button { ws.back(panel.id) } label: {
                     Image(systemName: "chevron.left").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.dim)
-                }.buttonStyle(.plain).help("Back (⌘[)")
+                }.buttonStyle(.plain).help("Back (⌘[)").accessibilityLabel("Back")
             }
             Text(c.function.rawValue).font(.mono(11, .heavy)).foregroundStyle(Theme.accent)
             if let i = c.instrument {
@@ -379,6 +379,7 @@ struct PanelView: View {
             }
             .buttonStyle(.plain)
             .help("Maximize (⌘↩)")
+            .accessibilityLabel(ws.maximized == panel.id ? "Restore panel" : "Maximize panel")
         }
         .padding(.horizontal, 8)
         .frame(height: 28)
@@ -472,7 +473,7 @@ struct FunctionKeyBar: View {
             Spacer(minLength: 8)
             PagesMenu()
             Picker("Layout", selection: $ws.layout) {
-                ForEach(PanelLayout.allCases) { l in Image(systemName: l.symbol).tag(l) }
+                ForEach(PanelLayout.allCases) { l in Image(systemName: l.symbol).accessibilityLabel("\(l.count) panels").tag(l) }
             }
             .pickerStyle(.segmented)
             .frame(width: 150)
@@ -482,6 +483,7 @@ struct FunctionKeyBar: View {
             }
             .toggleStyle(.button)
             .help("Colour-vision-safe up/down palette")
+            .accessibilityLabel("Colour-vision-safe colours")
         }
         .padding(.horizontal, 10)
         .frame(height: 36)
