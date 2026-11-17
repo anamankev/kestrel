@@ -42,6 +42,14 @@ import KestrelCore
         fetchedAt["TOP"] = .now
     }
 
+    /// Everything loaded so far (wires plus any company feeds opened), newest first, deduplicated.
+    var pool: [NewsItem] {
+        var seen = Set<String>()
+        return (top + company.values.flatMap { $0 })
+            .filter { seen.insert($0.title.lowercased()).inserted }
+            .sorted { ($0.published ?? .distantPast) > ($1.published ?? .distantPast) }
+    }
+
     func loadCompany(_ i: Instrument, force: Bool = false) async {
         guard force || !fresh(i.symbol) else { return }
         var c = URLComponents(string: "https://feeds.finance.yahoo.com/rss/2.0/headline")!

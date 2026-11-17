@@ -795,3 +795,35 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(StrategyAnalysis(legs: fly).netPremium == 0)
     }
 }
+
+@Suite struct NewsQueryTests {
+    @Test func termsAreAndedAtWordStarts() {
+        let q = NewsQuery("fed rate")
+        #expect(q.matches("Fed signals rates stay higher"))
+        #expect(!q.matches("Fed holds steady"))
+        #expect(!NewsQuery("ai").matches("CEO said demand is strong"))
+        #expect(NewsQuery("ai").matches("AI chips lift Nvidia"))
+    }
+
+    @Test func phrasesAndExclusions() {
+        #expect(NewsQuery("\"interest rates\"").matches("Interest rates hit a new high"))
+        #expect(!NewsQuery("\"interest rates\"").matches("Rates of interest"))
+        #expect(!NewsQuery("bitcoin -etf").matches("Bitcoin ETF inflows surge"))
+        #expect(NewsQuery("bitcoin -etf").matches("Bitcoin slips below 65,000"))
+        #expect(!NewsQuery("tariffs -\"trade war\"").matches("Tariffs revive trade war fears"))
+        #expect(NewsQuery("  ").isEmpty)
+    }
+
+    @Test func accentAndCaseInsensitiveWithHighlights() {
+        let q = NewsQuery("societe")
+        let title = "Société Générale beats estimates"
+        #expect(q.matches(title))
+        #expect(q.highlights(in: title).map { String(title[$0]) } == ["Société"])
+    }
+
+    @Test func tagsMentionedSecurities() {
+        let tickers = NewsQuery.mentions("Nvidia and MSFT rally while Apple's shares slip").map(\.ticker)
+        #expect(tickers.contains("NVDA") && tickers.contains("MSFT") && tickers.contains("AAPL"))
+        #expect(NewsQuery.mentions("Pineapple prices rise").isEmpty)
+    }
+}

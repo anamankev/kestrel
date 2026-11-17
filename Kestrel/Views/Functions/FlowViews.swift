@@ -166,30 +166,41 @@ struct TimeAndSalesView: View {
 struct NewsView: View {
     let instrument: Instrument?
     @Environment(NewsService.self) private var news
+    @Environment(Workspace.self) private var ws
     @Environment(\.openURL) private var openURL
 
+    enum Window: String, CaseIterable {
+        case h1 = "1H", h6 = "6H", d1 = "24H", all = "ALL"
+        var seconds: Double? { ["1H": 3600, "6H": 21_600, "24H": 86_400][rawValue] }
+    }
+
+    @State private var text = ""
+    @State private var window: Window = .all
+    @State private var hidden: Set<String> = []
+    @FocusState private var searching: Bool
+
     var body: some View {
-        let items = instrument.map { news.company[$0.symbol] ?? [] } ?? news.top
-        Group {
+        // Company news searches its own feed; TOP searches every headline loaded so far.
+        let base = instrument.map { news.company[$0.symbol] ?? [] } ?? (text.isEmpty ? news.top : news.pool)
+        let query = NewsQuery(text)
+        let cutoff = window.seconds.map { Date().addingTimeInterval(-$0) }
+        let items = base.filter { item in
+            !hidden.contains(item.source)
+                && (cutoff == nil || (item.published ?? .distantPast) >= cutoff!)
+                && (query.isEmpty || query.matches(item.title))
+        }
+        let sources = Array(Set(base.map(\.source))).sorted()
+        VStack(spacing: 0) {
+            toolbar(sources: sources, shown: items.count, of: base.count)
             if items.isEmpty {
-                if news.loading { ProgressView().tint(Theme.accent).frame(maxWidth: .infinity, maxHeight: .infinity) }
-                else { EmptyNote(title: "No headlines yet", icon: "newspaper") }
+                if news.loading && base.isEmpty { ProgressView().tint(Theme.accent).frame(maxWidth: .infinity, maxHeight: .infinity) }
+                else if base.isEmpty { EmptyNote(title: "No headlines yet", icon: "newspaper") }
+                else { EmptyNote(title: "No headlines match", detail: "Try fewer words, a wider window, or more sources.", icon: "magnifyingglass") }
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(Array(items.prefix(120).enumerated()), id: \.element.id) { n, item in
-                            Button { openURL(item.link) } label: {
-                                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                    Text(item.published?.ago ?? "").font(.mono(10)).foregroundStyle(Theme.dim).frame(width: 30, alignment: .trailing)
-                                    Text(item.source).font(.mono(9, .bold)).foregroundStyle(Theme.warn).frame(width: 64, alignment: .leading)
-                                    Text(item.title).font(.ui(12, .medium)).foregroundStyle(Theme.text).multilineTextAlignment(.leading)
-                                    Spacer(minLength: 0)
-                                }
-                                .padding(.horizontal, 8).padding(.vertical, 6)
-                                .contentShape(.rect)
-                            }
-                            .buttonStyle(.plain)
-                            .rowBackground(n)
+                        ForEach(Array(items.prefix(150).enumerated()), id: \.element.id) { n, item in
+                            row(item, query).rowBackground(n)
                         }
                     }
                 }
@@ -201,6 +212,82 @@ struct NewsView: View {
                 try? await Task.sleep(for: .seconds(120))
             }
         }
+    }
+
+    private func toolbar(sources: [String], shown: Int, of total: Int) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.dim)
+                TextField("", text: $text, prompt: Text("Search headlines: fed rate  \"rate cut\"  -crypto").foregroundStyle(Theme.faint))
+                    .font(.mono(12)).foregroundStyle(Theme.text).textFieldStyle(.plain)
+                    .autocorrectionDisabled()
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                    .focused($searching)
+                    .onChange(of: text) { if text.count > NewsQuery.maxLength { text = String(text.prefix(NewsQuery.maxLength)) } }
+                if !text.isEmpty {
+                    Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.dim) }.buttonStyle(.plain)
+                }
+                Text("\(shown) OF \(total)").font(.mono(9, .bold)).foregroundStyle(Theme.dim).fixedSize()
+            }
+            .padding(.horizontal, 8).frame(height: 30)
+            .background(Theme.canvas)
+            .overlay(Rectangle().stroke(searching ? Theme.accent : Theme.rule))
+            HStack(spacing: 4) {
+                ForEach(Window.allCases, id: \.self) { w in chip(w.rawValue, on: window == w) { window = w } }
+                Divider().frame(height: 14).padding(.horizontal, 4)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 4) {
+                        ForEach(sources, id: \.self) { s in
+                            chip(s, on: !hidden.contains(s)) { if hidden.contains(s) { hidden.remove(s) } else { hidden.insert(s) } }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(8)
+    }
+
+    private func chip(_ label: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label).font(.mono(9, .bold)).foregroundStyle(on ? Theme.canvas : Theme.dim)
+                .padding(.horizontal, 7).frame(height: 20)
+                .background(on ? Theme.accent.opacity(0.85) : Theme.header, in: .rect(cornerRadius: 2))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func row(_ item: NewsItem, _ query: NewsQuery) -> some View {
+        let tags = instrument == nil ? Array(NewsQuery.mentions(item.title).prefix(3)) : []
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(item.published?.ago ?? "").font(.mono(10)).foregroundStyle(Theme.dim).frame(width: 30, alignment: .trailing)
+            Text(item.source).font(.mono(9, .bold)).foregroundStyle(Theme.warn).frame(width: 64, alignment: .leading)
+            Button { openURL(item.link) } label: {
+                Text(highlighted(item.title, query)).font(.ui(12, .medium)).foregroundStyle(Theme.text)
+                    .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            ForEach(tags) { i in
+                Button { ws.run("\(i.ticker) DES") } label: {
+                    Text(i.ticker).font(.mono(9, .bold)).foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 5).frame(height: 16).overlay(RoundedRectangle(cornerRadius: 2).stroke(Theme.accent.opacity(0.5)))
+                }
+                .buttonStyle(.plain)
+                .help("Load \(i.name)")
+            }
+        }
+        .padding(.horizontal, 8).padding(.vertical, 6)
+    }
+
+    private func highlighted(_ title: String, _ query: NewsQuery) -> AttributedString {
+        var a = AttributedString(title)
+        for r in query.highlights(in: title) {
+            guard let lo = AttributedString.Index(r.lowerBound, within: a), let hi = AttributedString.Index(r.upperBound, within: a) else { continue }
+            a[lo..<hi].foregroundColor = Theme.canvas
+            a[lo..<hi].backgroundColor = Theme.warn
+        }
+        return a
     }
 }
 

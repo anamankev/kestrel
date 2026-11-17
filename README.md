@@ -23,14 +23,14 @@ Sign in or create an account on the first screen. Accounts stay on the device (s
 
 ## Run
 Open `Kestrel.xcodeproj` in Xcode 26+, pick an **iPad simulator** or **My Mac**, then press ⌘R.
-Tests: `cd KestrelCore && swift test` (84 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
+Tests: `cd KestrelCore && swift test` (88 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
 (9 app tests: accounts, workspace routing, hotspots, pages, persistence regressions, formatting). CI runs both plus an iPad build
 (`.github/workflows/ci.yml`).
 
 ## Functions
 | Security | Markets | Trading |
 |---|---|---|
-| `DES` description (market cap, P/E) · `FA` 10-K financials · `EVTS` filings & earnings · `GP` chart (pan, trendlines, VS compare) · `HP` history + CSV · `BT` strategy backtest (SMA cross, RSI, Bollinger vs buy-and-hold: CAGR, Sharpe, drawdown, trades) · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure (tap a contract to trade it) · `OSA` option strategies (straddles, spreads, condors, butterflies: payoff at expiry and today, greeks, breakevens) · `CN` news | `W` editable watchlists · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `ECO` US economy · `CORR` correlation matrix (cross-asset or your watchlist) · `TOP` news | `TRADE` ticket: market, limit, stop and stop-limit (`SOL BUY`, or BTC/ETH options, long premium only) · `PORT` P&L, risk (beta, VaR, ES, net delta), equity curve · `BLOT` orders & fills · `ALRT` price alerts · `PREF` settings |
+| `DES` description (market cap, P/E) · `FA` 10-K financials · `EVTS` filings & earnings · `GP` chart (pan, trendlines, VS compare) · `HP` history + CSV · `BT` strategy backtest (SMA cross, RSI, Bollinger vs buy-and-hold: CAGR, Sharpe, drawdown, trades) · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure (tap a contract to trade it) · `OSA` option strategies (straddles, spreads, condors, butterflies: payoff at expiry and today, greeks, breakevens) · `CN` news | `W` editable watchlists · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `ECO` US economy · `CORR` correlation matrix (cross-asset or your watchlist) · `TOP` news with search (`"phrases"`, `-exclude`), source and time filters, and tappable tickers | `TRADE` ticket: market, limit, stop and stop-limit (`SOL BUY`, or BTC/ETH options, long premium only) · `PORT` P&L, risk (beta, VaR, ES, net delta), equity curve · `BLOT` orders & fills · `ALRT` price alerts · `PREF` settings |
 
 Type `n <GO>` to drill into numbered item n (list rows, DES functions). PAGES saves named layouts; each window (⌘N on Mac, Stage Manager on iPad) keeps its own panels.
 Keys: ⌘1–⌘6 focus a panel, ⌘[ back, ⌘↩ maximize, ⌘L layout, ↑↓/Tab for autocomplete, Esc to cancel.

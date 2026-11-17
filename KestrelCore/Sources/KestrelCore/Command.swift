@@ -51,7 +51,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         "G": .gp, "GIP": .gp, "GPO": .gp, "CHART": .gp, "Q": .des, "BOOK": .depth, "L2": .depth,
         "T&S": .tas, "TS": .tas, "N": .top, "NEWS": .top, "MON": .w, "WATCH": .w, "IMAP": .hmap,
         "MOV": .most, "FXC": .fx, "GLCO": .comd, "GOV": .rates, "BUY": .trade, "SELL": .trade,
-        "OMS": .trade, "ALERT": .alrt, "SETTINGS": .pref, "PDF": .pref, "FIN": .fa, "EVT": .evts, "HIST": .hp, "HISTORY": .hp, "EARN": .evts, "FILINGS": .evts, "ECON": .eco, "MACRO": .eco, "FINANCIALS": .fa, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help, "CORREL": .corr, "COR": .corr, "BTST": .bt, "BACKTEST": .bt, "STRAT": .osa, "PAYOFF": .osa,
+        "OMS": .trade, "ALERT": .alrt, "SETTINGS": .pref, "PDF": .pref, "FIN": .fa, "EVT": .evts, "HIST": .hp, "HISTORY": .hp, "EARN": .evts, "FILINGS": .evts, "ECON": .eco, "MACRO": .eco, "FINANCIALS": .fa, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help, "CORREL": .corr, "COR": .corr, "BTST": .bt, "BACKTEST": .bt, "STRAT": .osa, "PAYOFF": .osa, "NSE": .top, "SEARCH": .top,
     ]
 
     public static func from(_ token: String) -> TerminalFunction? {
