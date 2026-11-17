@@ -147,6 +147,7 @@ public enum CommandParser {
     public static func suggestions(for input: String, limit: Int = 8) -> [Suggestion] {
         let trimmed = input.uppercased()
         guard let last = trimmed.split(separator: " ").last.map(String.init), !trimmed.hasSuffix(" ") else { return [] }
+        if Int(last) != nil { return [] } // "3 <GO>" picks hotspot 3; don't suggest IBEX 35 & co.
         let head = String(trimmed.dropLast(last.count))
         let fns = TerminalFunction.allCases
             .filter { $0.rawValue.hasPrefix(last) }

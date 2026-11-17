@@ -470,6 +470,7 @@ struct FunctionKeyBar: View {
                 }
             }
             Spacer(minLength: 8)
+            PagesMenu()
             Picker("Layout", selection: $ws.layout) {
                 ForEach(PanelLayout.allCases) { l in Image(systemName: l.symbol).tag(l) }
             }
@@ -528,6 +529,44 @@ struct FillToast: View {
                 try? await Task.sleep(for: .seconds(4))
                 if visible == f { withAnimation { visible = nil } }
             }
+        }
+    }
+}
+
+
+/// Named layouts (like Launchpad views): save the current panels, recall them in one tap.
+struct PagesMenu: View {
+    @Environment(Workspace.self) private var ws
+    @State private var naming = false
+    @State private var name = ""
+    @State private var pages = Workspace.pages
+
+    var body: some View {
+        Menu {
+            Section("Pages") {
+                if pages.isEmpty { Text("No saved pages") }
+                ForEach(pages) { p in Button(p.name) { ws.open(p) } }
+            }
+            Button("Save current as…", systemImage: "plus") { name = ""; naming = true }
+            if !pages.isEmpty {
+                Menu("Delete") {
+                    ForEach(pages) { p in Button(p.name, role: .destructive) { Workspace.deletePage(p.name); pages = Workspace.pages } }
+                }
+            }
+        } label: {
+            Text("PAGES").font(.mono(10, .bold)).foregroundStyle(Theme.label)
+                .padding(.horizontal, 8).frame(height: 22)
+                .background(Theme.panel, in: .rect(cornerRadius: 2))
+                .overlay(RoundedRectangle(cornerRadius: 2).stroke(Theme.rule))
+        }
+        .menuStyle(.button).buttonStyle(.plain).fixedSize()
+        .onAppear { pages = Workspace.pages }
+        .alert("Save page", isPresented: $naming) {
+            TextField("Name (e.g. MORNING)", text: $name)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") { ws.savePage(name); pages = Workspace.pages }
+        } message: {
+            Text("Saves this window's layout and all six panels.")
         }
     }
 }

@@ -58,6 +58,7 @@ import Testing
         #expect(CommandParser.suggestions(for: "NV").first?.completion == "NVDA")
         #expect(CommandParser.suggestions(for: "AAPL D").map(\.completion).contains("AAPL DES"))
         #expect(CommandParser.suggestions(for: "AAPL ").isEmpty)
+        #expect(CommandParser.suggestions(for: "3").isEmpty)
     }
 }
 

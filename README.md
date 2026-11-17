@@ -12,6 +12,7 @@ Core logic tests: `cd KestrelCore && swift test` (53 tests).
 |---|---|---|
 | `DES` description (market cap, P/E) · `FA` 10-K financials · `EVTS` filings & earnings · `GP` chart (pan, trendlines, VS compare) · `HP` history + CSV · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure · `CN` news | `W` editable watchlists · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `ECO` US economy · `TOP` news | `TRADE` ticket (`SOL BUY`) · `PORT` P&L, risk (beta, VaR, ES), equity curve · `BLOT` orders & fills · `ALRT` price alerts · `PREF` settings |
 
+Type `n <GO>` to drill into numbered item n (list rows, DES functions). PAGES saves named layouts; each window (⌘N on Mac, Stage Manager on iPad) keeps its own panels.
 Keys: ⌘1–⌘6 focus a panel, ⌘[ back, ⌘↩ maximize, ⌘L layout, ↑↓/Tab for autocomplete, Esc to cancel.
 Tap a row to **link** that security into every security panel. Long-press a row for its functions.
 

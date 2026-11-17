@@ -9,18 +9,16 @@ struct KestrelApp: App {
     @State private var userData = UserData()
     @State private var fundamentals = FundamentalsService()
     @State private var macro = MacroService()
-    @State private var workspace = Workspace()
 
     var body: some Scene {
         WindowGroup {
-            TerminalView()
+            WindowRoot()
                 .environment(market)
                 .environment(news)
                 .environment(broker)
                 .environment(userData)
                 .environment(fundamentals)
                 .environment(macro)
-                .environment(workspace)
                 .environment(Theme.shared)
                 .preferredColorScheme(.dark)
                 #if os(macOS)
@@ -42,27 +40,61 @@ struct KestrelApp: App {
         .windowResizability(.contentMinSize)
         .windowStyle(.hiddenTitleBar)
         #endif
-        .commands { TerminalCommands(workspace: workspace) }
+        .commands { TerminalCommands() }
     }
 }
 
-/// Keyboard map: ⌘1–⌘6 focus a panel, ⌘[ goes back, ⌘↩ maximises, ⌘L cycles layouts.
+/// Each window owns its workspace (panels, layout, history), restored per window via scene
+/// storage, so a desk can run Kestrel across several monitors or Stage Manager windows.
+struct WindowRoot: View {
+    @SceneStorage("ws.panels") private var savedPanels = ""
+    @SceneStorage("ws.layout") private var savedLayout = ""
+    @State private var workspace: Workspace?
+
+    var body: some View {
+        Group {
+            if let workspace {
+                TerminalView()
+                    .environment(workspace)
+                    .focusedSceneValue(\.workspace, workspace)
+            } else {
+                Theme.canvas
+            }
+        }
+        .onAppear {
+            guard workspace == nil else { return }
+            let w = Workspace(saved: savedPanels, layout: savedLayout)
+            w.persist = { panels, layout in
+                savedPanels = panels
+                savedLayout = layout
+            }
+            workspace = w
+        }
+    }
+}
+
+extension FocusedValues {
+    @Entry var workspace: Workspace?
+}
+
+/// Keyboard map (acts on the focused window): ⌘1–⌘6 focus a panel, ⌘[ back, ⌘↩ maximise, ⌘L layouts.
 struct TerminalCommands: Commands {
-    let workspace: Workspace
+    @FocusedValue(\.workspace) private var workspace
 
     var body: some Commands {
         CommandMenu("Panels") {
             ForEach(0..<6, id: \.self) { i in
-                Button("Focus Panel \(i + 1)") { workspace.focus(i) }
+                Button("Focus Panel \(i + 1)") { workspace?.focus(i) }
                     .keyboardShortcut(KeyEquivalent(Character("\(i + 1)")), modifiers: .command)
             }
             Divider()
-            Button("Back") { workspace.back() }.keyboardShortcut("[", modifiers: .command)
-            Button("Maximize Panel") { workspace.toggleMaximize(workspace.focused) }
+            Button("Back") { workspace?.back() }.keyboardShortcut("[", modifiers: .command)
+            Button("Maximize Panel") { if let w = workspace { w.toggleMaximize(w.focused) } }
                 .keyboardShortcut(.return, modifiers: .command)
             Button("Cycle Layout") {
+                guard let w = workspace else { return }
                 let all = PanelLayout.allCases
-                workspace.layout = all[(all.firstIndex(of: workspace.layout)! + 1) % all.count]
+                w.layout = all[(all.firstIndex(of: w.layout)! + 1) % all.count]
             }.keyboardShortcut("l", modifiers: .command)
         }
     }

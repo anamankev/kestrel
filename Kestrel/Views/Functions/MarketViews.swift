@@ -9,6 +9,7 @@ struct MonitorView: View {
     let panelID: Int
     @Environment(MarketStore.self) private var market
     @Environment(UserData.self) private var user
+    @Environment(Workspace.self) private var ws
 
     @State private var addText = ""
     @State private var addError: String?
@@ -31,17 +32,19 @@ struct MonitorView: View {
                 ScrollView {
                     LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
                         if !live.isEmpty {
-                            Section { rows(live, wide) } header: {
+                            Section { rows(live, wide, start: 1) } header: {
                                 VStack(spacing: 0) { SectionBar(title: "STREAMING", trailing: "COINBASE"); QuoteHeader(wide: wide) }
                             }
                         }
                         if !delayed.isEmpty {
-                            Section { rows(delayed, wide) } header: {
+                            Section { rows(delayed, wide, start: live.count + 1) } header: {
                                 VStack(spacing: 0) { SectionBar(title: "DELAYED", trailing: refreshed); QuoteHeader(wide: wide) }
                             }
                         }
                     }
                 }
+                .onAppear { ws.hotspots[panelID] = (live + delayed).map { .link($0) } }
+                .onChange(of: user.active) { ws.hotspots[panelID] = (live + delayed).map { .link($0) } }
                 .overlay {
                     if instruments.isEmpty {
                         EmptyNote(title: "\(user.active.name) is empty", detail: "Type a ticker in the ADD box (AAPL, BTC, SPX, EURUSD).", icon: "list.bullet")
@@ -115,9 +118,9 @@ struct MonitorView: View {
         market.lastEquityRefresh.map { "UPDATED \($0.formatted(Fmt.clock))" } ?? "LOADING…"
     }
 
-    private func rows(_ list: [Instrument], _ wide: Bool) -> some View {
+    private func rows(_ list: [Instrument], _ wide: Bool, start: Int) -> some View {
         ForEach(Array(list.enumerated()), id: \.element.id) { n, i in
-            QuoteRow(instrument: i, panelID: panelID, wide: wide, editable: true).rowBackground(n)
+            QuoteRow(instrument: i, panelID: panelID, wide: wide, editable: true, number: start + n).rowBackground(n)
         }
     }
 }
@@ -150,6 +153,7 @@ struct QuoteRow: View {
     var wide: Bool
     var yields = false
     var editable = false
+    var number: Int? = nil
     @Environment(MarketStore.self) private var market
     @Environment(Workspace.self) private var ws
     @Environment(UserData.self) private var user
@@ -159,6 +163,9 @@ struct QuoteRow: View {
         let q = market.quotes[i.symbol]
         HStack(spacing: 6) {
             HStack(spacing: 6) {
+                if let number {
+                    Text("\(number)").font(.mono(9)).foregroundStyle(Theme.faint).frame(width: 18, alignment: .trailing)
+                }
                 Text(i.ticker).font(.mono(12, .bold)).foregroundStyle(Theme.text).frame(width: 64, alignment: .leading)
                 Text(market.displayName(i)).font(.ui(11)).foregroundStyle(Theme.dim).lineLimit(1)
             }
@@ -213,8 +220,10 @@ struct QuoteBoard: View {
     let groups: [(String, [Instrument])]
     var yields = false
     @Environment(MarketStore.self) private var market
+    @Environment(Workspace.self) private var ws
 
     var body: some View {
+        let flat = groups.flatMap(\.1)
         GeometryReader { g in
             let wide = g.size.width > 900
             ScrollView {
@@ -222,7 +231,8 @@ struct QuoteBoard: View {
                     ForEach(groups, id: \.0) { title, list in
                         Section {
                             ForEach(Array(list.enumerated()), id: \.element.id) { n, i in
-                                QuoteRow(instrument: i, panelID: panelID, wide: wide, yields: yields).rowBackground(n)
+                                QuoteRow(instrument: i, panelID: panelID, wide: wide, yields: yields,
+                                         number: (flat.firstIndex(of: i) ?? 0) + 1).rowBackground(n)
                             }
                         } header: {
                             VStack(spacing: 0) { SectionBar(title: title, trailing: advancers(list)); QuoteHeader(wide: wide, yields: yields) }
@@ -231,6 +241,7 @@ struct QuoteBoard: View {
                 }
             }
         }
+        .onAppear { ws.hotspots[panelID] = flat.map { .link($0) } }
     }
 
     private func advancers(_ list: [Instrument]) -> String {
@@ -245,6 +256,7 @@ struct QuoteBoard: View {
 struct MoversView: View {
     let panelID: Int
     @Environment(MarketStore.self) private var market
+    @Environment(Workspace.self) private var ws
     @State private var mode = Mode.gainers
 
     enum Mode: String, CaseIterable { case gainers = "GAINERS", losers = "LOSERS", active = "$ VOLUME" }
@@ -262,12 +274,13 @@ struct MoversView: View {
         VStack(spacing: 0) {
             Picker("", selection: $mode) { ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
                 .pickerStyle(.segmented).padding(6)
+                .onChange(of: ranked.map(\.0), initial: true) { _, list in ws.hotspots[panelID] = list.map { .link($0) } }
             GeometryReader { g in
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         QuoteHeader(wide: g.size.width > 900)
                         ForEach(Array(ranked.enumerated()), id: \.element.0.id) { n, row in
-                            QuoteRow(instrument: row.0, panelID: panelID, wide: g.size.width > 900).rowBackground(n)
+                            QuoteRow(instrument: row.0, panelID: panelID, wide: g.size.width > 900, number: n + 1).rowBackground(n)
                         }
                     }
                 }
@@ -378,14 +391,18 @@ struct DescriptionView: View {
                     }
                     RangeBar(low: q?.low52, high: q?.high52, value: q?.last)
                 }
-                FlowHotspots(items: [(.gp, "Price Chart"), (.hp, "History"), (.fa, "Financials"), (.evts, "Events"), (.depth, "Market Depth"), (.tas, "Time & Sales"), (.cn, "News"), (.omon, "Options"), (.trade, "Trade")]) { f in
+                FlowHotspots(items: Self.functions) { f in
                     ws.load(Command(function: f, instrument: i), in: panelID)
                 }
             }
             .padding(14)
         }
         .task(id: i.symbol) { await sec.load(i) }
+        .onAppear { ws.hotspots[panelID] = Self.functions.map { .command(Command(function: $0.0, instrument: i)) } }
     }
+
+    static let functions: [(TerminalFunction, String)] = [(.gp, "Price Chart"), (.hp, "History"), (.fa, "Financials"), (.evts, "Events"),
+                                                           (.depth, "Market Depth"), (.tas, "Time & Sales"), (.cn, "News"), (.omon, "Options"), (.trade, "Trade")]
 
     private func spread(_ q: Quote?) -> String {
         guard let b = q?.bid, let a = q?.ask, a > 0 else { return "—" }

@@ -35,22 +35,68 @@ enum PanelLayout: String, CaseIterable, Identifiable {
     let panels: [Panel]
     var focused: Int = 0
     var layout: PanelLayout {
-        didSet { UserDefaults.standard.set(layout.rawValue, forKey: "layout") }
+        didSet { persist?(serializedPanels, layout.rawValue) }
     }
     var error: String?
     var maximized: Int?
 
     static let defaults = ["BTC CRYPTO GP", "W", "BTC CRYPTO DEPTH", "TOP", "BTC CRYPTO TAS", "WEI"]
 
-    init() {
-        let saved = UserDefaults.standard.stringArray(forKey: "panels") ?? Self.defaults
+    /// Writes this window's state (scene storage), so every window restores its own panels.
+    @ObservationIgnored var persist: ((String, String) -> Void)?
+
+    /// Numbered hotspots each panel publishes, for `n <GO>`.
+    enum Hotspot { case command(Command), link(Instrument) }
+    @ObservationIgnored var hotspots: [Int: [Hotspot]] = [:]
+
+    /// - Parameters: `saved` is the panel commands joined by "|" (empty → legacy/global defaults).
+    init(saved: String = "", layout savedLayout: String = "") {
+        let list = saved.isEmpty
+            ? (UserDefaults.standard.stringArray(forKey: "panels") ?? Self.defaults)
+            : saved.components(separatedBy: "|")
         panels = (0..<6).map { i in
-            let text = saved[safe: i] ?? Self.defaults[i]
+            let text = list[safe: i] ?? Self.defaults[i]
             let cmd = (try? CommandParser.parse(text, current: nil)) ?? (try! CommandParser.parse(Self.defaults[i], current: nil))
             return Panel(id: i, command: cmd)
         }
-        layout = PanelLayout(rawValue: UserDefaults.standard.string(forKey: "layout") ?? "") ?? .four
+        let l = savedLayout.isEmpty ? (UserDefaults.standard.string(forKey: "layout") ?? "") : savedLayout
+        layout = PanelLayout(rawValue: l) ?? .four
     }
+
+    var serializedPanels: String { panels.map { Self.text(for: $0.command) }.joined(separator: "|") }
+
+    // MARK: Pages (named layouts, like Launchpad views)
+
+    struct Page: Codable, Identifiable, Equatable { var name: String; var layout: String; var panels: String; var id: String { name } }
+
+    static var pages: [Page] {
+        get { (UserDefaults.standard.data(forKey: "pages")).flatMap { try? JSONDecoder().decode([Page].self, from: $0) } ?? [] }
+        set { UserDefaults.standard.set(try? JSONEncoder().encode(Array(newValue.prefix(12))), forKey: "pages") }
+    }
+
+    func savePage(_ raw: String) {
+        let name = String(raw.trimmingCharacters(in: .whitespaces).uppercased().prefix(20))
+        guard !name.isEmpty else { return }
+        var all = Self.pages.filter { $0.name != name }
+        all.append(Page(name: name, layout: layout.rawValue, panels: serializedPanels))
+        Self.pages = all
+    }
+
+    func open(_ page: Page) {
+        let list = page.panels.components(separatedBy: "|")
+        for (i, p) in panels.enumerated() {
+            if let t = list[safe: i], let cmd = try? CommandParser.parse(t, current: nil), cmd != p.command {
+                p.history.append(p.command)
+                p.command = cmd
+            }
+        }
+        maximized = nil
+        layout = PanelLayout(rawValue: page.layout) ?? layout
+        focused = 0
+        save()
+    }
+
+    static func deletePage(_ name: String) { pages = pages.filter { $0.name != name } }
 
     var visible: [Panel] {
         if let m = maximized { return [panels[m]] }
@@ -65,6 +111,20 @@ enum PanelLayout: String, CaseIterable, Identifiable {
     /// Parses and runs a command line in the focused panel. Returns false on error.
     @discardableResult
     func run(_ text: String) -> Bool {
+        // `n <GO>`: drill into numbered item n of the focused panel.
+        let bare = CommandParser.tokens(text)
+        if bare.count == 1, let n = Int(bare[0]) {
+            guard let list = hotspots[focused], (1...list.count).contains(n) else {
+                error = "No item \(n) on this screen"
+                return false
+            }
+            switch list[n - 1] {
+            case .command(let c): load(c, in: focused)
+            case .link(let i): link(i, from: focused)
+            }
+            error = nil
+            return true
+        }
         do {
             let cmd = try CommandParser.parse(text, current: currentInstrument)
             load(cmd, in: focused)
@@ -120,7 +180,7 @@ enum PanelLayout: String, CaseIterable, Identifiable {
     func toggleMaximize(_ i: Int) { maximized = maximized == i ? nil : i; focused = i }
 
     private func save() {
-        UserDefaults.standard.set(panels.map { Self.text(for: $0.command) }, forKey: "panels")
+        persist?(serializedPanels, layout.rawValue)
     }
 
     static func text(for c: Command) -> String {
