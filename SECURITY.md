@@ -12,7 +12,7 @@ N/A with the design they must follow once the planned backend exists (see the en
 ## Results
 
 Every ✅ row is backed by a test or a command whose output is quoted. Test counts at the time of review:
-**97 core tests** (`cd KestrelCore && swift test`) and **15 app tests** on both macOS and the iPad simulator
+**104 core tests** (`cd KestrelCore && swift test`) and **15 app tests** on both macOS and the iPad simulator
 (`xcodebuild test -scheme Kestrel`). All pass.
 
 | # | Item | Status | What was done and how it was verified |
@@ -50,6 +50,8 @@ Every ✅ row is backed by a test or a command whose output is quoted. Test coun
 - **App-switcher privacy (iPad):** a cover hides balances and positions whenever the app isn't active.
 - **Apple privacy manifest:** `PrivacyInfo.xcprivacy` declares no tracking and no collected data, plus the required-reason APIs (UserDefaults, elapsed time). It is bundled in the release build.
 - **Sandbox:** the macOS App Sandbox allows outgoing network connections only, under the Hardened Runtime (confirmed with `codesign -d --entitlements`).
+- **Encrypted iPad ↔ Mac transfer:** the transfer file is sealed with AES-256-GCM under a PBKDF2 key from a passphrase (10+ characters, random salt), and is treated as untrusted on import. The size is capped at 8 MB, the iteration count is bounded so a crafted file can't stall the device, tampering is detected, and the contents are re-validated against the same limits as typed input before anything is replaced, behind a confirm step (`TransferTests`).
+- **Background alerts** use only the public price endpoints already allowed; nothing new leaves the device.
 - **Old session key removed:** the UserDefaults value from earlier builds is deleted on launch, so it can't be used as a backdoor.
 
 ### Owner decisions (I did not do these without you)

@@ -121,6 +121,14 @@ import UserNotifications
     func clearAlertHistory() { alerts.clearHistory(); save() }
 
     /// Called with every fresh quote.
+    /// Replaces watchlists and alerts with an imported (already validated) transfer.
+    func replace(with b: TransferBundle) {
+        watchlists = b.watchlists
+        activeID = b.activeID
+        alerts = b.alerts
+        save()
+    }
+
     func check(_ symbol: String, _ q: Quote) {
         guard alerts.watchedSymbols.contains(symbol) else { return }
         let fired = alerts.evaluate(symbol: symbol, last: q.last, changePercent: q.changePercent)

@@ -86,6 +86,8 @@ struct SettingsView: View {
                     HStack { Text("Render loop").font(.ui(12)).foregroundStyle(Theme.text); Spacer(); FrameMeter() }
                 }
 
+                section("TRANSFER BETWEEN IPAD AND MAC") { TransferSection() }
+
                 section("RESET") {
                     HStack(spacing: 8) {
                         resetButton("Reset paper account", .paper)

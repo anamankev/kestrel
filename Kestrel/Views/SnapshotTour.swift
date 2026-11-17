@@ -25,7 +25,7 @@ enum SnapshotTour {
 
     static let screens = [
         "PORT", "W", "BTC GP", "BTC DEPTH", "ETH TAS", "TOP", "TSLA CN", "AAPL DES", "AAPL FA", "AAPL EVTS",
-        "SPY HP", "SPY BT", "BTC OMON", "ETH OSA", "ECO", "CORR", "HMAP", "WEI", "MOST", "FX", "COMD", "RATES",
+        "SPY HP", "SPY BT", "BTC OMON", "ETH OSA", "ECO", "CORR", "ERN", "HMAP", "WEI", "MOST", "FX", "COMD", "RATES",
         "ALRT", "BLOT", "SOL BUY", "PREF", "HELP",
     ]
 

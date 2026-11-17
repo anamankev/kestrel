@@ -421,6 +421,7 @@ struct FunctionView: View {
         case .w: MonitorView(panelID: panel.id)
         case .hmap: HeatmapView(panelID: panel.id)
         case .corr: CorrelationView(panelID: panel.id)
+        case .ern: EarningsCalendarView(panelID: panel.id)
         case .wei: QuoteBoard(panelID: panel.id, groups: Region.allCases.map { r in (r.rawValue, Universe.indices.filter { $0.region == r }) })
         case .fx: QuoteBoard(panelID: panel.id, groups: [("G10 & EM SPOT", Universe.currencies)])
         case .comd: QuoteBoard(panelID: panel.id, groups: [("ENERGY", Array(Universe.commodities.prefix(3))), ("METALS", Array(Universe.commodities[3..<6])), ("AGRICULTURE", Array(Universe.commodities.suffix(2)))])

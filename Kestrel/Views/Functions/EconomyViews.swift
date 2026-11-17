@@ -183,7 +183,7 @@ struct EventsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("NEXT EARNINGS (EST.)").font(.mono(9, .bold)).foregroundStyle(Theme.label)
                         Text(next.map { $0.formatted(.dateTime.month(.abbreviated).day().year()) } ?? "—").font(.mono(15, .semibold)).foregroundStyle(Theme.warn)
-                        Text("last earnings 8-K + one quarter").font(.mono(8)).foregroundStyle(Theme.faint)
+                        Text("from the company's own reporting cadence").font(.mono(8)).foregroundStyle(Theme.faint)
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text("INSIDER FILINGS · 90D").font(.mono(9, .bold)).foregroundStyle(Theme.label)

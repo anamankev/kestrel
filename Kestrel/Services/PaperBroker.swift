@@ -77,6 +77,12 @@ import KestrelCore
 
     func cancel(_ id: Int) { account.cancel(id); save() }
 
+    /// Replaces the paper book with an imported (already validated) transfer.
+    func replace(account imported: PaperAccount) {
+        account = imported; marks = [:]; curve = []
+        persistAll()
+    }
+
     func reset() {
         account = PaperAccount(); marks = [:]; save()
         curve = []; try? FileManager.default.removeItem(at: curveURL)

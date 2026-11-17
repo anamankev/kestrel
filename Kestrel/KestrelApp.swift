@@ -13,9 +13,10 @@ struct KestrelApp: App {
     }()
     @State private var fundamentals = FundamentalsService()
     @State private var macro = MacroService()
+    @Environment(\.scenePhase) private var phase
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "terminal") {
             AuthGate()
                 .environment(market)
                 .environment(news)
@@ -27,7 +28,11 @@ struct KestrelApp: App {
                 #if os(macOS)
                 .frame(minWidth: 1100, idealWidth: 1600, minHeight: 700, idealHeight: 1000)
                 #endif
-                .onAppear { market.start() }   // the sign-in screen shows live prices too
+                .onAppear {
+                    market.start()   // the sign-in screen shows live prices too
+                    BackgroundAlerts.auth = auth
+                    BackgroundAlerts.market = market
+                }
         }
         #if os(macOS)
         .defaultSize(width: 1600, height: 1000)
@@ -35,6 +40,24 @@ struct KestrelApp: App {
         .windowStyle(.hiddenTitleBar)
         #endif
         .commands { TerminalCommands() }
+        #if os(iOS)
+        // A background launch may not build any views, so the task wires itself up.
+        .backgroundTask(.appRefresh(BackgroundAlerts.taskID)) {
+            await MainActor.run {
+                if BackgroundAlerts.auth == nil { BackgroundAlerts.auth = auth; BackgroundAlerts.market = market }
+            }
+            await BackgroundAlerts.handleRefresh()
+        }
+        .onChange(of: phase) { if phase == .background { BackgroundAlerts.schedule() } }
+        #endif
+        #if os(macOS)
+        // Closing the window keeps Kestrel (and its alerts) running from the menu bar.
+        MenuBarExtra {
+            AlertsMenu().environment(auth).environment(market)
+        } label: {
+            Image(systemName: auth.space?.data.alerts.active.isEmpty == false ? "bell.badge.fill" : "bell")
+        }
+        #endif
     }
 }
 

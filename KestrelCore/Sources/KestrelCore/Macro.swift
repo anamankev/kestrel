@@ -195,9 +195,48 @@ public enum SECFilings {
 
     /// Next earnings estimate: the last earnings 8-K rolled forward by a quarter (91 days) until it is
     /// in the future. A heuristic, labelled as such in the UI; real dates need a paid calendar feed.
+    /// Next earnings date projected from the company's own reporting cadence: the median gap
+    /// between its recent earnings releases (8-K item 2.02), with the median absolute deviation
+    /// of those gaps as the uncertainty. Falls back to a 91-day quarter with one release on file.
+    public struct EarningsEstimate: Sendable, Equatable {
+        public var last: Date
+        public var next: Date
+        public var cadenceDays: Double
+        /// ± days; nil when there is only one release to go on.
+        public var spreadDays: Double?
+        public var releases: Int
+    }
+
+    public static func earningsEstimate(_ filings: [Filing], now: Date = .now) -> EarningsEstimate? {
+        // One release per quarter: collapse amended or extra 2.02 8-Ks within 45 days of a release.
+        var dates: [Date] = []
+        for d in filings.filter(\.isEarnings).map(\.date).sorted() {
+            if let p = dates.last, d.timeIntervalSince(p) < 45 * 86_400 { continue }
+            dates.append(d)
+        }
+        guard let last = dates.last else { return nil }
+        let recent = Array(dates.suffix(9))
+        let gaps = zip(recent.dropFirst(), recent).map { $0.timeIntervalSince($1) / 86_400 }.filter { $0 >= 60 && $0 <= 130 }
+        func median(_ x: [Double]) -> Double { let s = x.sorted(); return s.count % 2 == 1 ? s[s.count / 2] : (s[s.count / 2 - 1] + s[s.count / 2]) / 2 }
+        let cadence = gaps.isEmpty ? 91 : median(gaps)
+        let spread = gaps.count >= 2 ? median(gaps.map { abs($0 - cadence) }) : nil
+        var next = last.addingTimeInterval(cadence * 86_400)
+        while next <= now { next = next.addingTimeInterval(cadence * 86_400) }
+        next = nearestWeekday(next)
+        return EarningsEstimate(last: last, next: next, cadenceDays: cadence, spreadDays: spread, releases: dates.count)
+    }
+
+    /// Companies don't report on weekends: Saturday rolls back to Friday, Sunday on to Monday.
+    static func nearestWeekday(_ d: Date) -> Date {
+        var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "America/New_York")!
+        switch cal.component(.weekday, from: d) {
+        case 7: return d.addingTimeInterval(-86_400)
+        case 1: return d.addingTimeInterval(86_400)
+        default: return d
+        }
+    }
+
     public static func estimatedNextEarnings(_ filings: [Filing], now: Date = .now) -> Date? {
-        guard var d = filings.filter(\.isEarnings).map(\.date).max() else { return nil }
-        while d <= now { d = d.addingTimeInterval(91 * 86_400) }
-        return d
+        earningsEstimate(filings, now: now)?.next
     }
 }

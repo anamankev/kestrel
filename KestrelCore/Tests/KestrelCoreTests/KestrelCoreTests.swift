@@ -933,3 +933,74 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(json.range(of: k1) == nil && json.range(of: Data(k1.base64EncodedString().utf8)) == nil)
     }
 }
+
+
+@Suite struct EarningsEstimateTests {
+    let day: TimeInterval = 86_400
+    let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+    func f(_ d: Double, earnings: Bool = true) -> Filing {
+        Filing(form: "8-K", date: t0.addingTimeInterval(d * 86_400), title: "", url: URL(string: "https://www.sec.gov/x/\(d)")!, isEarnings: earnings)
+    }
+
+    @Test func learnsTheCompanysOwnCadence() throws {
+        // Reports every ~84 days (not 91), with one amended 8-K a few days after a release.
+        // Extra 2.02 filings 30 days after a release (as some companies file) are not quarters.
+        let filings = [f(0), f(84), f(87), f(114), f(168), f(252), f(336), f(100, earnings: false)]
+        let e = try #require(SECFilings.earningsEstimate(filings, now: t0.addingTimeInterval(340 * day)))
+        #expect(e.cadenceDays == 84 && e.releases == 5 && e.spreadDays == 0)
+        #expect(e.next == SECFilings.nearestWeekday(t0.addingTimeInterval(420 * day)))
+    }
+
+    @Test func singleReleaseFallsBackToAQuarter() throws {
+        let e = try #require(SECFilings.earningsEstimate([f(0)], now: t0.addingTimeInterval(10 * day)))
+        #expect(e.cadenceDays == 91 && e.spreadDays == nil && e.next == SECFilings.nearestWeekday(t0.addingTimeInterval(91 * day)))
+        #expect(SECFilings.earningsEstimate([f(0, earnings: false)]) == nil)
+    }
+}
+
+@Suite struct TransferTests {
+    func bundle() -> TransferBundle {
+        var book = AlertBook()
+        _ = try? book.add(symbol: "BTC-USD", condition: .above(100_000), last: 64_000)
+        return TransferBundle(watchlists: [Watchlist.core], activeID: Watchlist.core.id, alerts: book, account: PaperAccount(cash: 12_345))
+    }
+
+    @Test func roundTripsWithThePassphrase() throws {
+        let file = try bundle().seal(passphrase: "move my desk please", iterations: 1_000)
+        #expect(file.range(of: Data("BTC-USD".utf8)) == nil)                     // nothing readable
+        let back = try TransferBundle.open(file, passphrase: "move my desk please")
+        #expect(back.account.cash == 12_345 && back.alerts.active.count == 1)
+    }
+
+    @Test func rejectsWrongPassphraseTamperingAndJunk() throws {
+        var file = try bundle().seal(passphrase: "move my desk please", iterations: 1_000)
+        #expect(throws: TransferBundle.Failure.wrongPassphrase) { try TransferBundle.open(file, passphrase: "not the passphrase") }
+        file[file.count - 5] ^= 0xFF
+        #expect(throws: TransferBundle.Failure.wrongPassphrase) { try TransferBundle.open(file, passphrase: "move my desk please") }
+        #expect(throws: TransferBundle.Failure.notATransferFile) { try TransferBundle.open(Data("{}".utf8), passphrase: "move my desk please") }
+        #expect(throws: TransferBundle.Failure.weakPassphrase) { try self.bundle().seal(passphrase: "short") }
+    }
+
+    @Test func rejectsHostileIterationCounts() throws {
+        var file = try bundle().seal(passphrase: "move my desk please", iterations: 1_000)
+        file.replaceSubrange(20..<24, with: [0xFF, 0xFF, 0xFF, 0xFF])               // 4 billion rounds: a DoS
+        #expect(throws: TransferBundle.Failure.notATransferFile) { try TransferBundle.open(file, passphrase: "move my desk please") }
+    }
+
+    @Test func validatesContentsLikeTypedInput() {
+        var b = bundle()
+        b.activeID = UUID()
+        #expect(throws: TransferBundle.Failure.self) { try b.validate() }
+    }
+}
+
+
+@Suite struct WeekdayTests {
+    @Test func weekendsRollToBusinessDays() {
+        var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "America/New_York")!
+        let sat = cal.date(from: DateComponents(year: 2026, month: 12, day: 12, hour: 12))!   // Saturday
+        let sun = cal.date(from: DateComponents(year: 2027, month: 1, day: 31, hour: 12))!    // Sunday
+        #expect(cal.component(.weekday, from: SECFilings.nearestWeekday(sat)) == 6)
+        #expect(cal.component(.weekday, from: SECFilings.nearestWeekday(sun)) == 2)
+    }
+}
