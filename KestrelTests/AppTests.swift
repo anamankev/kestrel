@@ -312,5 +312,17 @@ import SwiftUI
         let window = SizeIsolated { runaway }.frame(minWidth: 1100, minHeight: 700)
         #expect(abs(minimumWidth(window) - 1100) < 1)                           // only the explicit floor
     }
+
+    @Test func oversizedSavedFramesAreFittedToTheScreen() throws {
+        let screen = CGRect(x: 0, y: 0, width: 1470, height: 923)          // MacBook Air visible frame
+        // The frame an old build saved: 6,006 points wide.
+        let fixed = try #require(WindowFit.fitted(CGRect(x: 0, y: 45, width: 6006, height: 878), in: screen))
+        #expect(fixed.width == 1470 && fixed.height == 878 && screen.contains(fixed))
+        // Partly off the right edge: moved back on.
+        let moved = try #require(WindowFit.fitted(CGRect(x: 900, y: 45, width: 1200, height: 800), in: screen))
+        #expect(screen.contains(moved) && moved.width == 1200)
+        // Already fine: untouched.
+        #expect(WindowFit.fitted(CGRect(x: 0, y: 45, width: 1470, height: 878), in: screen) == nil)
+    }
 }
 #endif

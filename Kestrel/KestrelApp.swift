@@ -29,6 +29,7 @@ struct KestrelApp: App {
                 .preferredColorScheme(.dark)
                 #if os(macOS)
                 .frame(minWidth: 1100, idealWidth: 1600, minHeight: 700, idealHeight: 1000)
+                .background(WindowFitter())   // never larger than (or off) the screen
                 #endif
                 .onAppear {
                     market.start()   // the sign-in screen shows live prices too
