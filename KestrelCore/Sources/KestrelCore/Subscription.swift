@@ -19,6 +19,12 @@ public enum ProPlan: String, CaseIterable, Sendable, Codable {
     /// Price per month, for comparing plans.
     public func perMonth(_ price: Decimal) -> Decimal { price / Decimal(months) }
 
+    /// The truthful "original" price shown crossed out: what the same span costs on the monthly
+    /// plan. nil for the monthly plan itself (there is no higher price it was discounted from).
+    public func referencePrice(monthlyPrice: Decimal) -> Decimal? {
+        self == .monthly || monthlyPrice <= 0 ? nil : monthlyPrice * Decimal(months)
+    }
+
     /// Saving against paying monthly for the same span (0.17 = 17%), or nil for the monthly plan.
     public func saving(price: Decimal, monthlyPrice: Decimal) -> Double? {
         guard self != .monthly, monthlyPrice > 0 else { return nil }

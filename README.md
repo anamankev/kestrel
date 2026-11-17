@@ -30,7 +30,7 @@ Sign in or create an account on the first screen. Accounts stay on the device (s
 
 ## Run
 Open `Kestrel.xcodeproj` in Xcode 26+, pick an **iPad simulator** or **My Mac**, then press ⌘R.
-Tests: `cd KestrelCore && swift test` (108 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
+Tests: `cd KestrelCore && swift test` (109 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
 (16 app tests on Mac, 19 on iPad: accounts, sessions, encryption at rest, StoreKit purchases, workspace routing, hotspots, pages, persistence regressions, formatting). CI runs both plus an iPad build
 (`.github/workflows/ci.yml`).
 

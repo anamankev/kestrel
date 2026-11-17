@@ -1038,3 +1038,13 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(e == .pro(plan: .annual, expires: now.addingTimeInterval(300 * 86_400), willRenew: true))
     }
 }
+
+
+@Suite struct ReferencePriceTests {
+    @Test func crossedOutPriceIsTheMonthlyEquivalent() {
+        let m = Decimal(string: "9.99")!
+        #expect(ProPlan.halfYear.referencePrice(monthlyPrice: m) == Decimal(string: "59.94")!)
+        #expect(ProPlan.annual.referencePrice(monthlyPrice: m) == Decimal(string: "119.88")!)
+        #expect(ProPlan.monthly.referencePrice(monthlyPrice: m) == nil)
+    }
+}

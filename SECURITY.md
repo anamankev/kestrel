@@ -12,7 +12,7 @@ N/A with the design they must follow once the planned backend exists (see the en
 ## Results
 
 Every ✅ row is backed by a test or a command whose output is quoted. Test counts at the time of review:
-**108 core tests** (`cd KestrelCore && swift test`) and **16 app tests** on macOS and **19** on the iPad simulator
+**109 core tests** (`cd KestrelCore && swift test`) and **16 app tests** on macOS and **19** on the iPad simulator
 (`xcodebuild test -scheme Kestrel`). All pass.
 
 | # | Item | Status | What was done and how it was verified |

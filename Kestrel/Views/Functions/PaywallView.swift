@@ -51,9 +51,12 @@ struct PaywallView: View {
             if let e = store.loadError, store.products.isEmpty {
                 Text(e).font(.mono(11)).foregroundStyle(Theme.cancel)
             }
-            HStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 ForEach(ProPlan.allCases.reversed(), id: \.self) { plan in planCard(plan, monthly: monthly) }
             }
+            .fixedSize(horizontal: false, vertical: true)   // equal-height cards
+            Text("Crossed-out prices are what the same period costs on the monthly plan.")
+                .font(.mono(9)).foregroundStyle(Theme.faint)
             Button {
                 Task { await store.purchase(selected, account: auth.current?.id) }
             } label: {
@@ -85,6 +88,13 @@ struct PaywallView: View {
                             .padding(.horizontal, 5).frame(height: 16).background(theme.up, in: .rect(cornerRadius: 2))
                     }
                 }
+                // Crossed-out price = the same period on the monthly plan (never an invented "was" price).
+                if let p, let m = monthly, let ref = plan.referencePrice(monthlyPrice: m) {
+                    Text(p.priceFormatStyle.format(ref)).font(.mono(12)).strikethrough().foregroundStyle(Theme.faint)
+                        .accessibilityLabel("\(p.priceFormatStyle.format(ref)) if paid monthly")
+                } else {
+                    Text(" ").font(.mono(12))
+                }
                 Text(p?.displayPrice ?? "—").font(.mono(22, .semibold)).foregroundStyle(Theme.text)
                 Text("per \(plan.periodLabel)").font(.mono(10)).foregroundStyle(Theme.dim)
                 if let p, plan != .monthly {
@@ -93,7 +103,7 @@ struct PaywallView: View {
                     Text(" ").font(.mono(10))
                 }
             }
-            .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Theme.panel)
             .overlay(RoundedRectangle(cornerRadius: 3).stroke(on ? Theme.accent : Theme.rule, lineWidth: on ? 1.5 : 1))
             .contentShape(.rect)
