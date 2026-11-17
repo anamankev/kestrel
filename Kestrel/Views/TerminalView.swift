@@ -15,7 +15,11 @@ struct TerminalView: View {
             PanelGrid()
             FunctionKeyBar(commandText: $commandText, commandFocused: $commandFocused)
         }
-        .background(Theme.canvas)
+        // The command line lives at the top and is always focused, so iPadOS keeps its keyboard
+        // shortcut bar up. Don't let that (or the full keyboard) re-lay out the terminal: the
+        // key bar stays pinned and the canvas paints to the screen edge, so no black strip.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .background(Theme.canvas.ignoresSafeArea())
         .overlay(alignment: .topTrailing) {
             VStack(alignment: .trailing, spacing: 8) { FillToast(); AlertToast() }.padding(.top, 92).padding(.trailing, 12)
         }

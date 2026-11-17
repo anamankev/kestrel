@@ -14,6 +14,3 @@ effort under the free-data rule. Done items move to the README.
 | 7 | Background alerts when the app is closed | `ALRT` push | Needs the backend | With backend |
 | 8 | Sync across iPad and Mac | Bloomberg Anywhere | Needs the backend | With backend |
 | 9 | Live US equities | Real-time tape | Alpaca free (user's own key, IEX only) | With backend |
-
-Known bug: on iPad, after the on-screen keyboard closes, the bottom key bar can sit ~60 pt high with a
-black strip below it until the next layout pass.
