@@ -5,12 +5,12 @@ It uses live data from free public sources and has paper trading built in.
 
 ## Run
 Open `Kestrel.xcodeproj` in Xcode 26+, pick an **iPad simulator** or **My Mac**, then press ⌘R.
-Core logic tests: `cd KestrelCore && swift test` (42 tests).
+Core logic tests: `cd KestrelCore && swift test` (44 tests).
 
 ## Functions
 | Security | Markets | Trading |
 |---|---|---|
-| `DES` description (market cap, P/E) · `FA` 10-K financials · `EVTS` filings & earnings · `GP` chart · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure · `CN` news | `W` editable watchlists · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `ECO` US economy · `TOP` news | `TRADE` ticket (`SOL BUY`) · `PORT` P&L · `BLOT` orders & fills · `ALRT` price alerts · `PREF` settings |
+| `DES` description (market cap, P/E) · `FA` 10-K financials · `EVTS` filings & earnings · `GP` chart (pan, trendlines, VS compare) · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure · `CN` news | `W` editable watchlists · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `ECO` US economy · `TOP` news | `TRADE` ticket (`SOL BUY`) · `PORT` P&L · `BLOT` orders & fills · `ALRT` price alerts · `PREF` settings |
 
 Keys: ⌘1–⌘6 focus a panel, ⌘[ back, ⌘↩ maximize, ⌘L layout, ↑↓/Tab for autocomplete, Esc to cancel.
 Tap a row to **link** that security into every security panel. Long-press a row for its functions.

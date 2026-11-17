@@ -120,6 +120,11 @@ struct CommandBar: View {
         }
         .frame(maxWidth: 520)
         .background(Theme.canvas)
+        .task(id: ws.error) {
+            guard ws.error != nil else { return }
+            try? await Task.sleep(for: .seconds(4))
+            ws.error = nil
+        }
         .overlay(Rectangle().stroke(focused.wrappedValue ? Theme.accentDim : Theme.rule))
         .overlay(alignment: .topLeading) {
             if !suggestions.isEmpty {

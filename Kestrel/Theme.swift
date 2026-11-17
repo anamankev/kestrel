@@ -54,7 +54,7 @@ extension Font {
     }
 }
 
-enum Fmt {
+nonisolated enum Fmt {
     /// Decimal places appropriate to the instrument and price magnitude.
     static func places(_ v: Double, _ cls: AssetClass? = nil) -> Int {
         switch cls {

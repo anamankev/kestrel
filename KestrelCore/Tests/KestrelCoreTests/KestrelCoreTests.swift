@@ -418,3 +418,21 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(SECFilings.estimatedNextEarnings(f, now: now) == SECFacts.day.date(from: "2026-10-30")!.addingTimeInterval(91 * 86_400))
     }
 }
+
+@Suite struct CompareTests {
+    func k(_ t: Double, _ c: Double) -> Candle { Candle(time: Date(timeIntervalSince1970: t), open: c, high: c, low: c, close: c, volume: 1) }
+
+    @Test func rebasesBothSeriesFromFirstBar() {
+        let main = [k(100, 50), k(200, 55), k(300, 45)]
+        let other = [k(50, 10), k(150, 11), k(250, 12)]    // misaligned timestamps
+        let r = Indicators.rebase(main, against: other)
+        #expect(r.main.map(\.close) == [0, 10.000000000000009, -9.999999999999998])
+        // At t=100 the latest other close is 10 (t=50) → base; t=200 → 11 (+10%); t=300 → 12 (+20%).
+        #expect(r.other.map { $0.map { ($0 * 1e6).rounded() / 1e6 } } == [0, 10, 20])
+    }
+
+    @Test func comparisonStartingLaterIsNilUntilData() {
+        let r = Indicators.rebase([k(100, 1), k(200, 2)], against: [k(150, 5)])
+        #expect(r.other == [nil, 0])
+    }
+}

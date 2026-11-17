@@ -23,18 +23,34 @@ struct ChartView: View {
     @State private var zoom: CGFloat = 1
     @State private var pinchBase: CGFloat = 1
 
+    enum Mode: String, CaseIterable { case cross = "CROSS", pan = "PAN", draw = "DRAW" }
+    @State private var mode = Mode.cross
+    @State private var panOffset = 0
+    @State private var panStart = 0
+    @State private var compare: Instrument?
+    @State private var compareCandles: [Candle] = []
+    @State private var lines: [TrendLine] = []
+    @State private var draft: TrendLine?
+
+    static let compareChoices = ["SPX", "CCMP", "QQQ", "BTC", "ETH", "GC1", "CL1"]
+
     var body: some View {
         VStack(spacing: 0) {
             toolbar
             readout
             GeometryReader { g in
                 let data = visible
+                let comparing = compare != nil && !compareCandles.isEmpty
+                let (shown, cmp) = comparing ? rebased(data) : (data, [])
                 ZStack {
                     if data.count > 1 {
-                        ChartCanvas(candles: data, instrument: instrument, theme: theme, range: range,
-                                    showSMA: showSMA, showBB: showBB, showVWAP: showVWAP && range.isIntraday,
-                                    showRSI: showRSI, line: lineStyle, hover: hover,
-                                    previousClose: range == .d1 ? market.quotes[instrument.symbol]?.previousClose : nil)
+                        ChartCanvas(candles: shown, instrument: instrument, theme: theme, range: range,
+                                    showSMA: showSMA && !comparing, showBB: showBB && !comparing,
+                                    showVWAP: showVWAP && range.isIntraday && !comparing,
+                                    showRSI: showRSI, line: lineStyle || comparing, hover: hover,
+                                    previousClose: comparing ? nil : previousClose,
+                                    compare: cmp, compareLabel: compare?.ticker, percent: comparing,
+                                    lines: lines, draft: draft)
                     } else if loading {
                         ProgressView().tint(Theme.accent)
                     } else {
@@ -47,14 +63,57 @@ struct ChartView: View {
                     if case .active(let p) = phase { hover = index(at: p.x, width: g.size.width, count: data.count) } else { hover = nil }
                 }
                 .gesture(DragGesture(minimumDistance: 0)
-                    .onChanged { hover = index(at: $0.location.x, width: g.size.width, count: data.count) }
-                    .onEnded { _ in hover = nil })
+                    .onChanged { v in
+                        switch mode {
+                        case .cross:
+                            hover = index(at: v.location.x, width: g.size.width, count: data.count)
+                        case .pan:
+                            let step = (g.size.width - ChartCanvas.axisWidth) / CGFloat(max(data.count, 1))
+                            panOffset = max(0, panStart + Int((v.translation.width / step).rounded()))
+                        case .draw:
+                            guard !comparing, data.count > 1 else { return }
+                            let sc = ChartScale(size: g.size, candles: data, showRSI: showRSI,
+                                                bands: showBB ? Indicators.bollinger(data.map(\.close)) : [], previousClose: previousClose)
+                            draft = TrendLine(t1: sc.time(atX: v.startLocation.x, in: data), p1: sc.price(atY: v.startLocation.y),
+                                              t2: sc.time(atX: v.location.x, in: data), p2: sc.price(atY: v.location.y))
+                        }
+                    }
+                    .onEnded { v in
+                        switch mode {
+                        case .cross: hover = nil
+                        case .pan: panStart = panOffset
+                        case .draw:
+                            if let d = draft, hypot(v.translation.width, v.translation.height) > 12 { lines.append(d); saveLines() }
+                            draft = nil
+                        }
+                    })
                 .simultaneousGesture(MagnifyGesture()
                     .onChanged { zoom = min(max(pinchBase * $0.magnification, 1), 8) }
                     .onEnded { _ in pinchBase = zoom })
             }
         }
-        .task(id: range) { await load(loop: true) }
+        .task(id: range) { panOffset = 0; panStart = 0; await load(loop: true) }
+        .task(id: "\(compare?.symbol ?? "")|\(range.rawValue)") {
+            compareCandles = []
+            guard let c = compare else { return }
+            compareCandles = (try? await market.candles(for: c, range: range)) ?? []
+        }
+        .onAppear(perform: loadLines)
+    }
+
+    private var previousClose: Double? { range == .d1 ? market.quotes[instrument.symbol]?.previousClose : nil }
+
+    private func rebased(_ data: [Candle]) -> ([Candle], [Double?]) {
+        let r = Indicators.rebase(data, against: compareCandles)
+        return (r.main, r.other)
+    }
+
+    private var linesKey: String { "gp.lines.\(instrument.symbol)" }
+    private func loadLines() {
+        lines = (UserDefaults.standard.data(forKey: linesKey)).flatMap { try? JSONDecoder().decode([TrendLine].self, from: $0) } ?? []
+    }
+    private func saveLines() {
+        UserDefaults.standard.set(try? JSONEncoder().encode(Array(lines.suffix(50))), forKey: linesKey)
     }
 
     /// Live-extended and zoomed candle window.
@@ -72,8 +131,10 @@ struct ChartView: View {
                 c[c.count - 1] = last
             }
         }
-        let n = max(Int(CGFloat(c.count) / zoom), 20)
-        return Array(c.suffix(n))
+        let n = min(max(Int(CGFloat(c.count) / zoom), 20), c.count)
+        let off = min(panOffset, max(c.count - n, 0))
+        let end = c.count - off
+        return Array(c[max(end - n, 0)..<end])
     }
 
     private func index(at x: CGFloat, width: CGFloat, count: Int) -> Int? {
@@ -107,6 +168,22 @@ struct ChartView: View {
             chip("BOLL", on: showBB) { showBB.toggle() }
             if range.isIntraday { chip("VWAP", on: showVWAP) { showVWAP.toggle() } }
             chip("RSI", on: showRSI) { showRSI.toggle() }
+            Theme.rule.frame(width: 1, height: 14).padding(.horizontal, 4)
+            ForEach(Mode.allCases, id: \.self) { m in chip(m.rawValue, on: mode == m) { mode = m; hover = nil } }
+            if !lines.isEmpty { chip("CLR \(lines.count)", on: false) { lines = []; saveLines() } }
+            Menu {
+                Button("None") { compare = nil }
+                ForEach(Self.compareChoices.filter { $0 != instrument.ticker }, id: \.self) { t in
+                    Button(t) { compare = Universe.all.first { $0.ticker == t } }
+                }
+            } label: {
+                Text(compare.map { "VS \($0.ticker)" } ?? "VS…").font(.mono(10, .bold))
+                    .foregroundStyle(compare == nil ? Theme.dim : Theme.canvas)
+                    .padding(.horizontal, 7).frame(height: 20)
+                    .background(compare == nil ? Theme.header : Theme.warn, in: .rect(cornerRadius: 2))
+            }
+            .menuStyle(.button).buttonStyle(.plain).fixedSize()
+            if panOffset > 0 { chip("⇥ LIVE", on: false) { panOffset = 0; panStart = 0 } }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 6).padding(.vertical, 4)
@@ -151,7 +228,7 @@ struct ChartView: View {
 }
 
 struct ChartCanvas: View {
-    static let axisWidth: CGFloat = 68
+    nonisolated static let axisWidth: CGFloat = 68
     let candles: [Candle]
     let instrument: Instrument
     let theme: Theme
@@ -163,6 +240,11 @@ struct ChartCanvas: View {
     let line: Bool
     let hover: Int?
     let previousClose: Double?
+    var compare: [Double?] = []
+    var compareLabel: String? = nil
+    var percent = false
+    var lines: [TrendLine] = []
+    var draft: TrendLine? = nil
 
     var body: some View {
         let closes = candles.map(\.close)
@@ -173,29 +255,20 @@ struct ChartCanvas: View {
         let rsi = showRSI ? Indicators.rsi(closes) : []
         Canvas { ctx, size in
             let up = theme.up, down = theme.down
-            let plotW = size.width - Self.axisWidth
-            let timeAxis: CGFloat = 16
-            let rsiH: CGFloat = showRSI ? min(80, size.height * 0.18) : 0
-            let volH = (size.height - rsiH - timeAxis) * 0.16
-            let priceH = size.height - rsiH - timeAxis - volH
-            let n = candles.count
-            let step = plotW / CGFloat(n)
-            func x(_ i: Int) -> CGFloat { step * (CGFloat(i) + 0.5) }
-
-            // Price scale (include visible studies so bands never clip).
-            var lo = candles.map(\.low).min()!, hi = candles.map(\.high).max()!
-            for b in bb.compactMap({ $0 }) { lo = min(lo, b.lower); hi = max(hi, b.upper) }
-            if let pc = previousClose { lo = min(lo, pc); hi = max(hi, pc) }
-            let pad = (hi - lo) * 0.06 + hi * 1e-9
-            lo -= pad; hi += pad
-            func y(_ v: Double) -> CGFloat { priceH * (1 - CGFloat((v - lo) / (hi - lo))) }
+            let sc = ChartScale(size: size, candles: candles, showRSI: showRSI, bands: bb,
+                                previousClose: previousClose, extra: compare.compactMap { $0 })
+            let plotW = sc.plotW, timeAxis = sc.timeAxis, rsiH = sc.rsiH, volH = sc.volH, priceH = sc.priceH
+            let n = candles.count, step = sc.step, lo = sc.lo, hi = sc.hi
+            func x(_ i: Int) -> CGFloat { sc.x(i) }
+            func y(_ v: Double) -> CGFloat { sc.y(v) }
+            func label(_ v: Double) -> String { percent ? String(format: "%+.1f%%", v) : Fmt.price(v, instrument.assetClass) }
 
             // Grid + right axis labels.
             for t in Self.ticks(lo, hi, count: max(Int(priceH / 60), 3)) {
                 let yy = y(t)
                 ctx.stroke(Path { $0.move(to: .init(x: 0, y: yy)); $0.addLine(to: .init(x: plotW, y: yy)) },
                            with: .color(Theme.rule.opacity(0.7)), lineWidth: 0.5)
-                ctx.draw(Text(Fmt.price(t, instrument.assetClass)).font(.mono(9)).foregroundStyle(Theme.dim),
+                ctx.draw(Text(label(t)).font(.mono(9)).foregroundStyle(Theme.dim),
                          at: .init(x: plotW + 6, y: yy), anchor: .leading)
             }
             // Time labels.
@@ -275,7 +348,7 @@ struct ChartCanvas: View {
             let lastColor = last >= (previousClose ?? candles.first!.open) ? up : down
             ctx.stroke(Path { $0.move(to: .init(x: 0, y: y(last))); $0.addLine(to: .init(x: plotW, y: y(last))) },
                        with: .color(lastColor.opacity(0.6)), style: .init(lineWidth: 0.7, dash: [2, 3]))
-            tag(&ctx, Fmt.price(last, instrument.assetClass), at: .init(x: plotW + 2, y: y(last)), bg: lastColor)
+            tag(&ctx, label(last), at: .init(x: plotW + 2, y: y(last)), bg: lastColor)
 
             // RSI pane.
             if showRSI {
@@ -298,6 +371,32 @@ struct ChartCanvas: View {
                          at: .init(x: 6, y: 4), anchor: .topLeading)
             }
 
+            // Comparison series (both rebased to % change from the first visible bar).
+            if !compare.isEmpty {
+                var p = Path(), pen = false
+                for (i, v) in compare.enumerated() {
+                    guard let v else { pen = false; continue }
+                    pen ? p.addLine(to: .init(x: x(i), y: y(v))) : p.move(to: .init(x: x(i), y: y(v)))
+                    pen = true
+                }
+                ctx.stroke(p, with: .color(Theme.warn), lineWidth: 1.4)
+                if let lastV = compare.last(where: { $0 != nil }) ?? nil, let name = compareLabel {
+                    tag(&ctx, "\(name) \(label(lastV))", at: .init(x: plotW + 2, y: y(lastV)), bg: Theme.warn.opacity(0.85))
+                }
+            }
+
+            // Trendlines (anchored in time/price, so they survive zoom, pan and range changes).
+            if !percent {
+                for (k, l) in (lines + (draft.map { [$0] } ?? [])).enumerated() {
+                    let a = CGPoint(x: sc.x(time: l.t1, in: candles), y: y(l.p1))
+                    let b = CGPoint(x: sc.x(time: l.t2, in: candles), y: y(l.p2))
+                    let isDraft = draft != nil && k == lines.count
+                    ctx.stroke(Path { $0.move(to: a); $0.addLine(to: b) }, with: .color(Color(hex: 0xF5F5F5).opacity(isDraft ? 0.6 : 0.9)),
+                               style: .init(lineWidth: 1.3, dash: isDraft ? [4, 3] : []))
+                    for pt in [a, b] { ctx.fill(Path(ellipseIn: CGRect(x: pt.x - 2.5, y: pt.y - 2.5, width: 5, height: 5)), with: .color(Theme.accent)) }
+                }
+            }
+
             // Crosshair.
             if let h = hover, h < n {
                 let c = candles[h]
@@ -305,7 +404,7 @@ struct ChartCanvas: View {
                 let style = StrokeStyle(lineWidth: 0.7, dash: [3, 3])
                 ctx.stroke(Path { $0.move(to: .init(x: cx, y: 0)); $0.addLine(to: .init(x: cx, y: size.height - timeAxis)) }, with: .color(Theme.text.opacity(0.5)), style: style)
                 ctx.stroke(Path { $0.move(to: .init(x: 0, y: cy)); $0.addLine(to: .init(x: plotW, y: cy)) }, with: .color(Theme.text.opacity(0.5)), style: style)
-                tag(&ctx, Fmt.price(c.close, instrument.assetClass), at: .init(x: plotW + 2, y: cy), bg: Theme.accentDim)
+                tag(&ctx, label(c.close), at: .init(x: plotW + 2, y: cy), bg: Theme.accentDim)
                 ctx.fill(Path(ellipseIn: CGRect(x: cx - 3, y: cy - 3, width: 6, height: 6)), with: .color(Theme.accent))
             }
         }
@@ -338,5 +437,68 @@ struct ChartCanvas: View {
         var t = (lo / step).rounded(.up) * step, out: [Double] = []
         while t <= hi && out.count < 20 { out.append(t); t += step }
         return out
+    }
+}
+
+/// One trendline in data space.
+nonisolated struct TrendLine: Codable, Equatable, Sendable {
+    var t1: Date, p1: Double, t2: Date, p2: Double
+}
+
+/// Layout and value↔pixel mapping shared by the canvas and the gestures, so a drawn line lands
+/// exactly where the finger (or Pencil) was.
+nonisolated struct ChartScale {
+    let plotW, timeAxis, rsiH, volH, priceH, step: CGFloat
+    let lo, hi: Double
+    let n: Int
+
+    init(size: CGSize, candles: [Candle], showRSI: Bool, bands: [Indicators.Band?] = [], previousClose: Double? = nil, extra: [Double] = []) {
+        plotW = size.width - ChartCanvas.axisWidth
+        timeAxis = 16
+        rsiH = showRSI ? min(80, size.height * 0.18) : 0
+        volH = (size.height - rsiH - timeAxis) * 0.16
+        priceH = size.height - rsiH - timeAxis - volH
+        n = max(candles.count, 1)
+        step = plotW / CGFloat(n)
+        var lo = candles.map(\.low).min() ?? 0, hi = candles.map(\.high).max() ?? 1
+        for b in bands.compactMap({ $0 }) { lo = min(lo, b.lower); hi = max(hi, b.upper) }
+        if let pc = previousClose { lo = min(lo, pc); hi = max(hi, pc) }
+        for v in extra { lo = min(lo, v); hi = max(hi, v) }
+        let pad = (hi - lo) * 0.06 + abs(hi) * 1e-9 + 1e-12
+        self.lo = lo - pad
+        self.hi = hi + pad
+    }
+
+    func x(_ i: Int) -> CGFloat { step * (CGFloat(i) + 0.5) }
+    func y(_ v: Double) -> CGFloat { priceH * (1 - CGFloat((v - lo) / (hi - lo))) }
+    func price(atY y: CGFloat) -> Double { lo + Double(1 - y / priceH) * (hi - lo) }
+    func index(atX x: CGFloat) -> CGFloat { x / step - 0.5 }
+
+    /// Fractional bar position for a timestamp: interpolated between bars, extrapolated beyond
+    /// the window using the average bar spacing.
+    func x(time t: Date, in c: [Candle]) -> CGFloat {
+        guard c.count > 1 else { return x(0) }
+        let ts = c.map(\.time.timeIntervalSince1970), v = t.timeIntervalSince1970
+        let avg = (ts.last! - ts.first!) / Double(ts.count - 1)
+        let fi: Double
+        if v <= ts[0] { fi = (v - ts[0]) / avg }
+        else if v >= ts.last! { fi = Double(ts.count - 1) + (v - ts.last!) / avg }
+        else {
+            var lo = 0, hi = ts.count - 1
+            while hi - lo > 1 { let m = (lo + hi) / 2; if ts[m] <= v { lo = m } else { hi = m } }
+            fi = Double(lo) + (v - ts[lo]) / max(ts[hi] - ts[lo], 1)
+        }
+        return step * (CGFloat(fi) + 0.5)
+    }
+
+    func time(atX px: CGFloat, in c: [Candle]) -> Date {
+        guard c.count > 1 else { return c.first?.time ?? .now }
+        let fi = Double(index(atX: px))
+        let ts = c.map(\.time.timeIntervalSince1970)
+        let avg = (ts.last! - ts.first!) / Double(ts.count - 1)
+        if fi <= 0 { return Date(timeIntervalSince1970: ts[0] + fi * avg) }
+        if fi >= Double(ts.count - 1) { return Date(timeIntervalSince1970: ts.last! + (fi - Double(ts.count - 1)) * avg) }
+        let i = Int(fi.rounded(.down))
+        return Date(timeIntervalSince1970: ts[i] + (fi - Double(i)) * (ts[i + 1] - ts[i]))
     }
 }

@@ -70,4 +70,22 @@ public enum Indicators {
             return vol > 0 ? pv / vol : nil
         }
     }
+
+    /// Rebases a main series and a comparison to % change from the first bar, aligning the
+    /// comparison by timestamp (its last close at or before each main bar). Returns the main
+    /// candles in % and the comparison values (nil before the comparison has data).
+    public static func rebase(_ main: [Candle], against other: [Candle]) -> (main: [Candle], other: [Double?]) {
+        guard let base = main.first?.close, base > 0 else { return (main, []) }
+        func pct(_ v: Double) -> Double { (v / base - 1) * 100 }
+        let m = main.map { Candle(time: $0.time, open: pct($0.open), high: pct($0.high), low: pct($0.low), close: pct($0.close), volume: $0.volume) }
+        let sorted = other.sorted { $0.time < $1.time }
+        func closeAt(_ t: Date) -> Double? {
+            var lo = 0, hi = sorted.count - 1, best: Int?
+            while lo <= hi { let mid = (lo + hi) / 2; if sorted[mid].time <= t { best = mid; lo = mid + 1 } else { hi = mid - 1 } }
+            return best.map { sorted[$0].close }
+        }
+        let raw = main.map { closeAt($0.time) }
+        guard let cBase = raw.compactMap({ $0 }).first, cBase > 0 else { return (m, []) }
+        return (m, raw.map { $0.map { ($0 / cBase - 1) * 100 } })
+    }
 }
