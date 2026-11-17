@@ -37,7 +37,7 @@ struct PaywallView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("KESTREL PRO").font(.mono(11, .heavy)).tracking(2).foregroundStyle(Theme.accent)
+            Text("KESTREL PRO").font(.ui(12, .semibold)).tracking(1.5).foregroundStyle(Theme.accent)
             Text(feature.map { "\($0.title) is part of Kestrel Pro." } ?? (store.isPro ? "You're on Kestrel Pro." : "Upgrade to Kestrel Pro."))
                 .font(.ui(22, .semibold)).foregroundStyle(Theme.text)
             Text("Live quotes, charts, depth, news, alerts and paper trading stay free. Pro adds the analysis tools below.")
@@ -49,21 +49,21 @@ struct PaywallView: View {
         let monthly = store.product(.monthly)?.price
         return VStack(alignment: .leading, spacing: 10) {
             if let e = store.loadError, store.products.isEmpty {
-                Text(e).font(.mono(11)).foregroundStyle(Theme.cancel)
+                Text(e).font(.ui(12)).foregroundStyle(Theme.cancel)
             }
             HStack(alignment: .top, spacing: 10) {
                 ForEach(ProPlan.allCases.reversed(), id: \.self) { plan in planCard(plan, monthly: monthly) }
             }
             .fixedSize(horizontal: false, vertical: true)   // equal-height cards
             Text("Crossed-out prices are what the same period costs on the monthly plan.")
-                .font(.mono(9)).foregroundStyle(Theme.faint)
+                .font(.ui(11)).foregroundStyle(Theme.faint)
             Button {
                 Task { await store.purchase(selected, account: auth.current?.id) }
             } label: {
                 HStack(spacing: 8) {
                     if store.purchasing != nil { ProgressView().controlSize(.small).tint(Theme.canvas) }
-                    Text(store.product(selected).map { "SUBSCRIBE · \($0.displayPrice) / \(selected.periodLabel)" } ?? "SUBSCRIBE")
-                        .font(.mono(13, .heavy))
+                    Text(store.product(selected).map { "Subscribe · \($0.displayPrice) / \(selected.periodLabel)" } ?? "Subscribe")
+                        .font(.ui(15, .semibold))
                 }
                 .foregroundStyle(Theme.canvas).frame(maxWidth: .infinity).frame(height: 44)
                 .background(Theme.accent, in: .rect(cornerRadius: 3))
@@ -71,7 +71,7 @@ struct PaywallView: View {
             }
             .buttonStyle(.plain)
             .disabled(store.product(selected) == nil || store.purchasing != nil)
-            if let m = store.message { Text(m).font(.mono(11, .medium)).foregroundStyle(store.isPro ? theme.up : Theme.warn) }
+            if let m = store.message { Text(m).font(.ui(12, .medium)).foregroundStyle(store.isPro ? theme.up : Theme.warn) }
         }
     }
 
@@ -81,26 +81,26 @@ struct PaywallView: View {
         return Button { selected = plan } label: {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text(plan.title.uppercased()).font(.mono(10, .heavy)).foregroundStyle(on ? Theme.accent : Theme.label)
+                    Text(plan.title).font(.ui(11, .semibold)).foregroundStyle(on ? Theme.accent : Theme.label)
                     Spacer()
                     if let p, let m = monthly, let save = plan.saving(price: p.price, monthlyPrice: m) {
-                        Text("SAVE \(Int((save * 100).rounded()))%").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas)
+                        Text("Save \(Int((save * 100).rounded()))%").font(.ui(11, .semibold)).foregroundStyle(Theme.canvas)
                             .padding(.horizontal, 5).frame(height: 16).background(theme.up, in: .rect(cornerRadius: 2))
                     }
                 }
                 // Crossed-out price = the same period on the monthly plan (never an invented "was" price).
                 if let p, let m = monthly, let ref = plan.referencePrice(monthlyPrice: m) {
-                    Text(p.priceFormatStyle.format(ref)).font(.mono(12)).strikethrough().foregroundStyle(Theme.faint)
+                    Text(p.priceFormatStyle.format(ref)).font(.ui(13)).strikethrough().foregroundStyle(Theme.faint)
                         .accessibilityLabel("\(p.priceFormatStyle.format(ref)) if paid monthly")
                 } else {
-                    Text(" ").font(.mono(12))
+                    Text(" ").font(.ui(13))
                 }
-                Text(p?.displayPrice ?? "—").font(.mono(22, .semibold)).foregroundStyle(Theme.text)
-                Text("per \(plan.periodLabel)").font(.mono(10)).foregroundStyle(Theme.dim)
+                Text(p?.displayPrice ?? "—").font(.ui(28, .semibold)).monospacedDigit().foregroundStyle(Theme.text)
+                Text("per \(plan.periodLabel)").font(.ui(11)).foregroundStyle(Theme.dim)
                 if let p, plan != .monthly {
-                    Text(p.priceFormatStyle.format(plan.perMonth(p.price)) + " / month").font(.mono(10)).foregroundStyle(Theme.faint)
+                    Text(p.priceFormatStyle.format(plan.perMonth(p.price)) + " / month").font(.ui(11)).foregroundStyle(Theme.faint)
                 } else {
-                    Text(" ").font(.mono(10))
+                    Text(" ").font(.ui(11))
                 }
             }
             .padding(12).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -114,10 +114,10 @@ struct PaywallView: View {
     private var status: some View {
         VStack(alignment: .leading, spacing: 6) {
             if case .pro(let plan, let expires, let willRenew) = store.entitlement {
-                Text("Plan: \(plan.title)").font(.mono(13, .semibold)).foregroundStyle(Theme.text)
+                Text("Plan: \(plan.title)").font(.ui(15, .semibold)).foregroundStyle(Theme.text)
                 if let expires {
                     Text("\(willRenew ? "Renews" : "Ends") \(expires.formatted(.dateTime.month(.wide).day().year()))")
-                        .font(.mono(11)).foregroundStyle(willRenew ? Theme.dim : Theme.warn)
+                        .font(.ui(12)).foregroundStyle(willRenew ? Theme.dim : Theme.warn)
                 }
             }
             Button("Manage subscription") {
@@ -127,14 +127,14 @@ struct PaywallView: View {
                 openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
                 #endif
             }
-            .font(.mono(11, .bold)).foregroundStyle(Theme.accent).buttonStyle(.plain)
+            .font(.ui(12, .bold)).foregroundStyle(Theme.accent).buttonStyle(.plain)
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(Theme.panel)
     }
 
     private var features: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("PRO INCLUDES").font(.mono(9, .bold)).foregroundStyle(Theme.label)
+            Text("Pro includes").font(.ui(11, .bold)).foregroundStyle(Theme.label)
             ForEach(ProFeature.allCases, id: \.self) { f in
                 Label(f.title, systemImage: "checkmark").font(.ui(12)).foregroundStyle(f == feature ? Theme.text : Theme.dim)
             }
@@ -150,7 +150,7 @@ struct PaywallView: View {
                 Link("Terms of Use", destination: Self.terms)
                 Link("Privacy Policy", destination: Self.privacy)
             }
-            .font(.mono(10, .semibold)).foregroundStyle(Theme.accent).buttonStyle(.plain)
+            .font(.ui(11, .semibold)).foregroundStyle(Theme.accent).buttonStyle(.plain)
         }
     }
 }

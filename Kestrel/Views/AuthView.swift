@@ -8,7 +8,7 @@ struct AuthView: View {
     @Environment(MarketStore.self) private var market
     @Environment(Theme.self) private var theme
 
-    enum Mode: String, CaseIterable { case signIn = "SIGN IN", create = "CREATE ACCOUNT" }
+    enum Mode: String, CaseIterable { case signIn = "Sign in", create = "Create account" }
     enum Field: Hashable { case name, email, password, confirm }
 
     @State private var mode: Mode = .signIn
@@ -83,7 +83,7 @@ struct AuthView: View {
             }
             Spacer()
             Text("Paper trading only. No real money moves, and no brokerage is connected.")
-                .font(.mono(10)).foregroundStyle(Theme.faint)
+                .font(.ui(11)).foregroundStyle(Theme.faint)
         }
     }
 
@@ -92,14 +92,14 @@ struct AuthView: View {
         let q = i.flatMap { market.quotes[$0.symbol] }
         return VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(ticker).font(.mono(11, .bold)).foregroundStyle(Theme.label)
+                Text(ticker).font(.ui(12, .bold)).foregroundStyle(Theme.label)
                 Spacer()
                 if i?.isStreaming == true { Circle().fill(Theme.go).frame(width: 5, height: 5) }
             }
             Text(q.map { Fmt.price($0.last, i!.assetClass) } ?? "—")
-                .font(.mono(18, .semibold)).monospacedDigit().foregroundStyle(Theme.text)
+                .font(.ui(20, .semibold)).monospacedDigit().foregroundStyle(Theme.text)
                 .contentTransition(.numericText())
-            Text(Fmt.pct(q?.changePercent)).font(.mono(11, .medium)).foregroundStyle(theme.tint(q?.changePercent))
+            Text(Fmt.pct(q?.changePercent)).font(.ui(12, .medium)).monospacedDigit().foregroundStyle(theme.tint(q?.changePercent))
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -114,7 +114,7 @@ struct AuthView: View {
                 ForEach(Mode.allCases, id: \.self) { m in
                     Button { mode = m } label: {
                         VStack(spacing: 6) {
-                            Text(m.rawValue).font(.mono(12, .bold)).foregroundStyle(mode == m ? Theme.text : Theme.dim)
+                            Text(m.rawValue).font(.ui(13, .bold)).foregroundStyle(mode == m ? Theme.text : Theme.dim)
                             Rectangle().fill(mode == m ? Theme.accent : .clear).frame(height: 2)
                         }
                         .fixedSize()
@@ -128,32 +128,32 @@ struct AuthView: View {
                 .font(.ui(24, .semibold)).foregroundStyle(Theme.text)
 
             if mode == .create {
-                input("NAME", text: $name, field: .name, prompt: "Ada Lovelace")
+                input("Name", text: $name, field: .name, prompt: "Ada Lovelace")
                     #if os(iOS)
                     .textContentType(.name)
                     #endif
             }
-            input("EMAIL", text: $email, field: .email, prompt: "you@firm.com")
+            input("Email", text: $email, field: .email, prompt: "you@firm.com")
                 #if os(iOS)
                 .textContentType(.username).keyboardType(.emailAddress).textInputAutocapitalization(.never)
                 #endif
-            secure("PASSWORD", text: $password, field: .password)
+            secure("Password", text: $password, field: .password)
             if mode == .create {
-                secure("CONFIRM PASSWORD", text: $confirm, field: .confirm)
+                secure("Confirm password", text: $confirm, field: .confirm)
                 strength
             }
 
             if let error {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(.mono(11, .medium)).foregroundStyle(Theme.cancel)
+                    .font(.ui(12, .medium)).foregroundStyle(Theme.cancel)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Button(action: submit) {
                 HStack(spacing: 8) {
                     if auth.busy { ProgressView().controlSize(.small).tint(Theme.canvas) }
-                    Text(auth.busy ? (mode == .signIn ? "SIGNING IN" : "CREATING ACCOUNT") : (mode == .signIn ? "SIGN IN" : "CREATE ACCOUNT"))
-                        .font(.mono(13, .heavy))
+                    Text(auth.busy ? (mode == .signIn ? "Signing in…" : "Creating account…") : (mode == .signIn ? "Sign in" : "Create account"))
+                        .font(.ui(15, .semibold))
                 }
                 .foregroundStyle(Theme.canvas)
                 .frame(maxWidth: .infinity).frame(height: 44)
@@ -186,15 +186,15 @@ struct AuthView: View {
             Image(systemName: ok ? "checkmark.circle.fill" : "circle").font(.system(size: 11))
             Text(password.isEmpty ? "At least \(Credentials.minPasswordLength) characters. A phrase works well." : (problem ?? "Strong enough"))
         }
-        .font(.mono(10)).foregroundStyle(ok ? theme.up : Theme.dim)
+        .font(.ui(11)).foregroundStyle(ok ? theme.up : Theme.dim)
     }
 
     private func input(_ label: String, text: Binding<String>, field: Field, prompt: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(label).font(.mono(9, .bold)).foregroundStyle(Theme.label)
+            Text(label).font(.ui(11, .bold)).foregroundStyle(Theme.label)
             TextField("", text: text)
                 .placeholder(prompt, when: text.wrappedValue.isEmpty)
-                .font(.mono(14)).foregroundStyle(Theme.text).textFieldStyle(.plain)
+                .font(.ui(16)).foregroundStyle(Theme.text).textFieldStyle(.plain)
                 .autocorrectionDisabled()
                 .focused($focus, equals: field)
                 .submitLabel(.next)
@@ -207,17 +207,17 @@ struct AuthView: View {
     private func secure(_ label: String, text: Binding<String>, field: Field) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
-                Text(label).font(.mono(9, .bold)).foregroundStyle(Theme.label)
+                Text(label).font(.ui(11, .bold)).foregroundStyle(Theme.label)
                 Spacer()
                 if field == .password {
-                    Button(reveal ? "HIDE" : "SHOW") { reveal.toggle() }
-                        .font(.mono(9, .bold)).foregroundStyle(Theme.dim).buttonStyle(.plain)
+                    Button(reveal ? "Hide" : "Show") { reveal.toggle() }
+                        .font(.ui(11, .bold)).foregroundStyle(Theme.dim).buttonStyle(.plain)
                 }
             }
             Group {
                 if reveal { TextField("", text: text) } else { SecureField("", text: text) }
             }
-            .font(.mono(14)).foregroundStyle(Theme.text).textFieldStyle(.plain)
+            .font(.ui(16)).foregroundStyle(Theme.text).textFieldStyle(.plain)
             .autocorrectionDisabled()
             #if os(iOS)
             .textInputAutocapitalization(.never)
