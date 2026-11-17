@@ -32,7 +32,15 @@ import Testing
         let levels = (0..<10).map { #"{"side":"\#($0 % 2 == 0 ? "bid" : "offer")","event_time":"2026-11-16T21:48:17.933557Z","price_level":"\#(65000 + $0).12","new_quantity":"0.\#($0)1234"}"# }
         let msg = Data(#"{"channel":"l2_data","timestamp":"2026-11-16T21:48:18.177502777Z","sequence_num":4,"events":[{"type":"update","product_id":"BTC-USD","updates":[\#(levels.joined(separator: ","))]}]}"#.utf8)
         let n1 = 20_000
-        report("coinbase l2 decode (10 levels)", time { for _ in 0..<n1 { _ = try? CoinbaseFeed.decode(msg) } } / Double(n1), "msg")
+        struct Header: Decodable { let sequence_num: Int?; let timestamp: String? }
+        let twoPass = time { for _ in 0..<n1 {
+            _ = try? JSONDecoder().decode(Header.self, from: msg)
+            _ = try? CoinbaseFeed.decode(msg)
+            _ = CoinbaseFeed.date("2026-11-16T21:48:18.177502777Z")
+        } } / Double(n1)
+        let onePass = time { for _ in 0..<n1 { _ = try? CoinbaseFeed.decodeMessage(msg) } } / Double(n1)
+        report("coinbase l2 message, old two-pass (header + body)", twoPass, "msg")
+        report("coinbase l2 message, single pass", onePass, "msg")
 
         // 2. Order book: apply 1M level updates on a ~20k-level book, then build a 20-deep ladder.
         var book = OrderBook()

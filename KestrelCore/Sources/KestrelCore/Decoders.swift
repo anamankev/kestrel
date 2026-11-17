@@ -29,6 +29,15 @@ public enum CoinbaseFeed {
     private struct Envelope: Decodable {
         let channel: String
         let events: [Event]?
+        let sequence_num: Int?
+        let timestamp: String?
+    }
+
+    /// One fully decoded WebSocket message: transport header plus market events.
+    public struct Message: Sendable, Equatable {
+        public var sequence: Int?
+        public var sent: Date?
+        public var events: [CoinbaseEvent]
     }
     private struct Event: Decodable {
         let type: String?
@@ -78,7 +87,17 @@ public enum CoinbaseFeed {
     }
 
     public static func decode(_ data: Data, now: Date = .now) throws -> [CoinbaseEvent] {
+        try decodeMessage(data, now: now).events
+    }
+
+    /// Decodes header and events in a single JSON pass (the stream previously parsed every
+    /// message twice: once for sequence/timestamp, once for the body).
+    public static func decodeMessage(_ data: Data, now: Date = .now) throws -> Message {
         let env = try JSONDecoder().decode(Envelope.self, from: data)
+        return Message(sequence: env.sequence_num, sent: env.timestamp.flatMap(date), events: events(env, now: now))
+    }
+
+    private static func events(_ env: Envelope, now: Date) -> [CoinbaseEvent] {
         let events = env.events ?? []
         switch env.channel {
         case "ticker":

@@ -33,7 +33,7 @@ Three rules:
 | Metric | p50 | p95 / p99 | Notes |
 |---|---|---|---|
 | Feed latency (Coinbase send → local receipt) | **10 ms** | 67 ms (p95) | Clock-offset corrected NTP-style (best of 5 round trips, ±40 ms). The raw clock offset was −473 ms, so uncorrected timestamps would have been meaningless. |
-| Decode + book update per message (off main) | 251 µs | 3.3 ms (p99) | p99 is L2 snapshots (thousands of levels in one message). |
+| Decode + book update per message (off main) | 293 µs | **2.2 ms** (p99, was 3.3 ms) | p99 is L2 snapshots (thousands of levels in one message). Single-pass decode since the last measurement. |
 | Main-thread merge per 100 ms batch | **190 µs** | 665 µs (p99) | ≤ 0.7% of the main thread's time. |
 | Render loop | **60 fps** | n/a | The simulator caps at 60 Hz. The same code targets 120 Hz ProMotion on device. |
 
@@ -59,6 +59,7 @@ Measuring found three real problems, all now fixed and verified:
 |---|---|---|---|
 | Depth panel spent ~0.8 ms per ladder build, several times per refresh | Sorted all ~20k price levels to show the top 20 | One-pass top-k insertion (O(n log k)) | **31× faster** (826 → 27 µs) |
 | `OMON` froze the UI for ~44 ms every 15 s | A new `DateFormatter` per contract while parsing expiries | One shared formatter (mutex-guarded) plus a per-decode expiry cache | **15× faster** (44 → 3 ms) |
+| Every WebSocket message was parsed twice | A small header decode for sequence and timestamp, then the full body | One envelope decode returns sequence, send time and events together | **43% cheaper** (119 → 67 µs/msg); live p99 3.3 → 2.2 ms |
 | `FA` hitched the UI for 70–190 ms when it loaded | 3–8 MB SEC JSON decoded on the main actor | Decode in `Task.detached`; same for option chains | Main thread untouched |
 
 ## Correctness under load
@@ -71,8 +72,6 @@ Measuring found three real problems, all now fixed and verified:
 
 ## Known limits and next steps
 
-- The app decodes each WebSocket message twice (a small header for sequence and timestamp, then the full body).
-  Folding the header into the main decode would cut the per-message p50 noticeably.
 - SEC company facts are decoded whole. A streaming parser that keeps only the ~15 tags we use would cut the
   70–190 ms decode and the memory spike.
 - On-device profiling (Instruments, 120 Hz ProMotion, thermal behaviour on a real iPad) needs hardware. All

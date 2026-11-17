@@ -561,3 +561,15 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(Samples().percentile(50) == nil)
     }
 }
+
+
+@Suite struct CoinbaseMessageTests {
+    @Test func headerAndEventsInOnePass() throws {
+        let json = #"{"channel":"ticker","timestamp":"2026-11-16T21:48:17.918785762Z","sequence_num":42,"events":[{"type":"update","tickers":[{"type":"ticker","product_id":"BTC-USD","price":"100"}]}]}"#
+        let m = try CoinbaseFeed.decodeMessage(Data(json.utf8))
+        #expect(m.sequence == 42 && m.events.count == 1)
+        #expect(abs(m.sent!.timeIntervalSince1970 - 1_794_865_697.918) < 0.001)
+        let sub = try CoinbaseFeed.decodeMessage(Data(#"{"channel":"subscriptions","sequence_num":1,"events":[]}"#.utf8))
+        #expect(sub.sequence == 1 && sub.sent == nil && sub.events == [.other])
+    }
+}

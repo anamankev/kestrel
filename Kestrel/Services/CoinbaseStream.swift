@@ -97,7 +97,6 @@ actor CoinbaseStream {
     }
 
     private struct SequenceGap: Error {}
-    private struct Header: Decodable { let sequence_num: Int?; let timestamp: String? }
 
     private func handle(_ message: URLSessionWebSocketTask.Message) throws {
         let data: Data
@@ -114,17 +113,17 @@ actor CoinbaseStream {
         messageCount += 1
         lastMessageAt = Date()
 
-        let header = try? JSONDecoder().decode(Header.self, from: data)
-        if let ts = header?.timestamp.flatMap(CoinbaseFeed.date) {
+        guard let msg = try? CoinbaseFeed.decodeMessage(data) else { return }
+        if let ts = msg.sent {
             // Receipt on our clock, converted to Coinbase's clock, minus their send stamp.
             if let off = clockOffset { latency.add((lastMessageAt.timeIntervalSince(ts) - off) * 1000) }
         }
-        if let seq = header?.sequence_num {
+        if let seq = msg.sequence {
             if let last = lastSequence, seq != last + 1 { throw SequenceGap() } // books may be stale: resync
             lastSequence = seq
         }
 
-        for event in (try? CoinbaseFeed.decode(data)) ?? [] {
+        for event in msg.events {
             switch event {
             case .ticker(let p, let q):
                 pending.quotes[p] = q
