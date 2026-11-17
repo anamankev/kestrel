@@ -378,3 +378,43 @@ import Testing
     }
 }
 private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 1e9) } ?? "nil" }
+
+@Suite struct MacroTests {
+    @Test func blsDecodeAndTransforms() throws {
+        var points: [String] = []
+        for m in 1...12 { points.append(#"{"year":"2025","period":"M\#(String(format: "%02d", m))","value":"\#(100 + m)"}"#) }
+        points.append(#"{"year":"2026","period":"M01","value":"113.3"}"#)
+        points.append(#"{"year":"2025","period":"M13","value":"999"}"#)
+        let json = #"{"status":"REQUEST_SUCCEEDED","Results":{"series":[{"seriesID":"X","data":[\#(points.joined(separator: ","))]}]}}"#
+        let raw = try BLS.decode(Data(json.utf8))["X"]!
+        #expect(raw.count == 13 && raw.first!.value == 101 && raw.last!.value == 113.3) // sorted, M13 dropped
+        let yoy = MacroIndicator(id: "X", name: "", group: "", transform: .yearOverYear, unit: "%", source: "").series(raw)
+        #expect(yoy.count == 1 && abs(yoy[0].value - 12.178) < 0.001)
+        let chg = MacroIndicator(id: "X", name: "", group: "", transform: .change, unit: "K", source: "").series(raw)
+        #expect(chg.count == 12 && chg[0].value == 1)
+        #expect(throws: BLS.DecodeError.self) { try BLS.decode(Data(#"{"status":"REQUEST_NOT_PROCESSED"}"#.utf8)) }
+    }
+
+    @Test func nyFedRates() throws {
+        let json = #"{"refRates":[{"effectiveDate":"2026-11-13","type":"EFFR","percentRate":3.88,"targetRateFrom":3.75,"targetRateTo":4.00},{"effectiveDate":"2026-11-12","type":"EFFR","percentRate":3.87}]}"#
+        let r = try NYFed.decode(Data(json.utf8))
+        #expect(r.series.map(\.value) == [3.87, 3.88] && r.targetLow == 3.75 && r.targetHigh == 4)
+    }
+
+    @Test func filingsAndEarningsEstimate() throws {
+        let json = #"""
+        {"cik":"320193","filings":{"recent":{
+         "accessionNumber":["0000320193-26-000030","0000320193-26-000029","0000320193-26-000028","0000320193-26-000027","0000320193-26-000026"],
+         "filingDate":["2026-11-12","2026-11-09","2026-10-30","2026-10-30","2026-08-01"],
+         "form":["4","8-K","8-K","144","10-Q"],
+         "items":["","9.01","2.02,9.01","",""],
+         "primaryDocument":["f4.xml","a.htm","earn.htm","p.xml","q.htm"]}}}
+        """#
+        let f = try SECFilings.decode(Data(json.utf8))
+        #expect(f.map(\.form) == ["4", "8-K", "10-Q"]) // 8-K with only exhibits and Form 144 dropped
+        #expect(f[1].isEarnings && f[1].title == "Earnings release")
+        #expect(f[1].url.absoluteString == "https://www.sec.gov/Archives/edgar/data/320193/000032019326000028/earn.htm")
+        let now = SECFacts.day.date(from: "2026-11-16")!
+        #expect(SECFilings.estimatedNextEarnings(f, now: now) == SECFacts.day.date(from: "2026-10-30")!.addingTimeInterval(91 * 86_400))
+    }
+}

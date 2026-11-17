@@ -211,8 +211,8 @@ struct HelpView: View {
     @Environment(Workspace.self) private var ws
 
     private static let groups: [(String, [(TerminalFunction, String)])] = [
-        ("SECURITY", [(.des, "AAPL DES"), (.fa, "MSFT FA"), (.gp, "NVDA GP"), (.depth, "BTC DEPTH"), (.tas, "ETH TAS"), (.cn, "TSLA CN"), (.omon, "BTC OMON")]),
-        ("MARKETS", [(.w, "W"), (.wei, "WEI"), (.most, "MOST"), (.hmap, "HMAP"), (.fx, "FX"), (.comd, "COMD"), (.rates, "RATES"), (.top, "TOP")]),
+        ("SECURITY", [(.des, "AAPL DES"), (.fa, "MSFT FA"), (.evts, "AAPL EVTS"), (.gp, "NVDA GP"), (.depth, "BTC DEPTH"), (.tas, "ETH TAS"), (.cn, "TSLA CN"), (.omon, "BTC OMON")]),
+        ("MARKETS", [(.w, "W"), (.wei, "WEI"), (.most, "MOST"), (.hmap, "HMAP"), (.fx, "FX"), (.comd, "COMD"), (.rates, "RATES"), (.eco, "ECO"), (.top, "TOP")]),
         ("TRADING", [(.trade, "SOL BUY"), (.port, "PORT"), (.blot, "BLOT"), (.alrt, "NVDA ALRT")]),
         ("SYSTEM", [(.pref, "PREF")]),
     ]
