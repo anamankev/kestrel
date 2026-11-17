@@ -4,8 +4,26 @@ import Foundation
 public enum OrderType: Codable, Sendable, Equatable {
     case market
     case limit(Decimal)
+    /// Becomes a market order once the last trade reaches the stop (buy: at or above, sell: at or below).
+    case stop(Decimal)
+    /// Becomes a limit order at `limit` once the last trade reaches `stop`.
+    case stopLimit(stop: Decimal, limit: Decimal)
 
-    public var limitPrice: Decimal? { if case .limit(let p) = self { p } else { nil } }
+    public var limitPrice: Decimal? {
+        switch self {
+        case .limit(let p), .stopLimit(_, let p): p
+        default: nil
+        }
+    }
+    public var stopPrice: Decimal? {
+        switch self {
+        case .stop(let s), .stopLimit(let s, _): s
+        default: nil
+        }
+    }
+    /// Price used to reserve cash for a working buy: the limit, else the stop.
+    public var reservePrice: Decimal? { limitPrice ?? stopPrice }
+
 }
 
 public enum OrderStatus: String, Codable, Sendable { case working = "WORKING", filled = "FILLED", cancelled = "CANCELLED", rejected = "REJECTED" }
@@ -21,6 +39,11 @@ public struct Order: Codable, Sendable, Identifiable, Equatable {
     public var fillPrice: Decimal?
     public var updated: Date
     public var note: String?
+    /// Set when a stop's trigger price traded; nil for non-stop orders and for older saves.
+    public var triggered: Bool? = nil
+
+    /// Whether the order currently rests as a stop waiting for its trigger.
+    public var isPendingStop: Bool { type.stopPrice != nil && triggered != true }
 }
 
 public struct Fill: Codable, Sendable, Identifiable, Equatable {
@@ -75,13 +98,15 @@ extension Decimal {
 }
 
 public enum OrderReject: Error, Equatable, LocalizedError {
-    case invalidQuantity, invalidLimit, noMarket, insufficientCash(needed: Decimal, available: Decimal), insufficientPosition(Decimal)
+    case invalidQuantity, invalidLimit, invalidStop, stopThroughMarket(TradeSide), noMarket, insufficientCash(needed: Decimal, available: Decimal), insufficientPosition(Decimal)
     case insufficientMargin(needed: Decimal, available: Decimal)
 
     public var errorDescription: String? {
         switch self {
         case .invalidQuantity: "Quantity must be positive"
         case .invalidLimit: "Limit price must be positive"
+        case .invalidStop: "Stop price must be positive"
+        case .stopThroughMarket(let side): side == .buy ? "Buy stop must be above the last price" : "Sell stop must be below the last price"
         case .noMarket: "No market data for this security yet"
         case .insufficientCash(let n, let a): "Insufficient cash: need \(n.formatted(.currency(code: "USD"))), have \(a.formatted(.currency(code: "USD")))"
         case .insufficientPosition(let q): "Shorting is off for this account: you hold \(q)"
@@ -90,7 +115,7 @@ public enum OrderReject: Error, Equatable, LocalizedError {
     }
 }
 
-/// A margin account with market and limit orders, long and short.
+/// A margin account with market, limit, stop and stop-limit orders, long and short.
 ///
 /// Positions are signed (negative = short). Short sales credit the proceeds to cash, and a
 /// Reg T-style initial requirement of 150% of short value (the proceeds plus 50%) is held out of
@@ -128,7 +153,7 @@ public struct PaperAccount: Codable, Sendable, Equatable {
 
     /// Cash committed to working buy limits, so they can't be double-spent.
     public var reservedCash: Decimal {
-        workingOrders.filter { $0.side == .buy }.reduce(0) { $0 + $1.quantity * ($1.type.limitPrice ?? 0) }
+        workingOrders.filter { $0.side == .buy }.reduce(0) { $0 + $1.quantity * ($1.type.reservePrice ?? 0) }
     }
     /// Margin held against open shorts, valued at their average sale price.
     public var shortMarginHeld: Decimal {
@@ -146,9 +171,14 @@ public struct PaperAccount: Codable, Sendable, Equatable {
                                 touch: Touch?, now: Date = .now) throws(OrderReject) -> Order {
         guard quantity > 0 else { throw .invalidQuantity }
         if let lp = type.limitPrice, lp <= 0 { throw .invalidLimit }
+        if let sp = type.stopPrice {
+            guard sp > 0 else { throw .invalidStop }
+            // A stop already through the market would fill at once: almost always a typo.
+            if let last = touch?.last, side == .buy ? sp <= last : sp >= last { throw .stopThroughMarket(side) }
+        }
         if type == .market, touch == nil { throw .noMarket }
 
-        let px = type.limitPrice ?? touch!.executable(for: side)
+        let px = type.reservePrice ?? touch!.executable(for: side)
         let held = positions[symbol]?.quantity ?? 0
         switch side {
         case .buy:
@@ -190,15 +220,23 @@ public struct PaperAccount: Codable, Sendable, Equatable {
     public mutating func mark(symbol: String, touch: Touch, now: Date = .now) -> [Fill] {
         var new: [Fill] = []
         for i in orders.indices where orders[i].symbol == symbol && orders[i].status == .working {
+            if orders[i].isPendingStop, let sp = orders[i].type.stopPrice {
+                // Stops trigger on the last trade, not the quote, like exchange stop orders.
+                guard orders[i].side == .buy ? touch.last >= sp : touch.last <= sp else { continue }
+                orders[i].triggered = true
+                orders[i].updated = now
+                orders[i].note = "Triggered at \(touch.last.formatted(.number.precision(.fractionLength(0...8))))"
+            }
             let o = orders[i]
             let px = touch.executable(for: o.side)
-            let price: Decimal
-            switch (o.type, o.side) {
-            case (.market, _): price = px
-            case (.limit(let l), .buy) where px <= l: price = px   // price improvement goes to the trader
-            case (.limit(let l), .sell) where px >= l: price = px
+            let limit = o.type.limitPrice
+            switch o.side {
+            case _ where limit == nil: break                         // market, or a triggered stop
+            case .buy where px <= limit!: break                      // price improvement goes to the trader
+            case .sell where px >= limit!: break
             default: continue
             }
+            let price = px
             if let fill = execute(i, price: price, now: now) { new.append(fill) }
         }
         return new
@@ -214,7 +252,7 @@ public struct PaperAccount: Codable, Sendable, Equatable {
         case .buy:
             // A limit's reservation is released by this fill, and covering releases short margin.
             let covering = min(o.quantity, max(-pos.quantity, 0))
-            let available = cash - (reservedCash - o.quantity * (o.type.limitPrice ?? 0)) - shortMarginHeld
+            let available = cash - (reservedCash - o.quantity * (o.type.reservePrice ?? 0)) - shortMarginHeld
                 + covering * pos.averageCost * Self.shortRequirement
             guard notional <= available else {
                 orders[i].status = .rejected; orders[i].note = "Insufficient cash at fill"; orders[i].updated = now

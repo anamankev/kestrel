@@ -595,3 +595,64 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(try CommandParser.parse("CORREL", current: nil).function == .corr)
     }
 }
+
+@Suite struct StopOrderTests {
+    let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+    func touch(_ last: Decimal) -> Touch { Touch(bid: last - 1, ask: last + 1, last: last) }
+
+    @Test func sellStopRestsThenFillsAtBidWhenTriggered() throws {
+        var a = PaperAccount()
+        try a.submit(symbol: "BTC-USD", side: .buy, quantity: 1, type: .market, touch: touch(100), now: t0)
+        let o = try a.submit(symbol: "BTC-USD", side: .sell, quantity: 1, type: .stop(95), touch: touch(100), now: t0)
+        #expect(o.status == .working && o.isPendingStop)
+        #expect(a.mark(symbol: "BTC-USD", touch: touch(96), now: t0).isEmpty)
+        let fills = a.mark(symbol: "BTC-USD", touch: touch(94), now: t0)
+        #expect(fills.first?.price == 93)                       // gaps through: fills at the bid, not the stop
+        #expect(a.orders.last?.triggered == true)
+        #expect(a.positions["BTC-USD"]?.quantity == 0)
+    }
+
+    @Test func buyStopTriggersOnLastAtOrAbove() throws {
+        var a = PaperAccount()
+        try a.submit(symbol: "ETH-USD", side: .buy, quantity: 2, type: .stop(110), touch: touch(100), now: t0)
+        #expect(a.mark(symbol: "ETH-USD", touch: touch(109), now: t0).isEmpty)
+        #expect(a.mark(symbol: "ETH-USD", touch: touch(110), now: t0).first?.price == 111)
+    }
+
+    @Test func stopLimitBecomesRestingLimitAfterTrigger() throws {
+        var a = PaperAccount()
+        try a.submit(symbol: "SOL-USD", side: .buy, quantity: 1, type: .stopLimit(stop: 50, limit: 52), touch: touch(45), now: t0)
+        #expect(a.mark(symbol: "SOL-USD", touch: touch(55), now: t0).isEmpty)   // triggered, but ask 56 > limit 52
+        #expect(a.orders.last?.triggered == true && a.orders.last?.status == .working)
+        #expect(a.mark(symbol: "SOL-USD", touch: touch(50), now: t0).first?.price == 51)  // stays live after trigger
+    }
+
+    @Test func rejectsStopsThroughTheMarket() {
+        var a = PaperAccount()
+        #expect(throws: OrderReject.stopThroughMarket(.buy)) {
+            try a.submit(symbol: "BTC-USD", side: .buy, quantity: 1, type: .stop(99), touch: touch(100), now: t0)
+        }
+        #expect(throws: OrderReject.invalidStop) {
+            try a.submit(symbol: "BTC-USD", side: .buy, quantity: 1, type: .stop(0), touch: touch(100), now: t0)
+        }
+    }
+
+    @Test func buyStopReservesCash() throws {
+        var a = PaperAccount(cash: 1_000)
+        try a.submit(symbol: "BTC-USD", side: .buy, quantity: 9, type: .stop(105), touch: touch(100), now: t0)
+        #expect(a.buyingPower == Decimal(55))         // 9 × 105 reserved
+        #expect(throws: OrderReject.self) {
+            try a.submit(symbol: "BTC-USD", side: .buy, quantity: 1, type: .market, touch: touch(100), now: t0)
+        }
+    }
+
+    @Test func olderSavedOrdersStillDecode() throws {
+        var a = PaperAccount()
+        try a.submit(symbol: "BTC-USD", side: .buy, quantity: 1, type: .limit(90), touch: touch(100), now: t0)
+        var json = String(decoding: try JSONEncoder().encode(a), as: UTF8.self)
+        json = json.replacingOccurrences(of: ",\"triggered\":null", with: "")
+        let back = try JSONDecoder().decode(PaperAccount.self, from: Data(json.utf8))
+        #expect(back.orders.first?.isPendingStop == false)
+        #expect(back == a)
+    }
+}

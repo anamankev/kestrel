@@ -19,14 +19,14 @@ It uses live data from free public sources and has paper trading built in.
 
 ## Run
 Open `Kestrel.xcodeproj` in Xcode 26+, pick an **iPad simulator** or **My Mac**, then press ⌘R.
-Tests: `cd KestrelCore && swift test` (64 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
+Tests: `cd KestrelCore && swift test` (70 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
 (7 app tests: workspace routing, hotspots, pages, persistence regressions, formatting). CI runs both plus an iPad build
 (`.github/workflows/ci.yml`).
 
 ## Functions
 | Security | Markets | Trading |
 |---|---|---|
-| `DES` description (market cap, P/E) · `FA` 10-K financials · `EVTS` filings & earnings · `GP` chart (pan, trendlines, VS compare) · `HP` history + CSV · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure (tap a contract to trade it) · `CN` news | `W` editable watchlists · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `ECO` US economy · `CORR` correlation matrix (cross-asset or your watchlist) · `TOP` news | `TRADE` ticket (`SOL BUY`, or BTC/ETH options, long premium only) · `PORT` P&L, risk (beta, VaR, ES, net delta), equity curve · `BLOT` orders & fills · `ALRT` price alerts · `PREF` settings |
+| `DES` description (market cap, P/E) · `FA` 10-K financials · `EVTS` filings & earnings · `GP` chart (pan, trendlines, VS compare) · `HP` history + CSV · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure (tap a contract to trade it) · `CN` news | `W` editable watchlists · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `ECO` US economy · `CORR` correlation matrix (cross-asset or your watchlist) · `TOP` news | `TRADE` ticket: market, limit, stop and stop-limit (`SOL BUY`, or BTC/ETH options, long premium only) · `PORT` P&L, risk (beta, VaR, ES, net delta), equity curve · `BLOT` orders & fills · `ALRT` price alerts · `PREF` settings |
 
 Type `n <GO>` to drill into numbered item n (list rows, DES functions). PAGES saves named layouts; each window (⌘N on Mac, Stage Manager on iPad) keeps its own panels.
 Keys: ⌘1–⌘6 focus a panel, ⌘[ back, ⌘↩ maximize, ⌘L layout, ↑↓/Tab for autocomplete, Esc to cancel.

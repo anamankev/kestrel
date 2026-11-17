@@ -11,8 +11,12 @@ struct TicketView: View {
 
     @State var side: TradeSide
     @State private var qtyText = ""
-    @State private var isLimit = false
+    enum Kind: String, CaseIterable { case market = "MARKET", limit = "LIMIT", stop = "STOP", stopLimit = "STOP LMT" }
+    @State private var kind: Kind = .market
     @State private var limitText = ""
+    @State private var stopText = ""
+    private var isLimit: Bool { kind == .limit || kind == .stopLimit }
+    private var isStop: Bool { kind == .stop || kind == .stopLimit }
     @State private var message: (String, Bool)?
     @State private var confirming = false
 
@@ -24,8 +28,10 @@ struct TicketView: View {
     private var quote: Quote? { market.quotes[instrument.symbol] }
     private var qty: Decimal? { Decimal(string: qtyText.replacingOccurrences(of: ",", with: "")) }
     private var limit: Decimal? { Decimal(string: limitText.replacingOccurrences(of: ",", with: "")) }
+    private var stop: Decimal? { Decimal(string: stopText.replacingOccurrences(of: ",", with: "")) }
     private var estPrice: Double? {
         if isLimit { return limit?.double }
+        if isStop { return stop?.double }
         return side == .buy ? (quote?.ask ?? quote?.last) : (quote?.bid ?? quote?.last)
     }
     private var presets: [Decimal] {
@@ -70,9 +76,20 @@ struct TicketView: View {
                     }
                 }
 
-                Picker("", selection: $isLimit) { Text("MARKET").tag(false); Text("LIMIT").tag(true) }
+                Picker("", selection: $kind) { ForEach(Kind.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
                     .pickerStyle(.segmented)
-                    .onChange(of: isLimit) { if isLimit, limitText.isEmpty { prefillLimit() } }
+                    .onChange(of: kind) {
+                        if isLimit, limitText.isEmpty { prefillLimit() }
+                        if isStop { prefillStop() }
+                    }
+                if isStop {
+                    field(side == .buy ? "STOP PRICE · TRIGGERS AT OR ABOVE" : "STOP PRICE · TRIGGERS AT OR BELOW") {
+                        TextField("0.00", text: $stopText).font(.mono(16, .semibold)).textFieldStyle(.plain)
+                            #if os(iOS)
+                            .keyboardType(.decimalPad)
+                            #endif
+                    }
+                }
                 if isLimit {
                     field("LIMIT PRICE") {
                         TextField("0.00", text: $limitText).font(.mono(16, .semibold)).textFieldStyle(.plain)
@@ -99,8 +116,8 @@ struct TicketView: View {
                         if confirming { confirming = false; send() } else { confirming = true }
                     } label: {
                         Text(confirming
-                             ? "CONFIRM \(side.rawValue) \(qtyText) \(instrument.ticker) \(isLimit ? "@ \(limitText)" : "AT MARKET")"
-                             : "\(side.rawValue) \(qtyText.isEmpty ? "" : qtyText + " ")\(instrument.ticker)\(isLimit ? " LMT" : " MKT")")
+                             ? "CONFIRM \(side.rawValue) \(qtyText) \(instrument.ticker) \(confirmTerms)"
+                             : "\(side.rawValue) \(qtyText.isEmpty ? "" : qtyText + " ")\(instrument.ticker) \(shortKind)")
                             .font(.mono(14, .heavy))
                             .foregroundStyle(confirming ? Theme.canvas : .white)
                             .frame(maxWidth: .infinity).frame(height: 40)
@@ -120,7 +137,8 @@ struct TicketView: View {
                 .onChange(of: qtyText) { confirming = false }
                 .onChange(of: limitText) { confirming = false }
                 .onChange(of: side) { confirming = false }
-                .onChange(of: isLimit) { confirming = false }
+                .onChange(of: kind) { confirming = false }
+                .onChange(of: stopText) { confirming = false }
                 if confirming {
                     Text("Paper order: simulated execution, no real money moves.").font(.mono(9)).foregroundStyle(Theme.dim)
                 }
@@ -145,6 +163,22 @@ struct TicketView: View {
         return Fmt.money(q * (Decimal.price(p) ?? 0))
     }
 
+    private var shortKind: String { ["MKT", "LMT", "STP", "STP LMT"][Kind.allCases.firstIndex(of: kind)!] }
+    private var confirmTerms: String {
+        switch kind {
+        case .market: "AT MARKET"
+        case .limit: "@ \(limitText)"
+        case .stop: "STOP \(stopText)"
+        case .stopLimit: "STOP \(stopText) LMT \(limitText)"
+        }
+    }
+
+    /// A protective default: 2% through the market in the stop's direction.
+    private func prefillStop() {
+        guard let last = quote?.last else { return }
+        stopText = Fmt.price(last * (side == .buy ? 1.02 : 0.98), instrument.assetClass).replacingOccurrences(of: ",", with: "")
+    }
+
     private func prefillLimit() {
         guard let q = quote else { return }
         let p = side == .buy ? (q.bid ?? q.last) : (q.ask ?? q.last)
@@ -154,17 +188,23 @@ struct TicketView: View {
     private func send() {
         guard let q = qty else { return }
         let type: OrderType
-        if isLimit {
+        switch kind {
+        case .market: type = .market
+        case .limit:
             guard let l = limit else { message = ("Enter a limit price", false); return }
             type = .limit(l)
-        } else {
-            type = .market
+        case .stop:
+            guard let st = stop else { message = ("Enter a stop price", false); return }
+            type = .stop(st)
+        case .stopLimit:
+            guard let st = stop, let l = limit else { message = ("Enter stop and limit prices", false); return }
+            type = .stopLimit(stop: st, limit: l)
         }
         do {
             let o = try broker.submit(instrument, side: side, quantity: q, type: type, quote: quote)
             message = o.status == .filled
                 ? ("Filled #\(o.id) @ \(Fmt.price(o.fillPrice?.double, instrument.assetClass))", true)
-                : ("Order #\(o.id) working", true)
+                : ("Order #\(o.id) \(o.isPendingStop ? "armed: waiting for the stop" : "working")", true)
             qtyText = ""
         } catch {
             message = (error.errorDescription ?? "Rejected", false)
@@ -172,7 +212,7 @@ struct TicketView: View {
     }
 
     private func sideButton(_ s: TradeSide, _ price: Double?, _ color: Color) -> some View {
-        Button { side = s; prefillLimit() } label: {
+        Button { side = s; prefillLimit(); if isStop { prefillStop() } } label: {
             VStack(spacing: 2) {
                 Text(s.rawValue).font(.mono(10, .heavy))
                 Text(Fmt.price(price, instrument.assetClass)).font(.mono(17, .bold)).monospacedDigit()
@@ -209,6 +249,16 @@ struct OrderRow: View {
     @Environment(PaperBroker.self) private var broker
     @Environment(Theme.self) private var theme
 
+    private func typeLabel(_ t: OrderType) -> String {
+        let f = { (d: Decimal) in Fmt.price(d.double) }
+        return switch t {
+        case .market: "MKT"
+        case .limit(let l): "LMT \(f(l))"
+        case .stop(let st): "STP \(f(st))"
+        case .stopLimit(let st, let l): "STP \(f(st)) LMT \(f(l))"
+        }
+    }
+
     var body: some View {
         let o = order
         HStack(spacing: 8) {
@@ -217,10 +267,10 @@ struct OrderRow: View {
             Text(o.side.rawValue).foregroundStyle(o.side == .buy ? theme.up : theme.down).frame(width: 34, alignment: .leading)
             Text(Fmt.qty(o.quantity)).foregroundStyle(Theme.text)
             Text(Universe.instrument(symbol: o.symbol)?.ticker ?? o.symbol).foregroundStyle(Theme.text).bold()
-            Text(o.type.limitPrice.map { "LMT \(Fmt.price($0.double))" } ?? "MKT").foregroundStyle(Theme.label)
+            Text(typeLabel(o.type)).foregroundStyle(Theme.label)
             Spacer()
             if let p = o.fillPrice { Text("@ \(Fmt.price(p.double))").foregroundStyle(Theme.text) }
-            Text(o.status.rawValue).foregroundStyle(statusColor(o.status)).bold()
+            Text(o.status == .working && o.triggered == true ? "TRIGGERED" : o.status.rawValue).foregroundStyle(statusColor(o.status)).bold()
             if o.status == .working {
                 Button { broker.cancel(o.id) } label: {
                     Text("CXL").font(.mono(9, .heavy)).foregroundStyle(.white)
