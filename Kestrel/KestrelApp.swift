@@ -18,7 +18,7 @@ struct KestrelApp: App {
 
     var body: some Scene {
         WindowGroup(id: "terminal") {
-            AuthGate()
+            SizeIsolated { AuthGate() }
                 .environment(market)
                 .environment(news)
                 .environment(auth)
@@ -179,5 +179,22 @@ struct PrivacyCover: View {
                 Text("KESTREL").font(.mono(22, .heavy)).tracking(6).foregroundStyle(Theme.text)
             }
         }
+    }
+}
+
+/// The window's size must come only from its own frame limits, never from what a panel happens to
+/// contain. A GeometryReader has no intrinsic size, so content wider than the window (a long
+/// unbreakable headline, a wide table) is laid out in the space given and clipped, instead of
+/// stretching the window across the screen, which happened twice on the Mac.
+struct SizeIsolated<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        #if os(macOS)
+        GeometryReader { g in
+            content.frame(width: g.size.width, height: g.size.height).clipped()
+        }
+        #else
+        content   // iPad windows are sized by the system, not by content; keep full-bleed backgrounds
+        #endif
     }
 }

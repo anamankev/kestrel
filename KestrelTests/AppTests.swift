@@ -293,3 +293,24 @@ import StoreKitTest
     }
     #endif
 }
+
+#if os(macOS)
+import AppKit
+import SwiftUI
+
+/// The Mac window once grew to 6,006 points wide because a panel's content demanded it.
+@MainActor @Suite struct WindowSizingTests {
+    func minimumWidth<V: View>(_ v: V) -> CGFloat {
+        // Offered no space at all, a view reports the least it insists on: its minimum.
+        NSHostingController(rootView: v).sizeThatFits(in: .zero).width
+    }
+
+    @Test func contentCannotStretchTheWindow() {
+        let runaway = Text(String(repeating: "W", count: 2_000)).fixedSize()   // one unbreakable line
+        #expect(minimumWidth(runaway) > 10_000)                                 // what used to stretch it
+        #expect(minimumWidth(SizeIsolated { runaway }) < 10)                    // isolated: no demand
+        let window = SizeIsolated { runaway }.frame(minWidth: 1100, minHeight: 700)
+        #expect(abs(minimumWidth(window) - 1100) < 1)                           // only the explicit floor
+    }
+}
+#endif

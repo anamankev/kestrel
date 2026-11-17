@@ -61,7 +61,7 @@ enum SnapshotTour {
             capture(String(format: "%02d-%@", n + 1, cmd.replacingOccurrences(of: " ", with: "-")))
         }
         ws.layout = .four
-        for (i, c) in ["BTC GP", "W", "BTC DEPTH", "TOP"].enumerated() { ws.focused = i; _ = ws.run(c) }
+        for (i, c) in ["TOP", "W", "BTC DEPTH", "TOP"].enumerated() { ws.focused = i; _ = ws.run(c) }
         try? await Task.sleep(for: .seconds(6))
         capture("90-layout-4")
         ws.layout = .six
@@ -86,6 +86,7 @@ enum SnapshotTour {
         guard let view = (NSApp.keyWindow ?? NSApp.windows.first { $0.isVisible })?.contentView,
               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { log("SNAPSHOT no window for \(name)"); return }
         view.cacheDisplay(in: view.bounds, to: rep)
+        log("SNAPSHOT size \(name) \(Int(view.bounds.width))x\(Int(view.bounds.height))")
         do { try rep.representation(using: .png, properties: [:])?.write(to: url); log("SNAPSHOT \(url.path)") }
         catch { log("SNAPSHOT write failed \(error)") }
         #else
