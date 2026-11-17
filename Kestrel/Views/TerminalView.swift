@@ -398,7 +398,7 @@ struct FunctionView: View {
         case .port: PortfolioView(panelID: panel.id)
         case .blot: BlotterView()
         case .help: HelpView(panelID: panel.id)
-        case .des, .gp, .depth, .tas, .cn, .trade:
+        case .des, .gp, .depth, .tas, .cn, .omon, .trade:
             if let i = c.instrument, market.unknown.contains(i.symbol) {
                 EmptyNote(title: "\(i.ticker): security not found",
                           detail: "No market data exists for this ticker. Check the symbol or press MENU to go back.",
@@ -410,6 +410,7 @@ struct FunctionView: View {
                 case .depth: DepthView(instrument: i)
                 case .tas: TimeAndSalesView(instrument: i)
                 case .cn: NewsView(instrument: i)
+                case .omon: OptionMonitorView(instrument: i).id(i.symbol)
                 default: TicketView(instrument: i, side: panel.side ?? .buy).id("\(i.symbol)-\(panel.side?.rawValue ?? "")")
                 }
             } else {

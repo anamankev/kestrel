@@ -2,7 +2,7 @@ import Foundation
 import KestrelCore
 import os
 
-nonisolated let log = Logger(subsystem: "dev.kestrel.terminal", category: "market")
+nonisolated let marketLog = Logger(subsystem: "dev.kestrel.terminal", category: "market")
 
 enum ChartRange: String, CaseIterable, Identifiable {
     case d1 = "1D", d5 = "5D", m1 = "1M", m6 = "6M", y1 = "1Y", y5 = "5Y"
@@ -142,10 +142,10 @@ struct SecurityDetail: Equatable {
                     do {
                         let (data, resp) = try await http.data(from: url)
                         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-                        guard code == 200 else { log.error("quote \(i.symbol, privacy: .public) HTTP \(code)"); return (i.symbol, nil, code) }
+                        guard code == 200 else { marketLog.error("quote \(i.symbol, privacy: .public) HTTP \(code)"); return (i.symbol, nil, code) }
                         return (i.symbol, try YahooChart.decode(data), code)
                     } catch {
-                        log.error("quote \(i.symbol, privacy: .public) \(error.localizedDescription, privacy: .public)")
+                        marketLog.error("quote \(i.symbol, privacy: .public) \(error.localizedDescription, privacy: .public)")
                         return (i.symbol, nil, 0)
                     }
                 }
@@ -196,6 +196,12 @@ struct SecurityDetail: Equatable {
             details[i.symbol] = SecurityDetail(name: series.name, exchange: series.exchange, currency: series.currency)
         }
         return series.candles
+    }
+
+    /// Full listed option chain from Deribit's public API (BTC, ETH).
+    func optionChain(for i: Instrument) async throws -> OptionChain {
+        let (data, _) = try await http.data(from: Deribit.summaryURL(currency: i.ticker))
+        return try Deribit.decode(data)
     }
 
     func displayName(_ i: Instrument) -> String {

@@ -96,7 +96,7 @@ struct QuoteRow: View {
         .contentShape(.rect)
         .onTapGesture { ws.link(i, from: panelID) }
         .contextMenu {
-            ForEach([TerminalFunction.des, .gp, .depth, .tas, .cn, .trade], id: \.self) { f in
+            ForEach([TerminalFunction.des, .gp, .depth, .tas, .cn, .omon, .trade], id: \.self) { f in
                 Button("\(f.rawValue) — \(f.title)") { ws.load(Command(function: f, instrument: i), in: panelID) }
             }
         }
@@ -272,7 +272,7 @@ struct DescriptionView: View {
                     }
                     RangeBar(low: q?.low52, high: q?.high52, value: q?.last)
                 }
-                FlowHotspots(items: [(.gp, "Price Chart"), (.depth, "Market Depth"), (.tas, "Time & Sales"), (.cn, "News"), (.trade, "Trade")]) { f in
+                FlowHotspots(items: [(.gp, "Price Chart"), (.depth, "Market Depth"), (.tas, "Time & Sales"), (.cn, "News"), (.omon, "Options"), (.trade, "Trade")]) { f in
                     ws.load(Command(function: f, instrument: i), in: panelID)
                 }
             }

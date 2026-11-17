@@ -2,7 +2,7 @@ import Foundation
 
 /// Terminal functions, addressed by mnemonic like a professional terminal.
 public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
-    case des = "DES", gp = "GP", depth = "DEPTH", tas = "TAS", cn = "CN"
+    case des = "DES", gp = "GP", depth = "DEPTH", tas = "TAS", cn = "CN", omon = "OMON"
     case w = "W", hmap = "HMAP", wei = "WEI", most = "MOST", fx = "FX", comd = "COMD", rates = "RATES"
     case top = "TOP", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
 
@@ -13,6 +13,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         case .depth: "Market Depth"
         case .tas: "Time & Sales"
         case .cn: "Company News"
+        case .omon: "Option Monitor"
         case .w: "Monitor"
         case .hmap: "Heat Map"
         case .wei: "World Equity Indices"
@@ -31,7 +32,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
     /// Functions that operate on a loaded security.
     public var requiresSecurity: Bool {
         switch self {
-        case .des, .gp, .depth, .tas, .cn, .trade: true
+        case .des, .gp, .depth, .tas, .cn, .omon, .trade: true
         default: false
         }
     }
@@ -41,7 +42,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         "G": .gp, "GIP": .gp, "GPO": .gp, "CHART": .gp, "Q": .des, "BOOK": .depth, "L2": .depth,
         "T&S": .tas, "TS": .tas, "N": .top, "NEWS": .top, "MON": .w, "WATCH": .w, "IMAP": .hmap,
         "MOV": .most, "FXC": .fx, "GLCO": .comd, "GOV": .rates, "BUY": .trade, "SELL": .trade,
-        "OMS": .trade, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help,
+        "OMS": .trade, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help,
     ]
 
     public static func from(_ token: String) -> TerminalFunction? {

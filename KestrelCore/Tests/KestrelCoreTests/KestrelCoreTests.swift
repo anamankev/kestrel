@@ -192,3 +192,66 @@ import Testing
         #expect(plain.first?.link.scheme == "https")
     }
 }
+
+@Suite struct OptionsTests {
+    @Test func black76ReferenceValues() {
+        // F = K = 100, T = 1, σ = 20%: C = 100·(2N(0.1) − 1) = 7.9656, Δ = N(0.1) = 0.5398.
+        let c = Black76.greeks(f: 100, k: 100, t: 1, sigma: 0.2, call: true)
+        #expect(abs(c.price - 7.9656) < 1e-4)
+        #expect(abs(c.delta - 0.5398) < 1e-4)
+        #expect(abs(c.vega - 0.3970) < 1e-4)
+    }
+
+    @Test func putCallParity() {
+        for k in [60.0, 90, 100, 130] {
+            let c = Black76.greeks(f: 100, k: k, t: 0.3, sigma: 0.7, call: true)
+            let p = Black76.greeks(f: 100, k: k, t: 0.3, sigma: 0.7, call: false)
+            #expect(abs((c.price - p.price) - (100 - k)) < 1e-9)
+            #expect(abs((c.delta - p.delta) - 1) < 1e-12)
+            #expect(abs(c.gamma - p.gamma) < 1e-12)
+        }
+    }
+
+    @Test func impliedVolRoundTrip() {
+        for (k, s, call) in [(80.0, 0.35, true), (100, 0.9, false), (150, 1.5, true), (50, 0.6, false)] {
+            let price = Black76.greeks(f: 100, k: k, t: 0.25, sigma: s, call: call).price
+            let iv = Black76.impliedVol(price: price, f: 100, k: k, t: 0.25, call: call)
+            #expect(iv != nil && abs(iv! - s) < 1e-6)
+        }
+        #expect(Black76.impliedVol(price: 0.5, f: 100, k: 80, t: 0.25, call: true) == nil) // below intrinsic
+    }
+
+    @Test func expiredOptionIsIntrinsic() {
+        #expect(Black76.greeks(f: 110, k: 100, t: 0, sigma: 0.5, call: true).price == 10)
+        #expect(Black76.greeks(f: 110, k: 100, t: 0, sigma: 0.5, call: false).price == 0)
+    }
+
+    @Test func parsesDeribitNames() {
+        let p = Deribit.parse("BTC-4DEC26-70000-C")!
+        #expect(p.underlying == "BTC" && p.strike == 70_000 && p.call)
+        #expect(p.expiry == ISO8601DateFormatter().date(from: "2026-12-04T08:00:00Z"))
+        #expect(Deribit.parse("BTC-PERPETUAL") == nil)
+    }
+
+    @Test func chainAnalytics() throws {
+        let json = #"""
+        {"result":[
+         {"instrument_name":"BTC-25DEC26-60000-C","bid_price":0.08,"ask_price":0.081,"mark_price":0.0805,"mark_iv":50,"open_interest":10,"volume":1,"underlying_price":65000},
+         {"instrument_name":"BTC-25DEC26-60000-P","bid_price":0.01,"ask_price":0.011,"mark_price":0.0105,"mark_iv":54,"open_interest":40,"volume":1,"underlying_price":65000},
+         {"instrument_name":"BTC-25DEC26-65000-C","bid_price":0.04,"ask_price":0.041,"mark_price":0.0405,"mark_iv":48,"open_interest":30,"volume":1,"underlying_price":65000},
+         {"instrument_name":"BTC-25DEC26-65000-P","bid_price":0.04,"ask_price":0.041,"mark_price":0.0405,"mark_iv":50,"open_interest":20,"volume":1,"underlying_price":65000},
+         {"instrument_name":"BTC-25DEC26-70000-C","bid_price":0,"ask_price":0.02,"mark_price":0.019,"mark_iv":47,"open_interest":50,"volume":1,"underlying_price":65000}
+        ]}
+        """#
+        let chain = try Deribit.decode(Data(json.utf8))
+        let e = chain.expiries[0]
+        #expect(chain.rows(expiry: e).map(\.strike) == [60_000, 65_000, 70_000])
+        #expect(chain.atmStrike(expiry: e) == 65_000)
+        #expect(abs(chain.atmIV(expiry: e)! - 0.49) < 1e-12)
+        #expect(chain.putCallOIRatio() == 60.0 / 90.0)
+        #expect(chain.maxPain(expiry: e) == 65_000)
+        let c = chain.rows(expiry: e)[0].call!
+        #expect(c.bid == 0.08 * 65_000 && c.isITM)
+        #expect(chain.rows(expiry: e)[2].call?.bid == nil) // zero bid = no bid
+    }
+}
