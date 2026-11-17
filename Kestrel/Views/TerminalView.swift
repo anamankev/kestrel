@@ -23,7 +23,11 @@ struct TerminalView: View {
             market.focusSymbols = symbols
             for s in symbols { if let i = Universe.instrument(symbol: s) ?? Universe.resolve(s) { market.touch(i) } }
         }
-        .onAppear { commandFocused = true }
+        .onAppear { if !DemoTour.isEnabled { commandFocused = true } }
+        .task {
+            guard DemoTour.isEnabled else { return }
+            await DemoTour.run(ws) { commandText = $0 }
+        }
     }
 }
 

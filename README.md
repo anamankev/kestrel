@@ -5,6 +5,10 @@
 A native SwiftUI market terminal built around a command line: type `AAPL GP`, `BTC DEPTH` or `WEI`, press GO.
 It uses live data from free public sources and has paper trading built in.
 
+![Kestrel demo: commands typed into the terminal, live crypto depth, linked panels](docs/media/demo.gif)
+
+*Scripted tour, real app and live data. Re-record with `scripts/record-demo.sh <simulator-udid>` (launches with `-demo`).*
+
 ![Kestrel on iPad: portfolio risk, monitor, live order book and news](docs/screenshots/overview.png)
 
 | Options monitor (`BTC OMON`) | Relative performance (`NVDA GP` VS SPX) |
