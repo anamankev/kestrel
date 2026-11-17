@@ -91,11 +91,11 @@ import KestrelCore
 }
 
 @Suite struct LaunchScreenTests {
-    @Test func subscriptionComesFirstAndNeedsNoAccount() {
+    @Test func signInThenSubscribeThenTerminal() {
+        #expect(LaunchScreen.decide(checked: false, subscribed: false, signedIn: false) == .signIn)    // account first
+        #expect(LaunchScreen.decide(checked: true, subscribed: true, signedIn: false) == .signIn)      // even if the Apple ID pays
         #expect(LaunchScreen.decide(checked: false, subscribed: true, signedIn: true) == .checking)    // never flash the paywall
-        #expect(LaunchScreen.decide(checked: true, subscribed: false, signedIn: false) == .subscribe)  // buy without registering
-        #expect(LaunchScreen.decide(checked: true, subscribed: false, signedIn: true) == .subscribe)   // lapsed: data kept, gate shown
-        #expect(LaunchScreen.decide(checked: true, subscribed: true, signedIn: false) == .signIn)
+        #expect(LaunchScreen.decide(checked: true, subscribed: false, signedIn: true) == .subscribe)   // new or lapsed: pay to enter
         #expect(LaunchScreen.decide(checked: true, subscribed: true, signedIn: true) == .terminal)
     }
 }

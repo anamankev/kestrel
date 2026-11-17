@@ -29,16 +29,16 @@ enum SnapshotTour {
         "ALRT", "BLOT", "SOL BUY", "PREF", "PRO", "HELP",
     ]
 
-    /// Phase 0, on the subscribe page: capture it, then unlock (debug override) to continue.
+    /// Phase 2, on the subscribe page after sign-up: capture it, then unlock (debug override).
     static func subscribeStep() async {
-        try? FileManager.default.removeItem(at: folder)
-        try? await Task.sleep(for: .seconds(5))
+        try? await Task.sleep(for: .seconds(4))
         capture("00a-subscribe")
         BackgroundAlerts.store?.tourOverride = true
     }
 
     /// Phase 1, on the sign-in screen: capture it, then create the throwaway account.
     static func signIn(_ auth: AuthService) async {
+        try? FileManager.default.removeItem(at: folder)
         log("SNAPSHOT sign-in tour started")
         try? await Task.sleep(for: .seconds(5))
         capture("00-sign-in")

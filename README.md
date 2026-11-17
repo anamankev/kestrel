@@ -12,8 +12,8 @@ It uses live data from free public sources and has paper trading built in.
 ![Kestrel on iPad: portfolio risk, monitor, live order book and news](docs/screenshots/overview.png)
 
 **Kestrel is subscription-only:** **$9.99 / month**, **$49.99 / 6 months** or **$99.99 / year**, with no free
-tier or trial. The subscribe page comes first and needs no account (the subscription belongs to the Apple ID); then
-sign in, then the terminal with everything included. A lapsed subscription returns to the subscribe page and keeps
+tier or trial. Sign up or sign in first (the account holds your encrypted data and is tagged on the
+purchase), then subscribe, then the terminal with everything included. A lapsed subscription returns to the subscribe page and keeps
 the encrypted data, so resubscribing restores it. Purchases use StoreKit 2 with on-device verification. Test
 locally with `Config/Kestrel.storekit` (selected in the scheme). Selling requires an Apple Developer Program
 membership and the three products in App Store Connect: `dev.kestrel.pro.monthly`, `dev.kestrel.pro.halfyear`,

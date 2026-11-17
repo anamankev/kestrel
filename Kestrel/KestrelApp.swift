@@ -68,16 +68,17 @@ struct KestrelApp: App {
 
 /// Shows sign-in until someone is signed in, then that person's terminal. Their paper account,
 /// watchlists and alerts load from their own folder and are rebuilt when the user changes.
-/// What the window shows. Kestrel is subscription-only: the subscribe page comes first and
-/// needs no account (Apple doesn't allow requiring registration before purchase; the
-/// subscription belongs to the Apple ID). Then sign in, then the terminal.
+/// What the window shows. Kestrel is subscription-only: sign up or sign in, then subscribe, then
+/// the terminal. The account comes first because it holds the person's encrypted portfolio,
+/// watchlists and alerts, and every purchase is tagged with it (appAccountToken). Someone who
+/// already subscribed on this Apple ID signs in and passes straight through (or taps Restore).
 enum LaunchScreen: Equatable {
     case checking, subscribe, signIn, terminal
 
     static func decide(checked: Bool, subscribed: Bool, signedIn: Bool) -> LaunchScreen {
-        guard checked else { return .checking }
-        guard subscribed else { return .subscribe }
-        return signedIn ? .terminal : .signIn
+        guard signedIn else { return .signIn }
+        guard checked else { return .checking }     // never flash the paywall at a subscriber
+        return subscribed ? .terminal : .subscribe
     }
 }
 
