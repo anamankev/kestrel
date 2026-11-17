@@ -6,6 +6,12 @@ import KestrelCore
     private(set) var account: PaperAccount
     private(set) var marks: [String: Decimal] = [:]
     var lastFill: Fill?
+    /// Account value over time, sampled every 5 minutes while the app runs and on each fill.
+    private(set) var curve: [EquityPoint] = []
+
+    struct EquityPoint: Codable, Equatable { var t: Date; var v: Double }
+    @ObservationIgnored private let curveURL: URL = URL.applicationSupportDirectory
+        .appending(path: "Kestrel/equity-curve.json")
 
     @ObservationIgnored private let url: URL = {
         let dir = URL.applicationSupportDirectory.appending(path: "Kestrel", directoryHint: .isDirectory)
@@ -15,6 +21,23 @@ import KestrelCore
 
     init() {
         account = (try? JSONDecoder().decode(PaperAccount.self, from: Data(contentsOf: url))) ?? PaperAccount()
+        curve = (try? JSONDecoder().decode([EquityPoint].self, from: Data(contentsOf: curveURL))) ?? []
+        Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(300))
+                self?.recordEquity()
+            }
+        }
+    }
+
+    func recordEquity() {
+        // Only meaningful once every open position has a live mark.
+        guard account.openPositions.allSatisfy({ marks[$0.symbol] != nil }) else { return }
+        let v = equity.double
+        if let last = curve.last, abs(last.v - v) < 0.005, Date().timeIntervalSince(last.t) < 3600 { return }
+        curve.append(EquityPoint(t: .now, v: v))
+        if curve.count > 3000 { curve.removeFirst(curve.count - 3000) }
+        try? JSONEncoder().encode(curve).write(to: curveURL, options: [.atomic, .completeFileProtection])
     }
 
     private func save() {
@@ -32,7 +55,7 @@ import KestrelCore
         marks[symbol] = t.last
         let fills = account.mark(symbol: symbol, touch: t)
         if let f = fills.last { lastFill = f }
-        if !fills.isEmpty { save() }
+        if !fills.isEmpty { save(); recordEquity() }
     }
 
     func submit(_ i: Instrument, side: TradeSide, quantity: Decimal, type: OrderType, quote: Quote?) throws(OrderReject) -> Order {
@@ -41,12 +64,16 @@ import KestrelCore
         if let q = quote { marks[i.symbol] = Decimal.price(q.last) }
         if order.status == .filled, let f = account.fills.last { lastFill = f }
         save()
+        recordEquity()
         return order
     }
 
     func cancel(_ id: Int) { account.cancel(id); save() }
 
-    func reset() { account = PaperAccount(); marks = [:]; save() }
+    func reset() {
+        account = PaperAccount(); marks = [:]; save()
+        curve = []; try? FileManager.default.removeItem(at: curveURL)
+    }
 
     var equity: Decimal { account.equity(marks: marks) }
     var unrealized: Decimal {

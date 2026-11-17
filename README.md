@@ -5,12 +5,12 @@ It uses live data from free public sources and has paper trading built in.
 
 ## Run
 Open `Kestrel.xcodeproj` in Xcode 26+, pick an **iPad simulator** or **My Mac**, then press ⌘R.
-Core logic tests: `cd KestrelCore && swift test` (46 tests).
+Core logic tests: `cd KestrelCore && swift test` (53 tests).
 
 ## Functions
 | Security | Markets | Trading |
 |---|---|---|
-| `DES` description (market cap, P/E) · `FA` 10-K financials · `EVTS` filings & earnings · `GP` chart (pan, trendlines, VS compare) · `HP` history + CSV · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure · `CN` news | `W` editable watchlists · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `ECO` US economy · `TOP` news | `TRADE` ticket (`SOL BUY`) · `PORT` P&L · `BLOT` orders & fills · `ALRT` price alerts · `PREF` settings |
+| `DES` description (market cap, P/E) · `FA` 10-K financials · `EVTS` filings & earnings · `GP` chart (pan, trendlines, VS compare) · `HP` history + CSV · `DEPTH` L2 book · `TAS` time & sales · `OMON` options, smile & term structure · `CN` news | `W` editable watchlists · `WEI` world indices · `MOST` movers · `HMAP` heat map · `FX` · `COMD` · `RATES` · `ECO` US economy · `TOP` news | `TRADE` ticket (`SOL BUY`) · `PORT` P&L, risk (beta, VaR, ES), equity curve · `BLOT` orders & fills · `ALRT` price alerts · `PREF` settings |
 
 Keys: ⌘1–⌘6 focus a panel, ⌘[ back, ⌘↩ maximize, ⌘L layout, ↑↓/Tab for autocomplete, Esc to cancel.
 Tap a row to **link** that security into every security panel. Long-press a row for its functions.
@@ -21,7 +21,8 @@ KestrelCore (Swift package, no UI, fully tested)
   Universe        security master + ticker resolution
   CommandParser   TICKER [EXCH] [CLASS] FUNCTION grammar + autocomplete
   OrderBook       price-level L2 book: snapshot + deltas, ladder, imbalance
-  PaperAccount    Decimal cash/positions, market & limit orders, reservations, realized P&L
+  PaperAccount    Decimal cash, signed positions (long/short, Reg T 150% short margin), market & limit orders, reservations, realized P&L
+  Risk            beta, historical-simulation VaR / expected shortfall, date-aligned returns
   Indicators      SMA, EMA, Bollinger, Wilder RSI, VWAP
   Options         Black-76 greeks, implied-vol solver, chain analytics (ATM IV, max pain, P/C)
   Watchlists      named lists (add/remove/reorder) + AlertBook (above/below/move%, fire-once)

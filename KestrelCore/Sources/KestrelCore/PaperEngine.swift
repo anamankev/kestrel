@@ -76,6 +76,7 @@ extension Decimal {
 
 public enum OrderReject: Error, Equatable, LocalizedError {
     case invalidQuantity, invalidLimit, noMarket, insufficientCash(needed: Decimal, available: Decimal), insufficientPosition(Decimal)
+    case insufficientMargin(needed: Decimal, available: Decimal)
 
     public var errorDescription: String? {
         switch self {
@@ -83,25 +84,45 @@ public enum OrderReject: Error, Equatable, LocalizedError {
         case .invalidLimit: "Limit price must be positive"
         case .noMarket: "No market data for this security yet"
         case .insufficientCash(let n, let a): "Insufficient cash: need \(n.formatted(.currency(code: "USD"))), have \(a.formatted(.currency(code: "USD")))"
-        case .insufficientPosition(let q): "Long-only account: you hold \(q)"
+        case .insufficientPosition(let q): "Shorting is off for this account: you hold \(q)"
+        case .insufficientMargin(let n, let a): "Insufficient margin to short: need \(n.formatted(.currency(code: "USD"))), have \(a.formatted(.currency(code: "USD")))"
         }
     }
 }
 
-/// A long-only cash account with market and limit orders.
+/// A margin account with market and limit orders, long and short.
 ///
-/// Pure value type: every state change goes through `submit`, `cancel` or `mark`, which makes it
-/// deterministic to test and trivial to persist as JSON.
+/// Positions are signed (negative = short). Short sales credit the proceeds to cash, and a
+/// Reg T-style initial requirement of 150% of short value (the proceeds plus 50%) is held out of
+/// buying power. Pure value type: every state change goes through `submit`, `cancel` or `mark`,
+/// which makes it deterministic to test and trivial to persist as JSON.
 public struct PaperAccount: Codable, Sendable, Equatable {
     public static let startingCash: Decimal = 1_000_000
+    public static let shortRequirement: Decimal = 1.5
 
     public private(set) var cash: Decimal
     public private(set) var positions: [String: Position] = [:]
     public private(set) var orders: [Order] = []
     public private(set) var fills: [Fill] = []
     private var nextID = 1
+    public var allowShort: Bool
 
-    public init(cash: Decimal = PaperAccount.startingCash) { self.cash = cash }
+    public init(cash: Decimal = PaperAccount.startingCash, allowShort: Bool = true) {
+        self.cash = cash
+        self.allowShort = allowShort
+    }
+
+    // Older saved accounts predate `allowShort`; decode it optionally so they still load.
+    private enum CodingKeys: String, CodingKey { case cash, positions, orders, fills, nextID, allowShort }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        cash = try c.decode(Decimal.self, forKey: .cash)
+        positions = try c.decode([String: Position].self, forKey: .positions)
+        orders = try c.decode([Order].self, forKey: .orders)
+        fills = try c.decode([Fill].self, forKey: .fills)
+        nextID = try c.decode(Int.self, forKey: .nextID)
+        allowShort = try c.decodeIfPresent(Bool.self, forKey: .allowShort) ?? true
+    }
 
     public var workingOrders: [Order] { orders.filter { $0.status == .working } }
 
@@ -109,7 +130,11 @@ public struct PaperAccount: Codable, Sendable, Equatable {
     public var reservedCash: Decimal {
         workingOrders.filter { $0.side == .buy }.reduce(0) { $0 + $1.quantity * ($1.type.limitPrice ?? 0) }
     }
-    public var buyingPower: Decimal { cash - reservedCash }
+    /// Margin held against open shorts, valued at their average sale price.
+    public var shortMarginHeld: Decimal {
+        positions.values.filter { $0.quantity < 0 }.reduce(0) { $0 + (-$1.quantity) * $1.averageCost * Self.shortRequirement }
+    }
+    public var buyingPower: Decimal { cash - reservedCash - shortMarginHeld }
 
     private func reservedQuantity(_ symbol: String) -> Decimal {
         workingOrders.filter { $0.symbol == symbol && $0.side == .sell }.reduce(0) { $0 + $1.quantity }
@@ -123,13 +148,25 @@ public struct PaperAccount: Codable, Sendable, Equatable {
         if let lp = type.limitPrice, lp <= 0 { throw .invalidLimit }
         if type == .market, touch == nil { throw .noMarket }
 
+        let px = type.limitPrice ?? touch!.executable(for: side)
+        let held = positions[symbol]?.quantity ?? 0
         switch side {
         case .buy:
-            let estimate = quantity * (type.limitPrice ?? touch!.executable(for: .buy))
-            guard estimate <= buyingPower else { throw .insufficientCash(needed: estimate, available: buyingPower) }
+            // Covering a short releases its margin, so only the part that opens/extends a long needs cash.
+            let covering = min(quantity, max(-held, 0))
+            let released = covering * (positions[symbol]?.averageCost ?? 0) * Self.shortRequirement
+            let estimate = quantity * px
+            guard estimate <= buyingPower + released else {
+                throw .insufficientCash(needed: estimate, available: buyingPower + released)
+            }
         case .sell:
-            let free = (positions[symbol]?.quantity ?? 0) - reservedQuantity(symbol)
-            guard quantity <= free else { throw .insufficientPosition(free) }
+            let free = max(held, 0) - reservedQuantity(symbol)
+            let shortPart = quantity - max(free, 0)
+            if shortPart > 0 {
+                guard allowShort else { throw .insufficientPosition(max(free, 0)) }
+                let needed = shortPart * px * (Self.shortRequirement - 1)  // proceeds cover the other 100%
+                guard needed <= buyingPower else { throw .insufficientMargin(needed: needed, available: buyingPower) }
+            }
         }
 
         var order = Order(id: nextID, symbol: symbol, side: side, quantity: quantity, type: type,
@@ -174,26 +211,45 @@ public struct PaperAccount: Codable, Sendable, Equatable {
 
         switch o.side {
         case .buy:
-            // A limit's reservation is released by this fill, so check against cash itself.
-            guard notional <= cash - (reservedCash - o.quantity * (o.type.limitPrice ?? 0)) else {
+            // A limit's reservation is released by this fill, and covering releases short margin.
+            let covering = min(o.quantity, max(-pos.quantity, 0))
+            let available = cash - (reservedCash - o.quantity * (o.type.limitPrice ?? 0)) - shortMarginHeld
+                + covering * pos.averageCost * Self.shortRequirement
+            guard notional <= available else {
                 orders[i].status = .rejected; orders[i].note = "Insufficient cash at fill"; orders[i].updated = now
                 return nil
             }
-            let qty = pos.quantity + o.quantity
-            pos.averageCost = (pos.averageCost * pos.quantity + notional) / qty
-            pos.quantity = qty
+            if covering > 0 {
+                realized = (pos.averageCost - price) * covering
+                pos.quantity += covering
+            }
+            let opening = o.quantity - covering
+            if opening > 0 {
+                let q = pos.quantity + opening
+                pos.averageCost = (pos.averageCost * pos.quantity + opening * price) / q
+                pos.quantity = q
+            }
             cash -= notional
         case .sell:
-            guard o.quantity <= pos.quantity else {
+            let closing = min(o.quantity, max(pos.quantity, 0))
+            let opening = o.quantity - closing
+            if opening > 0, !allowShort {
                 orders[i].status = .rejected; orders[i].note = "Position no longer available"; orders[i].updated = now
                 return nil
             }
-            realized = (price - pos.averageCost) * o.quantity
-            pos.quantity -= o.quantity
-            pos.realized += realized
+            if closing > 0 {
+                realized = (price - pos.averageCost) * closing
+                pos.quantity -= closing
+            }
+            if opening > 0 {
+                let shortQty = -pos.quantity + opening
+                pos.averageCost = ((-pos.quantity) * pos.averageCost + opening * price) / shortQty
+                pos.quantity = -shortQty
+            }
             cash += notional
-            if pos.quantity == 0 { pos.averageCost = 0 }
         }
+        pos.realized += realized
+        if pos.quantity == 0 { pos.averageCost = 0 }
         positions[o.symbol] = pos
         orders[i].status = .filled
         orders[i].fillPrice = price
@@ -205,7 +261,7 @@ public struct PaperAccount: Codable, Sendable, Equatable {
     }
 
     public var openPositions: [Position] {
-        positions.values.filter { $0.quantity > 0 }.sorted { $0.symbol < $1.symbol }
+        positions.values.filter { $0.quantity != 0 }.sorted { $0.symbol < $1.symbol }
     }
     public var realizedPnL: Decimal { positions.values.reduce(0) { $0 + $1.realized } }
 

@@ -48,6 +48,10 @@ struct TicketView: View {
                     }
                 }
 
+                if side == .sell, let q = qty, q > max(broker.account.positions[instrument.symbol]?.quantity ?? 0, 0) {
+                    Text("This sell opens or extends a SHORT. 150% of its value is held as margin.")
+                        .font(.mono(10, .semibold)).foregroundStyle(Theme.warn)
+                }
                 field("QUANTITY") {
                     TextField("0", text: $qtyText).font(.mono(16, .semibold)).textFieldStyle(.plain)
                         #if os(iOS)
@@ -79,7 +83,10 @@ struct TicketView: View {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
                     GridRow { kv("EST. NOTIONAL", notional); kv("BUYING POWER", Fmt.money(broker.account.buyingPower)) }
                     GridRow {
-                        kv("POSITION", Fmt.qty(broker.account.positions[instrument.symbol]?.quantity ?? 0))
+                        kv("POSITION", { () -> String in
+                            let q = broker.account.positions[instrument.symbol]?.quantity ?? 0
+                            return q < 0 ? "\(Fmt.qty(q)) SHORT" : Fmt.qty(q)
+                        }())
                         kv("AVG COST", broker.account.positions[instrument.symbol].map { Fmt.price($0.averageCost.double, instrument.assetClass) } ?? "—")
                     }
                 }
@@ -248,7 +255,7 @@ struct PortfolioView: View {
         let a = broker.account
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 1)], spacing: 1) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 4)], spacing: 4) {
                     tile("NET LIQUIDATION", Fmt.money(broker.equity), Theme.text)
                     tile("TOTAL P&L", signedMoney(broker.totalPnL), theme.tint(broker.totalPnL.double))
                     tile("UNREALIZED", signedMoney(broker.unrealized), theme.tint(broker.unrealized.double))
@@ -256,8 +263,8 @@ struct PortfolioView: View {
                     tile("CASH", Fmt.money(a.cash), Theme.text)
                     tile("BUYING POWER", Fmt.money(a.buyingPower), Theme.text)
                 }
-                .background(Theme.rule)
 
+                RiskPanel()
                 SectionBar(title: "POSITIONS", trailing: "\(a.openPositions.count) OPEN")
                 HStack {
                     HeaderCell(text: "SECURITY", width: 80, align: .leading)
@@ -272,7 +279,8 @@ struct PortfolioView: View {
                     let inst = Universe.instrument(symbol: p.symbol) ?? Universe.resolve(p.symbol)
                     let mark = market.quotes[p.symbol].flatMap { Decimal.price($0.last) } ?? broker.marks[p.symbol] ?? p.averageCost
                     let u = p.unrealized(mark: mark)
-                    let pct = p.averageCost == 0 ? 0 : ((mark - p.averageCost) / p.averageCost * 100).double
+                    let basis = abs(p.quantity) * p.averageCost
+                    let pct = basis == 0 ? 0 : (u / basis * 100).double
                     HStack {
                         Text(inst?.ticker ?? p.symbol).font(.mono(12, .bold)).foregroundStyle(Theme.text).frame(width: 80, alignment: .leading)
                         cell(Fmt.qty(p.quantity)); cell(Fmt.price(p.averageCost.double)); cell(Fmt.price(mark.double))

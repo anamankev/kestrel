@@ -16,7 +16,7 @@ that only apply to servers (cookies, CSRF, CORS, admin routes, databases, passwo
 | 8 | Suspicious activity logged | ✅ | Feed failures and HTTP errors go to `os.Logger`, with only symbols marked public. |
 | 10 | Parameterized queries | N/A | No SQL. |
 | 12 | Rate limiting (outbound) | ✅ | Yahoo polling uses at most 6 concurrent requests on a 45 s cycle. The WebSocket reconnects with exponential backoff (0.5 s → 30 s) and has a 15 s stale-feed watchdog. |
-| 19 | Prices verified by the engine | ✅ | Fill prices come from the live touch inside `PaperAccount`, never from the UI. Cash checks include working-order reservations. |
+| 19 | Prices verified by the engine | ✅ | Fill prices come from the live touch inside `PaperAccount`, never from the UI. Cash checks include working-order reservations and short margin (150%), re-checked at fill time. |
 | 20 | Debug off in release | ✅ | Release config uses whole-module optimisation with no debug-only paths. |
 | 21–22 | Dependencies | ✅ | Zero third-party packages (only Foundation, SwiftUI and os). |
 | 23 | No exposed files | ✅ | `.gitignore` excludes build output, `xcuserdata` and `.DS_Store`. |

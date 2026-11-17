@@ -108,7 +108,7 @@ import Testing
     }
 
     @Test func sellRealizesPnLAndBlocksShorts() throws {
-        var a = PaperAccount(cash: 10_000)
+        var a = PaperAccount(cash: 10_000, allowShort: false)
         try a.submit(symbol: "X", side: .buy, quantity: 10, type: .market, touch: touch)
         try a.submit(symbol: "X", side: .buy, quantity: 10, type: .market, touch: Touch(bid: 109, ask: 110, last: 110))
         #expect(a.positions["X"]?.averageCost == 105)
@@ -456,5 +456,72 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         let csv = CSV.candles(k, intraday: false)
         #expect(csv == "Date,Open,High,Low,Close,Volume\r\n1970-01-01,1.0,2.0,0.5,1.5,5.0\r\n1970-01-02,2.0,3.0,1.0,2.5,10.0\r\n")
         #expect(CSV.field("a,\"b\"") == "\"a,\"\"b\"\"\"")
+    }
+}
+
+
+@Suite struct ShortSellingTests {
+    let t100 = Touch(bid: 100, ask: 100, last: 100)
+
+    @Test func shortThenCoverRealizesPnLAndReleasesMargin() throws {
+        var a = PaperAccount(cash: 10_000)
+        try a.submit(symbol: "X", side: .sell, quantity: 10, type: .market, touch: t100)
+        #expect(a.positions["X"]?.quantity == -10 && a.positions["X"]?.averageCost == 100)
+        #expect(a.cash == 11_000)                       // proceeds credited
+        #expect(a.shortMarginHeld == 1_500 && a.buyingPower == 9_500)
+        #expect(a.equity(marks: ["X": 90]) == Decimal(10_100)) // short gains when price falls
+        try a.submit(symbol: "X", side: .buy, quantity: 10, type: .market, touch: Touch(bid: 90, ask: 90, last: 90))
+        #expect(a.positions["X"]?.quantity == 0 && a.realizedPnL == 100)
+        #expect(a.cash == 10_100 && a.buyingPower == 10_100)
+    }
+
+    @Test func sellThroughLongFlipsToShort() throws {
+        var a = PaperAccount(cash: 10_000)
+        try a.submit(symbol: "X", side: .buy, quantity: 5, type: .market, touch: t100)
+        try a.submit(symbol: "X", side: .sell, quantity: 8, type: .market, touch: Touch(bid: 110, ask: 110, last: 110))
+        #expect(a.positions["X"]?.quantity == -3 && a.positions["X"]?.averageCost == 110)
+        #expect(a.realizedPnL == 50)
+    }
+
+    @Test func marginLimitsShortSize() {
+        var a = PaperAccount(cash: 1_000)
+        // Needs 50% of 10 × 300 = 1,500 > 1,000.
+        #expect(throws: OrderReject.self) {
+            try a.submit(symbol: "X", side: .sell, quantity: 10, type: .market, touch: Touch(bid: 300, ask: 300, last: 300))
+        }
+    }
+
+    @Test func oldAccountsWithoutShortFlagStillDecode() throws {
+        var a = PaperAccount(cash: 5_000)
+        try a.submit(symbol: "X", side: .buy, quantity: 1, type: .market, touch: t100)
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(a)) as! [String: Any]
+        json.removeValue(forKey: "allowShort")
+        let b = try JSONDecoder().decode(PaperAccount.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(b.allowShort && b.positions == a.positions && b.cash == a.cash)
+    }
+}
+
+@Suite struct RiskTests {
+    @Test func betaOfScaledSeries() {
+        let m = (0..<60).map { sin(Double($0)) * 0.01 }
+        #expect(abs(Risk.beta(asset: m.map { $0 * 1.5 }, market: m)! - 1.5) < 1e-9)
+        #expect(Risk.beta(asset: [0.01], market: [0.02]) == nil) // too short
+    }
+
+    @Test func historicalVaRAndShortfall() {
+        let pnl = (1...100).map { Double($0) - 50 }   // -49 … +50
+        #expect(Risk.historicalVaR(pnl: pnl, confidence: 0.95) == 44)  // 5th worst-ish day
+        #expect(Risk.expectedShortfall(pnl: pnl, confidence: 0.95) == 47)
+        #expect(Risk.historicalVaR(pnl: Array(repeating: 1, count: 30)) == 0)
+    }
+
+    @Test func alignsOnSharedDatesAndBuildsPnL() {
+        func k(_ day: Int, _ c: Double) -> Candle { Candle(time: Date(timeIntervalSince1970: Double(day) * 86_400 + 3600), open: c, high: c, low: c, close: c, volume: 0) }
+        let r = Risk.alignedReturns(["A": [k(0, 100), k(1, 110), k(2, 121), k(3, 133.1)],
+                                     "B": [k(1, 50), k(3, 55)]])          // B missing day 0 and 2
+        #expect(r["A"]!.count == 1 && abs(r["A"]![0] - 0.21) < 1e-9)      // day1 → day3
+        #expect(abs(r["B"]![0] - 0.1) < 1e-12)
+        let pnl = Risk.pnlSeries(exposure: ["A": 1000, "B": -500], returns: r)
+        #expect(abs(pnl[0] - (210 - 50)) < 1e-6)
     }
 }
