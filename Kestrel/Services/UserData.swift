@@ -27,14 +27,17 @@ import UserNotifications
     }()
     @ObservationIgnored private var askedForNotifications = false
 
-    /// - Parameter url: storage location (tests pass a temporary file).
-    init(url: URL = UserData.defaultURL) {
+    @ObservationIgnored private let store: SecureStore
+
+    /// - Parameters: `url` is the storage location (tests pass a temporary file); `store` seals it.
+    init(url: URL = UserData.defaultURL, store: SecureStore = SecureStore(key: nil)) {
         self.url = url
+        self.store = store
         // Build the complete state in locals, then assign once: init must never write to disk.
         var lists = [Watchlist.core]
         var active = lists[0].id
         var book = AlertBook()
-        if let data = try? Data(contentsOf: url), let s = try? JSONDecoder().decode(Snapshot.self, from: data), !s.watchlists.isEmpty {
+        if let data = store.read(url), let s = try? JSONDecoder().decode(Snapshot.self, from: data), !s.watchlists.isEmpty {
             lists = s.watchlists
             active = s.watchlists.contains { $0.id == s.activeID } ? s.activeID : s.watchlists[0].id
             book = s.alerts
@@ -50,9 +53,9 @@ import UserNotifications
         save()
     }
 
-    private func save() {
+    func save() {
         guard let data = try? JSONEncoder().encode(Snapshot(watchlists: watchlists, activeID: activeID, alerts: alerts)) else { return }
-        try? data.write(to: url, options: [.atomic, .completeFileProtection])
+        store.write(data, to: url)
     }
 
     // MARK: Watchlists

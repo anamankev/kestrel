@@ -12,14 +12,14 @@ N/A with the design they must follow once the planned backend exists (see the en
 ## Results
 
 Every ✅ row is backed by a test or a command whose output is quoted. Test counts at the time of review:
-**95 core tests** (`cd KestrelCore && swift test`) and **12 app tests** on both macOS and the iPad simulator
+**97 core tests** (`cd KestrelCore && swift test`) and **15 app tests** on both macOS and the iPad simulator
 (`xcodebuild test -scheme Kestrel`). All pass.
 
 | # | Item | Status | What was done and how it was verified |
 |---|------|--------|---------------------------------------|
 | 1 | Authentication | ✅ fixed | Before: the signed-in account was a bare UUID in UserDefaults, so editing one settings value switched accounts without a password. Now: sign-in issues a 256-bit random session token stored only in the **Keychain** (`AfterFirstUnlockThisDeviceOnly`, never synced). The account file keeps only its SHA-256, compared in constant time, with a 30-day sliding expiry. Sign-out and deletion revoke it, so a copied token stops working. Tests: `SessionTests` (forged, expired, other-account and revoked tokens rejected; token never stored in plaintext), `SessionHardeningTests` (replay after sign-out fails, another account's ID with my token fails, Keychain round trip asserted on iPad and Mac). |
 | 2 | API keys hidden | ✅ | There are none: every data source is public. `gitleaks detect --log-opts=--all`: "22 commits scanned … no leaks found". |
-| 3 | Database locked down | ✅ | No server database. Local JSON files live in the app sandbox, written atomically with `completeFileProtection` (encrypted while the device is locked on iPad). Each account's data is in its own folder. |
+| 3 | Database locked down | ✅ encrypted | There is no server database. Each account's files (paper book, equity curve, watchlists and alerts) are **sealed with AES-256-GCM** under a random per-account data key. That key is stored only wrapped by a key derived from the password (PBKDF2, 600k rounds, its own salt). Between launches the data key sits beside the session token in the Keychain, and sign-out wipes both, so a copy of the files is unreadable without the password. Tampering is detected. Files from before encryption are sealed at the owner's next sign-in, and a file that won't open is never overwritten. Tests: `VaultTests`, `EncryptionAtRestTests` (no plaintext on disk, reopen after relaunch, legacy migration, wrong key never clobbers data). |
 | 4 | HTTPS enforced | ✅ | Every endpoint is `https://` or `wss://`. The release build's Info.plist has no App Transport Security exceptions (checked with `plutil`). RSS links are restricted to https with a host (`rss()` test). |
 | 5 | Passwords hashed | ✅ | PBKDF2-HMAC-SHA256, 600,000 rounds (OWASP 2023), 16-byte random salt per account, derived off the main thread. The implementation is checked against the RFC 7914 test vector. Rules follow NIST 800-63B: at least 10 characters, a blocklist, and the email can't be part of the password. Tests: `AccountTests`. |
 | 6 | Input validated | ✅ hardened | This app's "server" is its own core: validation lives in KestrelCore, not the UI. The command line is capped at 64 characters, news queries at 120, emails at 254, names at 60 and passwords at 128. New: orders are capped at 1e9 units and prices at 1e12. A fuzz test feeds 10,000-character strings, NUL and bidi controls, SQL, `<script>` and path traversal through the command parser, news search and email validator (`InputBoundsTests`). |
@@ -59,9 +59,8 @@ Every ✅ row is backed by a test or a command whose output is quoted. Test coun
 
 ### Residual risk
 
-- On-device accounts separate the people sharing an iPad or Mac. Someone with full access to an unlocked device
-  and its files can still read the paper-trading data. Encrypting each account's files with a password-derived
-  key is the next step.
+- Files are encrypted, but while you are signed in the data key is in the Keychain. Someone using your
+  unlocked, signed-in device can see your paper book, just as they could see the screen. Signing out locks it.
 - Market data comes from free, unauthenticated sources. It can be delayed or change format, so quotes are never
   executable prices.
 

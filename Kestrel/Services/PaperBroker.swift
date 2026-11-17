@@ -13,13 +13,16 @@ import KestrelCore
     @ObservationIgnored private let curveURL: URL
     @ObservationIgnored private let url: URL
 
-    /// - Parameter dir: the signed-in user's data folder.
-    init(dir: URL) {
+    @ObservationIgnored private let store: SecureStore
+
+    /// - Parameters: `dir` is the signed-in user's folder; `store` seals files with their key.
+    init(dir: URL, store: SecureStore = SecureStore(key: nil)) {
+        self.store = store
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appending(path: "paper-account.json")
         curveURL = dir.appending(path: "equity-curve.json")
-        account = (try? JSONDecoder().decode(PaperAccount.self, from: Data(contentsOf: url))) ?? PaperAccount()
-        curve = (try? JSONDecoder().decode([EquityPoint].self, from: Data(contentsOf: curveURL))) ?? []
+        account = store.read(url).flatMap { try? JSONDecoder().decode(PaperAccount.self, from: $0) } ?? PaperAccount()
+        curve = store.read(curveURL).flatMap { try? JSONDecoder().decode([EquityPoint].self, from: $0) } ?? []
         Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(300))
@@ -35,12 +38,18 @@ import KestrelCore
         if let last = curve.last, abs(last.v - v) < 0.005, Date().timeIntervalSince(last.t) < 3600 { return }
         curve.append(EquityPoint(t: .now, v: v))
         if curve.count > 3000 { curve.removeFirst(curve.count - 3000) }
-        try? JSONEncoder().encode(curve).write(to: curveURL, options: [.atomic, .completeFileProtection])
+        if let data = try? JSONEncoder().encode(curve) { store.write(data, to: curveURL) }
+    }
+
+    /// Rewrites everything through the store (used once to encrypt legacy plaintext files).
+    func persistAll() {
+        save()
+        if let data = try? JSONEncoder().encode(curve) { store.write(data, to: curveURL) }
     }
 
     private func save() {
         guard let data = try? JSONEncoder().encode(account) else { return }
-        try? data.write(to: url, options: [.atomic, .completeFileProtection])
+        store.write(data, to: url)
     }
 
     func touch(_ q: Quote) -> Touch? { Touch(market: q.bid, ask: q.ask, last: q.last) }

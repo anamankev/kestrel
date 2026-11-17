@@ -135,7 +135,7 @@ import KestrelCore
         let stolen = try #require(store.load())
         auth.signOut()
         // Replaying the old token (e.g. restored from a backup) must not sign anyone in.
-        let replay = MemorySessionStore(); replay.save(id: stolen.id, token: stolen.token)
+        let replay = MemorySessionStore(); replay.plant(id: stolen.id, token: stolen.token, key: stolen.key)
         #expect(AuthService(root: root, sessions: replay).current == nil)
         #expect(replay.load() == nil)   // and the rejected token is wiped
     }
@@ -149,19 +149,65 @@ import KestrelCore
         try await auth.register(name: "Grace Hopper", email: "grace@example.com", password: "nanoseconds wire", confirm: "nanoseconds wire")
         let mine = try #require(store.load())
         let ada = try #require(auth.directory.accounts.first { $0.email == "ada@example.com" })
-        let forged = MemorySessionStore(); forged.save(id: ada.id, token: mine.token)   // Grace's token, Ada's id
+        let forged = MemorySessionStore(); forged.plant(id: ada.id, token: mine.token, key: mine.key)   // Grace's token, Ada's id
         #expect(AuthService(root: root, sessions: forged).current == nil)
     }
 
     @Test func keychainRoundTrip() {
         let kc = KeychainSessionStore(service: "dev.kestrel.terminal.tests.\(UUID().uuidString)")
-        let id = UUID(), token = AccountDirectory.newSessionToken()
-        kc.save(id: id, token: token)
+        let id = UUID(), token = AccountDirectory.newSessionToken(), key = Vault.newKey()
+        kc.save(id: id, token: token, key: key)
         defer { kc.clear() }
         // The session must really round-trip through the Keychain (verified on iPad and Mac).
         let got = kc.load()
-        #expect(got?.id == id && got?.token == token)
+        #expect(got?.id == id && got?.token == token && got?.key == key)
         kc.clear()
         #expect(kc.load() == nil)
+    }
+}
+
+
+@MainActor @Suite struct EncryptionAtRestTests {
+    func root() -> URL { FileManager.default.temporaryDirectory.appending(path: "kestrel-enc-\(UUID().uuidString)", directoryHint: .isDirectory) }
+
+    @Test func accountFilesAreSealedAndReopenAfterRelaunch() async throws {
+        let r = root(), store = MemorySessionStore()
+        let auth = AuthService(root: r, sessions: store)
+        try await auth.register(name: "Ada Lovelace", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine")
+        let me = try #require(auth.current)
+        _ = auth.space?.data.add("NVDA")
+        let file = auth.folder(for: me.id).appending(path: "user-data.json")
+        let onDisk = try Data(contentsOf: file)
+        #expect(Vault.isSealed(onDisk))
+        #expect(onDisk.range(of: Data("NVDA".utf8)) == nil)                 // no plaintext on disk
+        // Relaunch: the Keychain-held key opens it again.
+        let again = AuthService(root: r, sessions: store)
+        #expect(again.space?.data.active.symbols.contains("NVDA") == true)
+    }
+
+    @Test func legacyPlaintextIsEncryptedAtNextSignIn() async throws {
+        let r = root(), store = MemorySessionStore()
+        let auth = AuthService(root: r, sessions: store)
+        try await auth.register(name: "Ada Lovelace", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine")
+        let me = try #require(auth.current)
+        let file = auth.folder(for: me.id).appending(path: "paper-account.json")
+        auth.signOut()
+        // Simulate a pre-encryption file left on disk.
+        try JSONEncoder().encode(PaperAccount(cash: 4_242)).write(to: file)
+        try await auth.signIn(email: "ada@example.com", password: "analytical engine")
+        #expect(auth.space?.broker.account.cash == 4_242)                     // data kept
+        #expect(Vault.isSealed(try Data(contentsOf: file)))                    // and now sealed
+    }
+
+    @Test func wrongKeyNeverOverwritesData() throws {
+        let dir = root(); try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appending(path: "user-data.json")
+        let good = SecureStore(key: Vault.newKey())
+        good.write(Data("{}".utf8), to: url)
+        let before = try Data(contentsOf: url)
+        let bad = SecureStore(key: Vault.newKey())
+        #expect(bad.read(url) == nil)
+        bad.write(Data("{\"wiped\":true}".utf8), to: url)
+        #expect(try Data(contentsOf: url) == before)
     }
 }

@@ -907,3 +907,29 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(zero.sortino != nil && zero.volatility! > 0 && zero.calmar != nil)
     }
 }
+
+
+@Suite struct VaultTests {
+    @Test func sealsAndDetectsTampering() throws {
+        let key = Vault.newKey(), plain = Data("{\"cash\":1000000}".utf8)
+        var sealed = try Vault.seal(plain, key: key)
+        #expect(Vault.isSealed(sealed) && sealed.range(of: Data("cash".utf8)) == nil)
+        #expect(try Vault.open(sealed, key: key) == plain)
+        #expect(throws: Vault.Failure.wrongKey) { try Vault.open(sealed, key: Vault.newKey()) }
+        sealed[sealed.count - 1] ^= 0x01                       // flip one bit of the tag
+        #expect(throws: Vault.Failure.wrongKey) { try Vault.open(sealed, key: key) }
+        #expect(throws: Vault.Failure.notSealed) { try Vault.open(plain, key: key) }
+    }
+
+    @Test func dataKeyIsStableAndPasswordBound() throws {
+        var d = AccountDirectory()
+        let r = try d.register(name: "Ada", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine", iterations: 1_000)
+        #expect(d.account(id: r.id)?.hasDataKey == false)
+        let k1 = try d.unlockDataKey(id: r.id, password: "analytical engine")      // created
+        let k2 = try d.unlockDataKey(id: r.id, password: "analytical engine")      // unwrapped
+        #expect(k1 == k2 && k1.count == 32 && d.account(id: r.id)?.hasDataKey == true)
+        #expect(throws: AuthError.invalidCredentials) { try d.unlockDataKey(id: r.id, password: "wrong password!") }
+        let json = try JSONEncoder().encode(d)
+        #expect(json.range(of: k1) == nil && json.range(of: Data(k1.base64EncodedString().utf8)) == nil)
+    }
+}

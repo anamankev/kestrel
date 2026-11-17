@@ -17,6 +17,12 @@ public struct AccountRecord: Codable, Sendable, Equatable, Identifiable {
     /// SHA-256 of the current session token (the token itself lives only in the Keychain).
     var sessionHash: Data?
     public internal(set) var sessionExpires: Date?
+    /// Salt for the password-derived key that wraps `wrappedKey`.
+    var keySalt: Data?
+    /// The account's data key, sealed with the password-derived key. nil for accounts created
+    /// before encryption; their files are encrypted at their next sign-in.
+    var wrappedKey: Data?
+    public var hasDataKey: Bool { wrappedKey != nil }
 
     public var initials: String {
         let parts = displayName.split(separator: " ").prefix(2)
@@ -152,6 +158,25 @@ public struct AccountDirectory: Codable, Sendable, Equatable {
     }
 
     public mutating func remove(id: UUID) { accounts.removeAll { $0.id == id } }
+
+    // MARK: Data key
+
+    /// The account's data key for `password` (already verified by `signIn` or `register`).
+    /// Creates and wraps one the first time, which also migrates pre-encryption accounts.
+    public mutating func unlockDataKey(id: UUID, password: String) throws(AuthError) -> Data {
+        guard let i = accounts.firstIndex(where: { $0.id == id }) else { throw .invalidCredentials }
+        let r = accounts[i]
+        if let wrapped = r.wrappedKey, let salt = r.keySalt {
+            let kek = Vault.passwordKey(password, salt: salt, iterations: r.iterations)
+            do { return try Vault.open(wrapped, key: kek) } catch { throw .invalidCredentials }
+        }
+        let salt = Credentials.salt(), key = Vault.newKey()
+        let kek = Vault.passwordKey(password, salt: salt, iterations: r.iterations)
+        guard let wrapped = try? Vault.seal(key, key: kek) else { throw .invalidCredentials }
+        accounts[i].keySalt = salt
+        accounts[i].wrappedKey = wrapped
+        return key
+    }
 
     // MARK: Sessions
 

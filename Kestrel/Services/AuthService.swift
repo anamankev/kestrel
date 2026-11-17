@@ -7,8 +7,8 @@ let securityLog = Logger(subsystem: "dev.kestrel.terminal", category: "security"
 
 /// Where the session token lives between launches.
 protocol SessionStore {
-    func load() -> (id: UUID, token: Data)?
-    func save(id: UUID, token: Data)
+    func load() -> (id: UUID, token: Data, key: Data?)?
+    func save(id: UUID, token: Data, key: Data)
     func clear()
 }
 
@@ -19,21 +19,23 @@ struct KeychainSessionStore: SessionStore {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: "current"]
     }
 
-    func load() -> (id: UUID, token: Data)? {
+    func load() -> (id: UUID, token: Data, key: Data?)? {
         var q = query
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data, data.count == 48 else { return nil }
+        // Layout: account id (16) · session token (32) · data key (32). Older items lack the key.
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data, data.count == 48 || data.count == 80 else { return nil }
         let id = UUID(uuid: data.prefix(16).withUnsafeBytes { $0.loadUnaligned(as: uuid_t.self) })
-        return (id, Data(data.suffix(32)))
+        let token = Data(data.dropFirst(16).prefix(32))
+        return (id, token, data.count == 80 ? Data(data.suffix(32)) : nil)
     }
 
-    func save(id: UUID, token: Data) {
+    func save(id: UUID, token: Data, key: Data) {
         clear()
         var raw = id.uuid
         var q = query
-        q[kSecValueData as String] = Data(bytes: &raw, count: 16) + token
+        q[kSecValueData as String] = Data(bytes: &raw, count: 16) + token + key
         q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         let status = SecItemAdd(q as CFDictionary, nil)
         if status != errSecSuccess { securityLog.error("keychain save failed: \(status, privacy: .public)") }
@@ -44,9 +46,11 @@ struct KeychainSessionStore: SessionStore {
 
 /// Tests and the snapshot tour: never touches the real Keychain.
 final class MemorySessionStore: SessionStore {
-    private var value: (UUID, Data)?
-    func load() -> (id: UUID, token: Data)? { value.map { ($0.0, $0.1) } }
-    func save(id: UUID, token: Data) { value = (id, token) }
+    private var value: (UUID, Data, Data?)?
+    func load() -> (id: UUID, token: Data, key: Data?)? { value.map { ($0.0, $0.1, $0.2) } }
+    func save(id: UUID, token: Data, key: Data) { value = (id, token, key) }
+    /// Tests: plant an arbitrary (possibly forged) session.
+    func plant(id: UUID, token: Data, key: Data?) { value = (id, token, key) }
     func clear() { value = nil }
 }
 
@@ -73,9 +77,13 @@ final class MemorySessionStore: SessionStore {
         self.root = root
         // Older builds kept a bare account ID in UserDefaults; it proves nothing, so drop it.
         UserDefaults.standard.removeObject(forKey: "auth.session")
+        var resumedKey: Data?
         if let stored = sessions.load() {
-            if let r = dir.resumeSession(id: stored.id, token: stored.token) {
+            // A session without the data key predates encryption: sign in once to migrate.
+            if let key = stored.key, dir.account(id: stored.id)?.hasDataKey == true,
+               let r = dir.resumeSession(id: stored.id, token: stored.token) {
                 current = r
+                resumedKey = key
             } else {
                 securityLog.notice("stored session rejected (expired, revoked or tampered)")
                 sessions.clear()
@@ -83,7 +91,7 @@ final class MemorySessionStore: SessionStore {
         }
         directory = dir
         if current != nil { save() }   // persist the slid expiry
-        if let r = current { space = UserSpace(id: r.id, folder: folder(for: r.id)) }
+        if let r = current, let key = resumedKey { space = UserSpace(id: r.id, folder: folder(for: r.id), key: key) }
     }
     @ObservationIgnored private let root: URL
 
@@ -91,8 +99,11 @@ final class MemorySessionStore: SessionStore {
 
     func signIn(email: String, password: String) async throws(AuthError) {
         do {
-            let r = try await run { d throws(AuthError) in try d.signIn(email: email, password: password) }
-            begin(r)
+            let (r, key) = try await run { d throws(AuthError) in
+                let r = try d.signIn(email: email, password: password)
+                return (r, try d.unlockDataKey(id: r.id, password: password))
+            }
+            begin(r, key: key)
         } catch {
             switch error {
             case .locked: securityLog.warning("account locked after repeated failures: \(Credentials.normalize(email), privacy: .private(mask: .hash))")
@@ -104,9 +115,12 @@ final class MemorySessionStore: SessionStore {
 
     func register(name: String, email: String, password: String, confirm: String) async throws(AuthError) {
         let first = directory.accounts.isEmpty
-        let r = try await run { d throws(AuthError) in try d.register(name: name, email: email, password: password, confirm: confirm) }
+        let (r, key) = try await run { d throws(AuthError) in
+            let r = try d.register(name: name, email: email, password: password, confirm: confirm)
+            return (r, try d.unlockDataKey(id: r.id, password: password))
+        }
         if first { adoptLegacyData(into: folder(for: r.id)) }
-        begin(r)
+        begin(r, key: key)
     }
 
     func signOut() {
@@ -134,12 +148,12 @@ final class MemorySessionStore: SessionStore {
     // MARK: -
 
     /// Runs a directory operation off the main actor and commits its result (including failed-attempt counts).
-    private func run(_ op: @escaping @Sendable (inout AccountDirectory) throws(AuthError) -> AccountRecord) async throws(AuthError) -> AccountRecord {
+    private func run<T: Sendable>(_ op: @escaping @Sendable (inout AccountDirectory) throws(AuthError) -> T) async throws(AuthError) -> T {
         guard !busy else { throw .invalidCredentials }
         busy = true
         defer { busy = false }
         let snapshot = directory
-        let (updated, result) = await Task.detached(priority: .userInitiated) { () -> (AccountDirectory, Result<AccountRecord, AuthError>) in
+        let (updated, result) = await Task.detached(priority: .userInitiated) { () -> (AccountDirectory, Result<T, AuthError>) in
             var d = snapshot
             do throws(AuthError) { let r = try op(&d); return (d, .success(r)) } catch { return (d, .failure(error)) }
         }.value
@@ -148,13 +162,13 @@ final class MemorySessionStore: SessionStore {
         return try result.get()
     }
 
-    private func begin(_ r: AccountRecord) {
+    private func begin(_ r: AccountRecord, key: Data) {
         let token = AccountDirectory.newSessionToken()
         directory.beginSession(id: r.id, token: token)
         save()
-        sessions.save(id: r.id, token: token)
+        sessions.save(id: r.id, token: token, key: key)
         current = directory.account(id: r.id) ?? r
-        space = UserSpace(id: r.id, folder: folder(for: r.id))
+        space = UserSpace(id: r.id, folder: folder(for: r.id), key: key)
     }
 
     private func save() {
@@ -177,9 +191,16 @@ final class MemorySessionStore: SessionStore {
     let broker: PaperBroker
     let data: UserData
 
-    init(id: UUID, folder: URL) {
+    init(id: UUID, folder: URL, key: Data?) {
         self.id = id
-        broker = PaperBroker(dir: folder)
-        data = UserData(url: folder.appending(path: "user-data.json"))
+        let store = SecureStore(key: key)
+        broker = PaperBroker(dir: folder, store: store)
+        data = UserData(url: folder.appending(path: "user-data.json"), store: store)
+        // Files written before encryption are re-saved sealed, once, after a clean load.
+        if store.needsMigration {
+            broker.persistAll()
+            data.save()
+            securityLog.info("encrypted legacy account files")
+        }
     }
 }
