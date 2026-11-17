@@ -4,11 +4,16 @@ import Compression
 // MARK: - Minimal ZIP reader (Ken French ships each dataset as a one-file deflate ZIP)
 
 public enum Zip {
-    public enum ZipError: Error { case notZip, unsupported, corrupt }
+    public enum ZipError: Error { case notZip, unsupported, corrupt, notFound }
 
-    /// Returns the first file in the archive. Reads the central directory, so archives that
-    /// use data descriptors (sizes after the data) work too. Stored and deflate only.
+    /// Returns the first file in the archive.
     public static func firstFile(_ data: Data, maxSize: Int = 32 << 20) throws -> Data {
+        try file(data, maxSize: maxSize) { _ in true }
+    }
+
+    /// Returns the first file whose name matches. Reads the central directory, so archives that
+    /// use data descriptors (sizes after the data) work too. Stored and deflate only.
+    public static func file(_ data: Data, maxSize: Int = 32 << 20, where match: (String) -> Bool) throws -> Data {
         let b = [UInt8](data)
         func u16(_ o: Int) -> Int { Int(b[o]) | Int(b[o + 1]) << 8 }
         func u32(_ o: Int) -> Int { u16(o) | u16(o + 2) << 16 }
@@ -21,10 +26,24 @@ public enum Zip {
             i -= 1
         }
         guard eocd >= 0 else { throw ZipError.notZip }
-        let cd = u32(eocd + 16)
-        guard cd + 46 <= b.count, u32(cd) == 0x02014b50 else { throw ZipError.corrupt }
-        let method = u16(cd + 10), packed = u32(cd + 20), size = u32(cd + 24), local = u32(cd + 42)
-        guard size <= maxSize, local + 30 <= b.count, u32(local) == 0x04034b50 else { throw ZipError.corrupt }
+        var cd = u32(eocd + 16)
+        for _ in 0..<u16(eocd + 10) {
+            guard cd + 46 <= b.count, u32(cd) == 0x02014b50 else { throw ZipError.corrupt }
+            let nameLen = u16(cd + 28)
+            guard cd + 46 + nameLen <= b.count else { throw ZipError.corrupt }
+            let name = String(decoding: b[(cd + 46)..<(cd + 46 + nameLen)], as: UTF8.self)
+            if match(name) {
+                return try extract(b, method: u16(cd + 10), packed: u32(cd + 20), size: u32(cd + 24), local: u32(cd + 42), maxSize: maxSize)
+            }
+            cd += 46 + nameLen + u16(cd + 30) + u16(cd + 32)
+        }
+        throw ZipError.notFound
+    }
+
+    private static func extract(_ b: [UInt8], method: Int, packed: Int, size: Int, local: Int, maxSize: Int) throws -> Data {
+        func u16(_ o: Int) -> Int { Int(b[o]) | Int(b[o + 1]) << 8 }
+        guard size <= maxSize, local + 30 <= b.count, (Int(b[local]) | Int(b[local + 1]) << 8 | Int(b[local + 2]) << 16 | Int(b[local + 3]) << 24) == 0x04034b50
+        else { throw ZipError.corrupt }
         let start = local + 30 + u16(local + 26) + u16(local + 28)
         guard start + packed <= b.count else { throw ZipError.corrupt }
         let body = Data(b[start..<(start + packed)])

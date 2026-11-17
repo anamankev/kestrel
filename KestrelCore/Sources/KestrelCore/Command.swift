@@ -4,7 +4,7 @@ import Foundation
 public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
     case des = "DES", fa = "FA", evts = "EVTS", gp = "GP", hp = "HP", depth = "DEPTH", tas = "TAS", cn = "CN", omon = "OMON"
     case w = "W", hmap = "HMAP", wei = "WEI", most = "MOST", fx = "FX", comd = "COMD", rates = "RATES"
-    case top = "TOP", eco = "ECO", corr = "CORR", bt = "BT", osa = "OSA", ern = "ERN", secf = "SECF", beta = "BETA", comp = "COMP", mvo = "MVO", eqs = "EQS", fact = "FACT", dvd = "DVD", pro = "PRO", alrt = "ALRT", pref = "PREF", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
+    case top = "TOP", eco = "ECO", corr = "CORR", bt = "BT", osa = "OSA", ern = "ERN", secf = "SECF", beta = "BETA", comp = "COMP", mvo = "MVO", eqs = "EQS", fact = "FACT", dvd = "DVD", ecst = "ECST", pro = "PRO", alrt = "ALRT", pref = "PREF", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
 
     public var title: String {
         switch self {
@@ -23,6 +23,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         case .eqs: "Equity Screener"
         case .fact: "Factor Regression"
         case .dvd: "Dividends"
+        case .ecst: "World Economic Statistics"
         case .pro: "Kestrel Pro"
         case .gp: "Price Chart"
         case .hp: "Historical Prices"
@@ -60,7 +61,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         "G": .gp, "GIP": .gp, "GPO": .gp, "CHART": .gp, "Q": .des, "BOOK": .depth, "L2": .depth,
         "T&S": .tas, "TS": .tas, "N": .top, "NEWS": .top, "MON": .w, "WATCH": .w, "IMAP": .hmap,
         "MOV": .most, "FXC": .fx, "GLCO": .comd, "GOV": .rates, "BUY": .trade, "SELL": .trade,
-        "OMS": .trade, "ALERT": .alrt, "SETTINGS": .pref, "PDF": .pref, "FIN": .fa, "EVT": .evts, "HIST": .hp, "HISTORY": .hp, "EARN": .ern, "EARNINGS": .ern, "SUBSCRIBE": .pro, "SUBS": .pro, "UPGRADE": .pro, "FILINGS": .evts, "ECON": .eco, "MACRO": .eco, "FINANCIALS": .fa, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help, "CORREL": .corr, "COR": .corr, "BTST": .bt, "BACKTEST": .bt, "STRAT": .osa, "PAYOFF": .osa, "NSE": .top, "SEARCH": .top, "FIND": .secf, "LOOKUP": .secf, "SECFIND": .secf, "SYMBOL": .secf, "REGRESS": .beta, "REGRESSION": .beta, "COMPARE": .comp, "PERF": .comp, "OPTIMIZE": .mvo, "FRONTIER": .mvo, "PORTOPT": .mvo, "SCREEN": .eqs, "SCREENER": .eqs, "EQSCREEN": .eqs, "FF": .fact, "FAMA": .fact, "FACTOR": .fact, "FACTORS": .fact, "CARHART": .fact, "DIV": .dvd, "DIVIDEND": .dvd, "DIVIDENDS": .dvd, "DVDH": .dvd,
+        "OMS": .trade, "ALERT": .alrt, "SETTINGS": .pref, "PDF": .pref, "FIN": .fa, "EVT": .evts, "HIST": .hp, "HISTORY": .hp, "EARN": .ern, "EARNINGS": .ern, "SUBSCRIBE": .pro, "SUBS": .pro, "UPGRADE": .pro, "FILINGS": .evts, "ECON": .eco, "MACRO": .eco, "FINANCIALS": .fa, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help, "CORREL": .corr, "COR": .corr, "BTST": .bt, "BACKTEST": .bt, "STRAT": .osa, "PAYOFF": .osa, "NSE": .top, "SEARCH": .top, "FIND": .secf, "LOOKUP": .secf, "SECFIND": .secf, "SYMBOL": .secf, "REGRESS": .beta, "REGRESSION": .beta, "COMPARE": .comp, "PERF": .comp, "OPTIMIZE": .mvo, "FRONTIER": .mvo, "PORTOPT": .mvo, "SCREEN": .eqs, "SCREENER": .eqs, "EQSCREEN": .eqs, "FF": .fact, "FAMA": .fact, "FACTOR": .fact, "FACTORS": .fact, "CARHART": .fact, "DIV": .dvd, "DIVIDEND": .dvd, "DIVIDENDS": .dvd, "DVDH": .dvd, "COUNTRY": .ecst, "WDI": .ecst, "GLOBAL": .ecst,
     ]
 
     public static func from(_ token: String) -> TerminalFunction? {
@@ -73,7 +74,7 @@ public struct Command: Equatable, Sendable {
     public var instrument: Instrument?
     /// BUY or SELL, when typed (e.g. `BTC BUY`), to prefill the ticket.
     public var side: TradeSide?
-    /// Free text for SECF (`SECF NESTLE`, `TOYOTA SECF`).
+    /// Free text for SECF and ECST (`SECF NESTLE`, `TOYOTA SECF`, `ECST JAPAN`).
     public var query: String?
 
     public init(function: TerminalFunction, instrument: Instrument? = nil, side: TradeSide? = nil, query: String? = nil) {
@@ -122,10 +123,11 @@ public enum CommandParser {
         var ticker: String?
 
         let all = tokens(input)
-        if let k = all.firstIndex(where: { TerminalFunction.from($0) == .secf }) {
+        // Functions that take free text rather than a security: SECF NESTLE, ECST JAPAN.
+        if let k = all.firstIndex(where: { [.secf, .ecst].contains(TerminalFunction.from($0)) }), let fn = TerminalFunction.from(all[k]) {
             var rest = all
             rest.remove(at: k)
-            return Command(function: .secf, query: rest.isEmpty ? nil : String(rest.joined(separator: " ").prefix(64)))
+            return Command(function: fn, query: rest.isEmpty ? nil : String(rest.joined(separator: " ").prefix(64)))
         }
         for token in all {
             if function == nil, let f = TerminalFunction.from(token) {

@@ -25,7 +25,7 @@ enum SnapshotTour {
 
     static let screens = [
         "PORT", "W", "BTC GP", "BTC DEPTH", "ETH TAS", "TOP", "TSLA CN", "AAPL DES", "AAPL FA", "AAPL EVTS",
-        "SPY HP", "SPY BT", "BTC OMON", "ETH OSA", "ECO", "CORR", "ERN", "SECF TOYOTA", "NVDA BETA", "MSFT FACT", "KO DVD", "COMP", "MVO", "EQS", "HMAP", "WEI", "MOST", "FX", "COMD", "RATES",
+        "SPY HP", "SPY BT", "BTC OMON", "ETH OSA", "ECO", "ECST JAPAN", "CORR", "ERN", "SECF TOYOTA", "NVDA BETA", "MSFT FACT", "KO DVD", "COMP", "MVO", "EQS", "HMAP", "WEI", "MOST", "FX", "COMD", "RATES",
         "ALRT", "BLOT", "SOL BUY", "PREF", "PRO", "HELP",
     ]
 
@@ -64,7 +64,7 @@ enum SnapshotTour {
         for (n, cmd) in chosen.enumerated() {
             ws.focused = 0
             _ = ws.run(cmd)
-            try? await Task.sleep(for: .seconds(cmd.contains("OMON") || cmd.contains("OSA") || cmd.contains("BT") || cmd == "CORR" ? 7 : 4))
+            try? await Task.sleep(for: .seconds(cmd.contains("OMON") || cmd.contains("OSA") || cmd.contains("BT") || cmd == "CORR" || cmd.hasPrefix("ECST") || cmd == "EQS" ? 7 : 4))
             capture(String(format: "%02d-%@", n + 1, cmd.replacingOccurrences(of: " ", with: "-")))
         }
         ws.layout = .four

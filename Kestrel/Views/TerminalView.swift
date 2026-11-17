@@ -459,6 +459,7 @@ struct FunctionView: View {
         case .comp: ComparisonView(panelID: panel.id)
         case .mvo: OptimizerView(panelID: panel.id)
         case .eqs: ScreenerView(panelID: panel.id)
+        case .ecst: WorldEconomyView(panelID: panel.id, initial: c.query)
         case .pro: PaywallView()
         case .wei: QuoteBoard(panelID: panel.id, groups: Region.allCases.map { r in (r.rawValue, Universe.indices.filter { $0.region == r }) })
         case .fx: QuoteBoard(panelID: panel.id, groups: Universe.currencyGroups)

@@ -34,4 +34,77 @@ import KestrelCore
         guard let (d, _) = try? await URLSession.shared.data(from: NYFed.url(r)) else { return nil }
         return try? NYFed.decode(d)
     }
+
+    // MARK: World Bank (ECST)
+
+    private(set) var countries: [WorldBank.Country] = []
+    /// Indicator id → ISO3 → yearly points. Each indicator is one bulk download for every country.
+    private(set) var panels: [String: [String: [WorldBank.Point]]] = [:]
+    private(set) var failedIndicators: Set<String> = []
+    private(set) var worldError: String?
+    @ObservationIgnored private var loadingWorld = false
+
+    private static let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appending(path: "worldbank", directoryHint: .isDirectory)
+
+    /// Disk cache for 24 hours: the World Bank's origin is slow at times; its data changes rarely.
+    private static func fetch(_ url: URL, cacheKey: String) async throws -> Data {
+        let file = cacheDir.appending(path: cacheKey)
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: file.path),
+           let modified = attrs[.modificationDate] as? Date, Date().timeIntervalSince(modified) < 86_400,
+           let d = try? Data(contentsOf: file) { return d }
+        var lastError: Error = URLError(.unknown)
+        for _ in 0..<2 {
+            do {
+                let (d, r) = try await URLSession.shared.data(for: URLRequest(url: url, timeoutInterval: 25))
+                guard (r as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+                try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+                try? d.write(to: file, options: .atomic)
+                return d
+            } catch { lastError = error; if Task.isCancelled { break } }
+        }
+        // Stale beats nothing.
+        if let d = try? Data(contentsOf: file) { return d }
+        throw lastError
+    }
+
+    func loadCountries() async {
+        guard countries.isEmpty else { return }
+        do { countries = try WorldBank.decodeCountries(await Self.fetch(WorldBank.countriesURL, cacheKey: "countries.json")); worldError = nil }
+        catch { worldError = "Couldn't reach the World Bank: \(error.localizedDescription)" }
+    }
+
+    /// Every headline indicator, three downloads at a time, the requested one first.
+    func loadWorld(first: String? = nil) async {
+        guard !loadingWorld else { return }
+        loadingWorld = true
+        defer { loadingWorld = false }
+        let to = Calendar(identifier: .gregorian).component(.year, from: .now), from = to - 15
+        var queue = WorldBank.indicators.map(\.id).filter { panels[$0] == nil }
+        if let first, let i = queue.firstIndex(of: first) { queue.swapAt(0, i) }
+        failedIndicators = []
+        await withTaskGroup(of: (String, [String: [WorldBank.Point]]?).self) { g in
+            var it = queue.makeIterator()
+            func next() -> Bool {
+                guard let id = it.next() else { return false }
+                g.addTask {
+                    // Bulk ZIP first (static, full history); the query API as a fallback.
+                    if let z = try? await Self.fetch(WorldBank.bulkURL(indicator: id), cacheKey: "\(id).zip"),
+                       let p = try? WorldBank.decodeBulk(z), !p.isEmpty { return (id, p) }
+                    let d = try? await Self.fetch(WorldBank.panelURL(indicator: id, from: from, to: to), cacheKey: "\(id)-\(from).json")
+                    return (id, d.flatMap { try? WorldBank.decodePanel($0) })
+                }
+                return true
+            }
+            for _ in 0..<3 { _ = next() }
+            for await (id, panel) in g {
+                if let panel { panels[id] = panel } else { failedIndicators.insert(id) }
+                _ = next()
+            }
+        }
+        worldError = panels.isEmpty ? "The World Bank isn't responding. Try again in a minute." : nil
+    }
+
+    func profile(_ iso: String) -> [String: [WorldBank.Point]] { panels.compactMapValues { $0[iso] } }
+    func ranking(_ indicator: String) -> [String: WorldBank.Point]? { panels[indicator].map(WorldBank.latest) }
 }

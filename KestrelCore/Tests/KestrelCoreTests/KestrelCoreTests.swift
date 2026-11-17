@@ -1233,3 +1233,39 @@ struct FactorTests {
         #expect(YahooChart.url(symbol: "KO", range: "1y", interval: "1d", events: true).query?.contains("events=div") == true)
     }
 }
+
+struct WorldBankTests {
+    @Test func decodesCountriesSeriesAndLatest() throws {
+        let countries = #"[{"page":1,"total":3},[{"id":"JPN","name":"Japan","region":{"id":"EAS","value":"East Asia & Pacific "},"incomeLevel":{"id":"HIC","value":"High income"}},{"id":"WLD","name":"World","region":{"id":"NA","value":"Aggregates"},"incomeLevel":{"id":"NA","value":"Aggregates"}},{"id":"DEU","name":"Germany","region":{"id":"ECS","value":"Europe & Central Asia"},"incomeLevel":{"id":"HIC","value":"High income"}}]]"#
+        let c = try WorldBank.decodeCountries(Data(countries.utf8))
+        #expect(c.map(\.id) == ["DEU", "JPN"] && c[1].region == "East Asia & Pacific")
+        #expect(WorldBank.match("jpn", in: c)?.name == "Japan" && WorldBank.match("germ", in: c)?.id == "DEU")
+        #expect(WorldBank.match("", in: c) == nil)
+
+        let panel = #"[{"page":1},[{"countryiso3code":"JPN","date":"2025","value":0.9},{"countryiso3code":"JPN","date":"2024","value":null},{"countryiso3code":"JPN","date":"2023","value":1.5},{"countryiso3code":"DEU","date":"2023","value":-0.3},{"countryiso3code":"","date":"2023","value":2}]]"#
+        let p = try WorldBank.decodePanel(Data(panel.utf8))
+        #expect(p["JPN"] == [.init(year: 2023, value: 1.5), .init(year: 2025, value: 0.9)] && p.count == 2)
+        #expect(WorldBank.latest(p)["JPN"]?.year == 2025 && WorldBank.latest(p)["DEU"]?.value == -0.3)
+        #expect(try WorldBank.decodePanel(Data(#"[{"message":[{"id":"120","value":"Invalid value"}]}]"#.utf8)).isEmpty)
+        #expect(WorldBank.panelURL(indicator: "SP.POP.TOTL", from: 2011, to: 2026).absoluteString.contains("country/all/indicator/SP.POP.TOTL"))
+    }
+}
+
+struct EconomyCommandTests {
+    @Test func ecstTakesACountry() throws {
+        #expect(try CommandParser.parse("ECST japan", current: nil) == Command(function: .ecst, query: "JAPAN"))
+        #expect(try CommandParser.parse("united kingdom ecst", current: nil).query == "UNITED KINGDOM")
+        #expect(try CommandParser.parse("WB", current: nil).instrument?.ticker == "WB")   // Weibo stays a ticker
+    }
+}
+
+struct WorldBankBulkTests {
+    @Test func decodesTheBulkZip() throws {
+        let zip = try #require(Data(base64Encoded: "UEsDBBQAAAAIANx6cV01FPLXBgAAAAQAAAAcAAAATWV0YWRhdGFfSW5kaWNhdG9yX0FQSV9YLmNzdstNLUkEAFBLAwQUAAAACADcenFd69XeWdUAAABAAQAAGQAAAEFQSV9YX0RTMl9lbl9jc3ZfdjJfMS5jc3ZtTs1qwkAQvucphgWhQlwam3pXk4ooqRiK4m3MjkXQTNjdSPtsHvpIvoITbeqlMMzM9zPf7uX8oxL0CDnXtiAVqhXbg4GETnTg6kilh2lp9gV6tk6FQaDm6Dx8VAY9iU+6HPWf+4NeFEndLGOuS2+/IcNjo7ZwzKaBf3mt/iB+HRL3ch/xfbxKrJqxJQxhSZUWdva+lJ5+VWy9A97BJ7NxgKUBR/a0L8jBU6cRJsmiK9Ys1el6oSfZW643uRBxrOW7qtkifXthaOstCh6OVo/s/07bCq5QSwMEFAAAAAgA3HpxXZVWXVkEAAAAAgAAABoAAABNZXRhZGF0YV9Db3VudHJ5X0FQSV9YLmNzdss1AgBQSwECFAMUAAAACADcenFdNRTy1wYAAAAEAAAAHAAAAAAAAAAAAAAAgAEAAAAATWV0YWRhdGFfSW5kaWNhdG9yX0FQSV9YLmNzdlBLAQIUAxQAAAAIANx6cV3r1d5Z1QAAAEABAAAZAAAAAAAAAAAAAACAAUAAAABBUElfWF9EUzJfZW5fY3N2X3YyXzEuY3N2UEsBAhQDFAAAAAgA3HpxXZVWXVkEAAAAAgAAABoAAAAAAAAAAAAAAIABTAEAAE1ldGFkYXRhX0NvdW50cnlfQVBJX1guY3N2UEsFBgAAAAADAAMA2QAAAIgBAAAAAA=="))
+        let p = try WorldBank.decodeBulk(zip)
+        #expect(p["KOR"] == [.init(year: 2023, value: 44.1), .init(year: 2025, value: 41.5)])
+        #expect(p["ABW"] == nil && p.count == 1)
+        #expect(WorldBank.csvFields(#""a, b","c""d",,e"#) == ["a, b", "c\"d", "", "e"])
+        #expect(throws: Zip.ZipError.self) { try Zip.file(zip) { $0 == "missing.csv" } }
+    }
+}
