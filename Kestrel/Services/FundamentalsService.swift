@@ -56,13 +56,17 @@ import KestrelCore
 
     private(set) var filings: [String: Result<[Filing], FilingError>] = [:]
     enum FilingError: Error, Equatable { case notFound, failed(String) }
+    /// Every earnings release (8-K item 2.02) in SEC's recent filings, oldest first (for EVST).
+    private(set) var releases: [String: [Date]] = [:]
 
     func loadFilings(_ i: Instrument) async {
         guard i.assetClass == .equity, hasValidContact, filings[i.symbol] == nil else { return }
         do {
             if tickers == nil { tickers = try SECFacts.decodeTickers(await get(SECFacts.tickersURL)) }
             guard let cik = tickers?[i.ticker] else { filings[i.symbol] = .failure(.notFound); return }
-            filings[i.symbol] = .success(try SECFilings.decode(await get(SECFilings.url(cik: cik))))
+            let raw = try await get(SECFilings.url(cik: cik))
+            filings[i.symbol] = .success(try SECFilings.decode(raw))
+            releases[i.symbol] = (try? SECFilings.earningsReleases(raw)) ?? []
         } catch {
             filings[i.symbol] = .failure(.failed(error.localizedDescription))
         }

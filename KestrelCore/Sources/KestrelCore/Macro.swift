@@ -193,6 +193,20 @@ public enum SECFilings {
         return out
     }
 
+    /// Every earnings release (8-K item 2.02) in SEC's recent-filings list, oldest first, with
+    /// amendments and extra exhibits within 45 days of a release collapsed into it.
+    public static func earningsReleases(_ data: Data) throws -> [Date] {
+        let r = try JSONDecoder().decode(Root.self, from: data).filings.recent
+        let n = min(r.form.count, r.filingDate.count, r.items.count)
+        let raw = (0..<n).compactMap { i -> Date? in
+            guard r.form[i] == "8-K", r.items[i].split(separator: ",").contains(where: { $0.trimmingCharacters(in: .whitespaces) == "2.02" }) else { return nil }
+            return SECFacts.day.date(from: r.filingDate[i])
+        }.sorted()
+        var out: [Date] = []
+        for d in raw where out.last.map({ d.timeIntervalSince($0) >= 45 * 86_400 }) ?? true { out.append(d) }
+        return out
+    }
+
     /// Next earnings estimate: the last earnings 8-K rolled forward by a quarter (91 days) until it is
     /// in the future. A heuristic, labelled as such in the UI; real dates need a paid calendar feed.
     /// Next earnings date projected from the company's own reporting cadence: the median gap

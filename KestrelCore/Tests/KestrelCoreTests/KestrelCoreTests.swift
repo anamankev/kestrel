@@ -1269,3 +1269,48 @@ struct WorldBankBulkTests {
         #expect(throws: Zip.ZipError.self) { try Zip.file(zip) { $0 == "missing.csv" } }
     }
 }
+
+struct EventStudyTests {
+    /// Weekday sessions from 2024-01-02, at 14:30 UTC (a US open).
+    static func sessions(_ n: Int) -> [Date] {
+        var out: [Date] = [], d = ISO8601DateFormatter().date(from: "2024-01-02T14:30:00Z")!
+        let cal = Calendar(identifier: .gregorian)
+        while out.count < n {
+            if !cal.isDateInWeekend(d) { out.append(d) }
+            d = d.addingTimeInterval(86_400)
+        }
+        return out
+    }
+
+    @Test func recoversKnownEventReturns() throws {
+        let days = Self.sessions(620)
+        let rm = days.indices.map { sin(Double($0) * 0.41) * 0.01 + cos(Double($0) * 1.3) * 0.004 }
+        let eventIdx = [100, 300, 420, 540, 617]          // 100 lacks estimation history; 617 lacks the post window
+        var ra = days.indices.map { 0.0001 + 1.2 * rm[$0] + sin(Double($0) * 7.7) * 0.0003 }
+        for k in eventIdx { ra[k] += 0.05; if k + 1 < ra.count { ra[k + 1] -= 0.01 } }
+        func bars(_ r: [Double]) -> [Candle] {
+            var p = 100.0
+            return days.indices.map { i in
+                if i > 0 { p *= 1 + r[i] }
+                return Candle(time: days[i], open: p, high: p, low: p, close: p, volume: 1)
+            }
+        }
+        // Events dated on the calendar day (and one duplicate, which must collapse).
+        let dates = eventIdx.map { days[$0] } + [days[300].addingTimeInterval(3600)]
+        let s = try #require(EventStudy.run(asset: bars(ra), market: bars(rm), events: dates))
+        #expect(s.events.count == 3)                                       // 300, 420, 540
+        #expect(s.events.allSatisfy { abs($0.beta - 1.2) < 0.02 })
+        let day0 = s.summary(from: 0, to: 0), around = s.summary(from: -1, to: 1), before = s.summary(from: -5, to: -2)
+        #expect(abs(day0.mean - 0.05) < 0.002 && abs(around.mean - 0.04) < 0.003)
+        #expect(abs(before.mean) < 0.002 && day0.positive == 1)
+        #expect(s.caar.count == 11 && abs(s.caar[5] - s.aar[0...5].reduce(0, +)) < 1e-12)
+        #expect(EventStudy.run(asset: bars(ra), market: bars(rm), events: [days[10]]) == nil)
+    }
+
+    @Test func extractsEarningsReleases() throws {
+        let json = #"{"cik":"320193","filings":{"recent":{"accessionNumber":["a","b","c","d","e"],"filingDate":["2026-10-30","2026-10-31","2026-07-31","2026-05-01","2026-04-15"],"form":["8-K","8-K","8-K","10-Q","8-K"],"items":["2.02,9.01","2.02","2.02","","5.02"],"primaryDocument":["x","x","x","x","x"]}}}"#
+        let d = try SECFilings.earningsReleases(Data(json.utf8))
+        #expect(d.count == 2)                                              // Oct 31 collapses into Oct 30
+        #expect(d.first.map { SECFacts.day.string(from: $0) } == "2026-07-31")
+    }
+}

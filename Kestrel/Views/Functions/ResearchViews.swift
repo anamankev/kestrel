@@ -695,3 +695,165 @@ struct DividendView: View {
         return CSV.make(header: ["Ex-date", "Amount"], rows: divs.map { [f.string(from: $0.date), CSV.number($0.amount)] })
     }
 }
+
+// MARK: - EVST
+
+/// EVST: earnings event study. Abnormal returns around each earnings release (8-K item 2.02)
+/// from a market model fitted before each event; average and cumulative abnormal returns with
+/// cross-sectional t-statistics.
+struct EventStudyView: View {
+    let instrument: Instrument
+    let panelID: Int
+    @Environment(MarketStore.self) private var market
+    @Environment(FundamentalsService.self) private var sec
+    @Environment(Workspace.self) private var ws
+    @Environment(Theme.self) private var theme
+
+    enum Span: Int, CaseIterable { case five = 5, ten = 10; var label: String { "±\(rawValue) DAYS" } }
+    @AppStorage("evst.benchmark") private var benchmark = "SPY"
+    @AppStorage("evst.span") private var span: Span = .five
+
+    @State private var study: EventStudy?
+    @State private var loading = false
+    @State private var failure: String?
+
+    private var w: Int { span.rawValue }
+    private var key: String { "\(instrument.symbol)|\(benchmark)|\(span.rawValue)|\(sec.releases[instrument.symbol]?.count ?? -1)" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Picker("Benchmark", selection: $benchmark) { ForEach(["SPY", "QQQ", "IWM", "DIA"], id: \.self) { Text($0) } }
+                    .labelsHidden().frame(maxWidth: 100)
+                Picker("Window", selection: $span) { ForEach(Span.allCases, id: \.self) { Text($0.label) } }
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 220)
+                Spacer()
+                if let s = study {
+                    ShareLink(item: CSVFile(name: "\(instrument.ticker)-earnings-event-study.csv", text: csv(s)), preview: SharePreview("Event study")) {
+                        Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
+                    }
+                    .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                }
+            }
+            .padding(8)
+            SectionBar(title: "\(instrument.ticker) · EARNINGS EVENT STUDY · MARKET MODEL VS \(benchmark)",
+                       trailing: loading ? "LOADING…" : study.map { "\($0.events.count) RELEASES" })
+            content
+        }
+        .task(id: instrument.symbol) { await sec.loadFilings(instrument) }
+        .task(id: key) { await compute() }
+    }
+
+    @ViewBuilder private var content: some View {
+        if instrument.assetClass != .equity {
+            EmptyNote(title: "Event studies need a company that reports earnings", detail: "Load a US-listed stock, e.g. NVDA EVST.", icon: "calendar.badge.exclamationmark")
+        } else if !sec.hasValidContact {
+            VStack(spacing: 12) {
+                EmptyNote(title: "Earnings dates come from SEC filings",
+                          detail: "SEC EDGAR asks every app to identify itself with a contact email. Add yours once in PREF; it is sent only to sec.gov.",
+                          icon: "building.columns")
+                Hotspot(number: 1, title: "PREF Open settings") { ws.load(Command(function: .pref), in: panelID) }
+            }
+        } else if let s = study {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    tiles(s)
+                    chart(s).frame(height: 220).padding(.horizontal, 8)
+                    table(s)
+                    Text("Day 0 is the first session on or after the earnings 8-K filing date. Companies usually file it the day of the release, but a filing can trail the announcement by a day or two; releases after the close move the stock on day +1, so [−1, +1] is the headline window. Each event's market model is fitted on up to 250 earlier sessions, ending 10 days before the window and skipping other earnings windows. Total returns. t-stats are cross-sectional; |t| > 2 ≈ 95% significance; the band is ±1.96 standard errors.")
+                        .font(.ui(10)).foregroundStyle(Theme.faint).padding(.horizontal, 8).padding(.bottom, 8)
+                }
+            }
+        } else if loading || sec.releases[instrument.symbol] == nil {
+            ProgressView().tint(Theme.accent).frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            EmptyNote(title: failure ?? "No earnings releases with enough price history", detail: "EVST covers companies that file earnings 8-Ks with the SEC.", icon: "calendar.badge.exclamationmark")
+        }
+    }
+
+    /// Sessions are matched on UTC dates, so they're shown in UTC too (never a local-time Sunday).
+    private static let utcDay: DateFormatter = {
+        let f = DateFormatter()
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.setLocalizedDateFormatFromTemplate("yMMMd")
+        return f
+    }()
+
+    private func stat(_ s: EventStudy, _ from: Int, _ to: Int) -> (String, String, Color) {
+        let r = s.summary(from: from, to: to)
+        return (percent(r.mean, digits: 2), r.t.map { String(format: "t %.2f · %.0f%% POSITIVE", $0, r.positive * 100) } ?? "", theme.tint(r.mean))
+    }
+
+    private func tiles(_ s: EventStudy) -> some View {
+        let around = stat(s, -1, 1), day0 = stat(s, 0, 0), drift = stat(s, 2, w), pre = stat(s, -w, -2)
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: 4), spacing: 1) {
+            StatTile(key: "CAR [−1, +1]", value: around.0, sub: around.1, color: around.2)
+            StatTile(key: "DAY 0 ABNORMAL", value: day0.0, sub: day0.1, color: day0.2)
+            StatTile(key: "DRIFT [+2, +\(w)]", value: drift.0, sub: drift.1, color: drift.2)
+            StatTile(key: "RUN-UP [−\(w), −2]", value: pre.0, sub: pre.1, color: pre.2)
+        }
+        .padding(.horizontal, 8)
+    }
+
+    private func chart(_ s: EventStudy) -> some View {
+        Chart {
+            ForEach(Array(s.days.enumerated()), id: \.offset) { i, d in
+                AreaMark(x: .value("Day", d), yStart: .value("Low", (s.caar[i] - 1.96 * s.caarSE[i]) * 100),
+                         yEnd: .value("High", (s.caar[i] + 1.96 * s.caarSE[i]) * 100))
+                    .foregroundStyle(Theme.accent.opacity(0.12))
+                LineMark(x: .value("Day", d), y: .value("CAAR", s.caar[i] * 100)).foregroundStyle(Theme.accent).lineStyle(.init(lineWidth: 2))
+                BarMark(x: .value("Day", d), y: .value("AAR", s.aar[i] * 100), width: 6).foregroundStyle(Theme.warn.opacity(0.6))
+            }
+            RuleMark(x: .value("Event", 0)).foregroundStyle(Theme.faint).lineStyle(.init(dash: [3, 3]))
+            RuleMark(y: .value("Zero", 0)).foregroundStyle(Theme.faint)
+        }
+        .chartXAxisLabel("TRADING DAYS FROM EARNINGS (LINE: CUMULATIVE · BARS: DAILY AVERAGE ABNORMAL RETURN %)", alignment: .center)
+        .chartXAxis { AxisMarks(values: .stride(by: span == .five ? 1 : 2)) { AxisGridLine().foregroundStyle(Theme.rule); AxisValueLabel().foregroundStyle(Theme.dim) } }
+        .chartYAxis { AxisMarks { AxisGridLine().foregroundStyle(Theme.rule); AxisValueLabel().foregroundStyle(Theme.dim) } }
+    }
+
+    private func table(_ s: EventStudy) -> some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("EARNINGS (DAY 0)").frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(["CAR [−1,+1]", "DAY 0", "DRIFT [+2,+\(w)]", "β (EST.)"], id: \.self) { Text($0).frame(width: 104, alignment: .trailing) }
+            }
+            .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
+            ForEach(Array(s.events.reversed().enumerated()), id: \.offset) { n, e in
+                let a = s.car(e, from: -1, to: 1), d0 = s.car(e, from: 0, to: 0), dr = s.car(e, from: 2, to: w)
+                HStack {
+                    Text(Self.utcDay.string(from: e.day0)).foregroundStyle(Theme.text).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(percent(a, digits: 2)).foregroundStyle(theme.tint(a)).frame(width: 104, alignment: .trailing)
+                    Text(percent(d0, digits: 2)).foregroundStyle(theme.tint(d0)).frame(width: 104, alignment: .trailing)
+                    Text(percent(dr, digits: 2)).foregroundStyle(theme.tint(dr)).frame(width: 104, alignment: .trailing)
+                    Text(String(format: "%.2f", e.beta)).foregroundStyle(Theme.dim).frame(width: 104, alignment: .trailing)
+                }
+                .font(.mono(11)).monospacedDigit().padding(.horizontal, 8).padding(.vertical, 4).rowBackground(n)
+            }
+        }
+    }
+
+    private func csv(_ s: EventStudy) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withFullDate]
+        return CSV.make(header: ["Day 0", "Alpha", "Beta", "Estimation days"] + s.days.map { "AR[\($0)]" },
+                        rows: s.events.map { e in
+                            [f.string(from: e.day0), CSV.number(e.alpha, digits: 8), CSV.number(e.beta, digits: 4), String(e.estimationDays)]
+                                + e.abnormal.map { CSV.number($0, digits: 8) }
+                        })
+    }
+
+    private func compute() async {
+        guard instrument.assetClass == .equity, let dates = sec.releases[instrument.symbol] else { study = nil; return }
+        guard !dates.isEmpty else { study = nil; failure = "No earnings 8-Ks on file for \(instrument.ticker)"; return }
+        guard let bench = Universe.resolve(benchmark) else { return }
+        loading = true
+        defer { loading = false }
+        failure = nil
+        let h = await market.histories([instrument, bench], range: "10y", adjusted: true, minBars: 200)
+        guard !Task.isCancelled else { return }
+        guard let a = h[instrument.symbol], let m = h[bench.symbol] else { study = nil; failure = "No price history"; return }
+        let window = -w...w
+        study = await Task.detached(priority: .userInitiated) { EventStudy.run(asset: a, market: m, events: dates, window: window) }.value
+    }
+}

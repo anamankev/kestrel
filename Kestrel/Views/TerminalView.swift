@@ -473,7 +473,7 @@ struct FunctionView: View {
         case .port: PortfolioView(panelID: panel.id)
         case .blot: BlotterView()
         case .help: HelpView(panelID: panel.id)
-        case .des, .fa, .evts, .gp, .hp, .bt, .osa, .beta, .fact, .dvd, .depth, .tas, .cn, .omon, .trade:
+        case .des, .fa, .evts, .gp, .hp, .bt, .osa, .beta, .fact, .dvd, .evst, .depth, .tas, .cn, .omon, .trade:
             if let i = c.instrument, i.assetClass == .option, c.function != .trade {
                 EmptyNote(title: "\(i.name)", detail: "Option contracts support TRADE. See the full chain, greeks and smile in \(Deribit.parse(i.symbol)?.underlying ?? "BTC") OMON.",
                           icon: "function")
@@ -493,6 +493,7 @@ struct FunctionView: View {
                 case .beta: BetaView(instrument: i, panelID: panel.id).id(i.symbol)
                 case .fact: FactorView(instrument: i, panelID: panel.id).id(i.symbol)
                 case .dvd: DividendView(instrument: i, panelID: panel.id).id(i.symbol)
+                case .evst: EventStudyView(instrument: i, panelID: panel.id).id(i.symbol)
                 case .depth: DepthView(instrument: i)
                 case .tas: TimeAndSalesView(instrument: i)
                 case .cn: NewsView(instrument: i)
