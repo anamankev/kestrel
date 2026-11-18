@@ -1,4 +1,4 @@
-import { openBundle, sealBundle, type Bundle } from "../core/transfer";
+import { MAX_FILE, openBundle, sealBundle, TransferError, type Bundle } from "../core/transfer";
 import type { Bytes } from "../core/auth";
 import { PaperAccount } from "../core/paper";
 import { AlertBook } from "../core/alerts";
@@ -15,7 +15,12 @@ export async function exportFile(passphrase: string): Promise<Blob> {
   return new Blob([await sealBundle(b, passphrase)], { type: "application/octet-stream" });
 }
 
-export const readFile = async (f: File, passphrase: string) => openBundle(new Uint8Array(await f.arrayBuffer()) as Bytes, passphrase);
+/** Opens a chosen file. The size is checked before reading, so a huge file can't exhaust memory; the contents
+ *  (magic bytes, authenticated encryption, then every field) are checked by openBundle. */
+export async function readFile(f: File, passphrase: string) {
+  if (f.size > MAX_FILE || f.size <= 24) throw new TransferError("That isn't a Kestrel transfer file");
+  return openBundle(new Uint8Array(await f.arrayBuffer()) as Bytes, passphrase);
+}
 
 /** Replaces this account's watchlists, alerts and paper book with an opened (already validated) file. */
 export function applyBundle(b: Bundle) {

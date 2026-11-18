@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { handle, route, allow, type Env } from "./relay";
+import { handle, route, allow, configProblem, type Env } from "./relay";
 
 const env: Env = { ALLOWED_ORIGINS: "https://kestrel.example", SEC_CONTACT: "owner@example.com" };
 const req = (path: string, origin = "https://kestrel.example", method = "GET") =>
@@ -63,5 +63,38 @@ describe("relay handler", () => {
     for (let i = 0; i < 120; i++) expect(allow("1.2.3.4", 0)).toBe(true);
     expect(allow("1.2.3.4", 0)).toBe(false);
     expect(allow("1.2.3.4", 61_000)).toBe(true);
+  });
+
+  test("refuses unsafe configuration", async () => {
+    expect(configProblem(env)).toBeNull();
+    expect(configProblem({ ALLOWED_ORIGINS: "" })).toMatch(/empty/);
+    expect(configProblem({ ALLOWED_ORIGINS: "*" })).toMatch(/wildcard/);
+    expect(configProblem({ ALLOWED_ORIGINS: "https://*.pages.dev" })).toMatch(/wildcard/);
+    expect(configProblem({ ALLOWED_ORIGINS: "http://kestrel.example" })).toMatch(/https/);
+    expect(configProblem({ ALLOWED_ORIGINS: "https://kestrel.example/app" })).toMatch(/bare origins/);
+    expect(configProblem({ ALLOWED_ORIGINS: "http://localhost:5173" })).toBeNull();
+    expect(configProblem({ ...env, SEC_CONTACT: "not an email" })).toMatch(/SEC_CONTACT/);
+    const r = await handle(req("/yahoo/search?q=a"), { ALLOWED_ORIGINS: "*" }, ok, undefined, () => {});
+    expect(r.status).toBe(500);
+    expect(r.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
+  test("logs suspicious requests with a hashed IP, never the address", async () => {
+    const events: Record<string, unknown>[] = [];
+    const log = (e: Record<string, unknown>) => events.push(e);
+    const r = (path: string, origin?: string, method?: string) => { const q = req(path, origin, method); q.headers.set("CF-Connecting-IP", "203.0.113.9"); return q; };
+    await handle(r("/yahoo/search?q=a", "https://evil.example"), env, ok, undefined, log);
+    await handle(r("/anything?url=https://evil"), env, ok, undefined, log);
+    await handle(r("/yahoo/search?q=a", undefined, "POST"), env, ok, undefined, log);
+    expect(events.map((e) => e.event)).toEqual(["origin_rejected", "route_rejected", "method_rejected"]);
+    expect(JSON.stringify(events)).not.toContain("203.0.113.9");
+    expect(events[0].ip).toMatch(/^[0-9a-f]{12}$/);
+  });
+
+  test("responses can't run or be framed", async () => {
+    const html = async () => new Response("<script>alert(1)</script>", { status: 200, headers: { "Content-Type": "text/html" } });
+    const res = await handle(req("/rss/cnbc"), env, html, undefined, () => {});
+    expect(res.headers.get("Content-Security-Policy")).toContain("sandbox");
+    expect(res.headers.get("X-Frame-Options")).toBe("DENY");
   });
 });

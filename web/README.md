@@ -9,8 +9,9 @@ npm install
 npm run relay   # Cloudflare Worker relay on :8787 (needs worker/.dev.vars with SEC_CONTACT=you@example.com)
 npm run dev     # app on :5173
 npm test        # core, guide, paper engine, options and relay tests
-npm run build   # type-check, bundle, and write dist/_headers (CSP and hardening headers)
-npm run preview # serve dist on :4173 with those headers, to check the production build locally
+npm run build       # production: needs an https VITE_RELAY_URL; type-checks, bundles, writes dist/_headers
+npm run build:local # the same bundle against the local relay, for checking on this machine
+npm run preview     # serve dist on :4173 with those headers
 npm run guide   # regenerate the guide's knowledge from KestrelCore/Guide.swift
 ```
 
@@ -27,11 +28,16 @@ the New York Fed and the World Bank's country list are called directly from the 
 ## Deploy (Cloudflare free tier)
 
 1. Sign in once: `npx wrangler login`.
-2. Store the SEC contact as a secret: `npx wrangler secret put SEC_CONTACT --config worker/wrangler.toml`.
-3. In `worker/wrangler.toml`, set `ALLOWED_ORIGINS` to the site's origin (e.g. `https://kestrel-web.pages.dev`),
-   then `npm run deploy:relay`. Note the relay URL it prints (`https://kestrel-relay.<account>.workers.dev`).
-4. Write `.env.production` with `VITE_RELAY_URL=<that URL>`, then `npm run build`. The build refuses a non-https relay.
+2. Store the SEC contact as a secret: `npx wrangler secret put SEC_CONTACT --config worker/wrangler.toml --env production`.
+3. In `worker/wrangler.toml`, set `[env.production.vars] ALLOWED_ORIGINS` to the site's exact origin
+   (e.g. `https://kestrel-web.pages.dev`), then `npm run deploy:relay`. The relay refuses to serve with a wildcard,
+   non-https or malformed origin. Note the relay URL it prints (`https://kestrel-relay.<account>.workers.dev`).
+4. Write `.env.production` with `VITE_RELAY_URL=<that URL>`, then `npm run build`. The build stops if the relay URL is
+   missing or not https.
 5. Publish: `npx wrangler pages deploy dist --project-name kestrel-web`.
 
-Payments: the subscribe page shows the plans; web checkout isn't wired yet, so a "Continue to the web preview" link lets
-signed-in users in. Build with `VITE_WEB_PREVIEW=0` to remove it.
+6. Watch the relay's security log with `npx wrangler tail --config worker/wrangler.toml --env production`
+   (rejected origins, invalid routes, rate limiting, upstream failures; visitor IPs appear only as hashes).
+
+Payments: the subscribe page shows the plans; web checkout isn't wired yet. Development builds show a
+"Continue to the web preview" link; production builds don't, unless built with `VITE_WEB_PREVIEW=1` on purpose.

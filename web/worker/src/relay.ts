@@ -100,7 +100,35 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "no-referrer",
   "Cross-Origin-Resource-Policy": "cross-origin",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  // Responses are data, never pages: nothing may run or be framed even if an upstream sends HTML.
+  "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; sandbox",
+  "X-Frame-Options": "DENY",
 };
+
+const EMAIL = /^[^@\s]{1,64}@[^@\s]{1,190}\.[A-Za-z]{2,24}$/;
+
+/** Checks the deployment's configuration; returns a problem, or null when it is safe to serve. */
+export function configProblem(env: Env): string | null {
+  const origins = (env.ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (!origins.length) return "ALLOWED_ORIGINS is empty";
+  for (const o of origins) {
+    if (o === "*" || o.includes("*")) return "ALLOWED_ORIGINS may not contain a wildcard";
+    let u: URL;
+    try { u = new URL(o); } catch { return `ALLOWED_ORIGINS has an invalid origin: ${o}`; }
+    if (u.origin !== o) return `ALLOWED_ORIGINS entries must be bare origins: ${o}`;
+    if (u.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(u.hostname)) return `ALLOWED_ORIGINS must be https: ${o}`;
+  }
+  if (env.SEC_CONTACT !== undefined && !EMAIL.test(env.SEC_CONTACT)) return "SEC_CONTACT is not an email address";
+  return null;
+}
+
+/** Security log line for Workers Logs / `wrangler tail`. The IP is hashed, never stored in clear. */
+export type Logger = (event: Record<string, unknown>) => void;
+const defaultLog: Logger = (e) => console.warn(JSON.stringify(e));
+async function ipTag(ip: string): Promise<string> {
+  const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`kestrel-relay|${ip}`)));
+  return [...d.slice(0, 6)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 function json(status: number, body: unknown, cors: Record<string, string>) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...SECURITY_HEADERS, ...cors } });
@@ -115,20 +143,25 @@ export function allow(ip: string, now = Date.now(), limit = 120): boolean {
   return h.n <= limit;
 }
 
-export async function handle(req: Request, env: Env, upstreamFetch: Fetcher, cache?: Cache): Promise<Response> {
+export async function handle(req: Request, env: Env, upstreamFetch: Fetcher, cache?: Cache, log: Logger = defaultLog): Promise<Response> {
+  const problem = configProblem(env);
+  if (problem) { log({ event: "misconfigured", problem }); return json(500, { error: "relay misconfigured" }, {}); }
+  const ip = req.headers.get("CF-Connecting-IP") ?? "local";
+  const path = new URL(req.url).pathname.slice(0, 80);
+  const warn = async (event: string, extra: Record<string, unknown> = {}) => log({ event, ip: await ipTag(ip), path, ...extra });
   const origin = req.headers.get("Origin") ?? "";
   const allowed = env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean);
   const cors: Record<string, string> = allowed.includes(origin)
     ? { "Access-Control-Allow-Origin": origin, "Vary": "Origin", "Access-Control-Allow-Methods": "GET, OPTIONS", "Access-Control-Max-Age": "86400" }
     : {};
-  if (!cors["Access-Control-Allow-Origin"]) return json(403, { error: "origin not allowed" }, {});
+  if (!cors["Access-Control-Allow-Origin"]) { await warn("origin_rejected", { origin: origin.slice(0, 80) }); return json(403, { error: "origin not allowed" }, {}); }
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: { ...SECURITY_HEADERS, ...cors } });
-  if (req.method !== "GET") return json(405, { error: "method not allowed" }, cors);
-  if (!allow(req.headers.get("CF-Connecting-IP") ?? "local")) return json(429, { error: "too many requests" }, cors);
+  if (req.method !== "GET") { await warn("method_rejected", { method: req.method.slice(0, 10) }); return json(405, { error: "method not allowed" }, cors); }
+  if (!allow(ip)) { await warn("rate_limited"); return json(429, { error: "too many requests" }, cors); }
 
   const url = new URL(req.url);
   const r = route(url);
-  if (!r) return json(404, { error: "unknown or invalid request" }, cors);
+  if (!r) { await warn("route_rejected", { query: url.search.slice(0, 120) }); return json(404, { error: "unknown or invalid request" }, cors); }
   if (r.ua === "sec" && !env.SEC_CONTACT) return json(503, { error: "SEC contact not configured" }, cors);
 
   const key = new Request(r.post ? `${r.upstream}#${r.post}` : r.upstream);
@@ -142,9 +175,10 @@ export async function handle(req: Request, env: Env, upstreamFetch: Fetcher, cac
       ? { method: "POST", body: r.post, headers: { "User-Agent": ua, "Accept": "*/*", "Content-Type": "application/json" } }
       : { headers: { "User-Agent": ua, "Accept": "*/*" } });
   } catch {
+    log({ event: "upstream_unreachable", path });
     return json(502, { error: "upstream unreachable" }, cors);
   }
-  if (!up.ok) return json(up.status === 404 ? 404 : 502, { error: `upstream ${up.status}` }, cors);
+  if (!up.ok) { log({ event: "upstream_error", status: up.status, path }); return json(up.status === 404 ? 404 : 502, { error: `upstream ${up.status}` }, cors); }
   const body = await up.arrayBuffer();
   if (body.byteLength > 25 * 1024 * 1024) return json(502, { error: "upstream response too large" }, cors);
   const res = new Response(body, { status: 200, headers: { "Content-Type": up.headers.get("Content-Type") ?? "application/octet-stream", "Cache-Control": `public, max-age=${r.ttl}` } });

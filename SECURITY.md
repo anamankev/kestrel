@@ -65,7 +65,55 @@ Every ✅ row is backed by a test or a command whose output is quoted. Test coun
   unlocked, signed-in device can see your paper book, just as they could see the screen. Signing out locks it.
 - Market data comes from free, unauthenticated sources. It can be delayed or change format, so quotes are never
   executable prices.
-- **Web build tools (`web/`):** `npm audit` reports `picomatch` (GHSA-fc5q-39xc-vjpf, ReDoS) through Vite and Vitest. No patched release exists (every version up to 4.0.7 is affected). It only runs inside the development and build tools, on the project's own glob patterns; it is not shipped to browsers or the relay, so it isn't reachable by users. Re-check when picomatch publishes a fix. All other web dependency findings were fixed by upgrading Vite (8.3.5), Vitest (5.1.0), the React plugin (6.2.1) and TypeScript (5.9.3), each at least two weeks old. `npm audit --omit=dev`: 0 vulnerabilities.
+- **Web build tools (`web/`):** `npm audit` reports `picomatch` (GHSA-fc5q-39xc-vjpf, ReDoS, now rated high) through Vite and Vitest. No patched release exists (rechecked 2026-11-18) (every version up to 4.0.7 is affected). It only runs inside the development and build tools, on the project's own glob patterns; it is not shipped to browsers or the relay, so it isn't reachable by users. Re-check when picomatch publishes a fix. All other web dependency findings were fixed by upgrading Vite (8.3.5), Vitest (5.1.0), the React plugin (6.2.1) and TypeScript (5.9.3), each at least two weeks old. `npm audit --omit=dev`: 0 vulnerabilities.
+
+## Web app and relay (2026-11-18)
+
+**Scope:** `web/` (React app served as static files from Cloudflare Pages) and `web/worker/` (the Cloudflare
+Worker relay). The web app has accounts in the browser and no Kestrel server. The relay is the only server
+code. It forwards an allowlisted set of read-only public-data requests. Tests: **73 web tests**
+(`cd web && npm test`) and **6 KestrelCore transfer tests**, all passing, plus the live probes quoted below,
+run against the relay (`npm run relay`) and the production bundle.
+
+| # | Item | Status | What was done and how it was verified |
+|---|------|--------|---------------------------------------|
+| 1 | Authentication | ✅ | Mirrors the app: PBKDF2-SHA256 at 600k rounds, NIST 800-63B password rules, 5 failures lock the account with doubling back-off, and unknown emails cost the same work. The session key is a **non-extractable** WebCrypto AES key in IndexedDB with a 30-day sliding expiry; sign-out deletes it. Tests: `auth.test.ts` (policy, wrong password, lockout, wrapped data key, vault tampering). Residual: anyone with access to the browser profile can reset the lockout counter in local storage, so offline guessing is limited only by the KDF (see row 5). |
+| 2 | API keys hidden | ✅ | No keys exist. The only secret is the SEC contact email: a Cloudflare secret in production and `worker/.dev.vars` locally (gitignored, mode 600, never committed). It is sent only to sec.gov. `gitleaks detect --log-opts=--all`: "51 commits scanned … no leaks found". |
+| 3 | Database locked down | ✅ | No server database. Each account's data (watchlists, workspace and pages, paper book, alerts) is sealed with AES-256-GCM under a random data key wrapped by a password-derived key. Test: the vault holds ciphertext only (checked in the browser earlier, and by `auth.test.ts`). |
+| 4 | HTTPS enforced | ✅ | Pages serves only HTTPS, `_headers` adds HSTS, and the CSP adds `upgrade-insecure-requests` for https relays. **New:** `npm run build` stops if `VITE_RELAY_URL` is missing or not https (`scripts/check-env.mjs`; verified: "VITE_RELAY_URL is not set"), so a production bundle can't fall back to `http://localhost`. The relay answers with HSTS. |
+| 5 | Passwords hashed | ⚠ **owner decision** | PBKDF2-SHA256, 600k rounds, 16-byte salt (OWASP's PBKDF2 setting), the same as the app. Your checklist asks for a **memory-hard** KDF; PBKDF2 isn't one. Browsers' WebCrypto and Apple's CryptoKit offer no Argon2 or scrypt, so meeting it needs third-party code (see "Owner decisions" below). |
+| 6 | Input validated | ✅ | The relay validates every path segment and query value against allowlists before any upstream call. The app validates imports like typed input. Live probes, each answered **404**: `/yahoo/chart/..%2F..%2Fetc%2Fpasswd`, `/sec/facts/..%2F..%2Fsubmissions`, `/french/..%2F..%2Fsecret.zip`, `/wb/bulk/%2e%2e`, `/proxy?url=http://169.254.169.254/`, a 65-character search, and `events=evil`. Encoded `&`/`=` in a symbol is re-encoded upstream, so no parameter injection. |
+| 7 | XSS blocked | ✅ | React escapes all text; there is no `dangerouslySetInnerHTML`, `innerHTML`, `eval` or `new Function` in `src/` or the relay. CSP: `script-src 'self'`, `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'none'`. Live: a hostile RSS feed in the browser dropped the `javascript:`, `data:` and `http:` links, kept an `<img onerror>` headline as plain text, and didn't expand an external entity. External links use `rel="noopener noreferrer"`. **New:** relay responses carry `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; sandbox` and `X-Frame-Options: DENY`, so an HTML upstream response can't run (test: "responses can't run or be framed"). Residual: `style-src 'unsafe-inline'` is needed for React style attributes; it allows CSS, not script. |
+| 8 | Suspicious activity logged | ✅ **new** | The relay logs rejected origins, rejected methods, invalid routes, rate limiting, upstream failures and misconfiguration as JSON lines (`wrangler tail`). Visitor IPs appear only as a truncated SHA-256 tag. Test: "logs suspicious requests with a hashed IP, never the address". Live: `{"event":"rate_limited","ip":"0133cae03a78","path":"/yahoo/search"}`. |
+| 9 | Admin routes | N/A | None exist. |
+| 10 | Parameterized queries | N/A | No SQL. Upstream URLs are built with `URL`/`searchParams`, never concatenated input. |
+| 11 | Environment checked at startup | ✅ **new** | Workers have no startup hook, so the relay checks its configuration on every request (`configProblem`). It refuses (500, no CORS) an empty or wildcard `ALLOWED_ORIGINS`, non-https or non-bare origins, and a malformed `SEC_CONTACT`. The build checks `VITE_RELAY_URL` (row 4). Tests: "refuses unsafe configuration". |
+| 12 | Rate limiting | ✅ | 120 requests a minute per IP per relay instance, sign-in lockout, and long cache lifetimes (BLS 12 h, SEC filings 1 to 24 h). Live: 130 requests from one IP gave **120 × 200, 10 × 429**, while another IP was still served. Residual: the limit is per Worker instance. A Cloudflare rate-limiting rule (one is free) would make it global. |
+| 13 | CORS restricted | ✅ **fixed** | Allow-list only, no `*`. Live: no Origin, `https://evil.example`, `null` and the lookalike `http://localhost:5173.evil.example` each got **403**. **New:** local origins are now only in the dev config, and production uses `[env.production]` with the site's origin alone. `deploy:relay` deploys `--env production`. Note: Origin is a browser control, so scripts can forge it; it is not authentication. The allowlist, validation and rate limit are what bound misuse. |
+| 14 | Security headers | ✅ | Site (`dist/_headers`): CSP, HSTS, `nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, COOP and a restrictive `Permissions-Policy`. Live on the production bundle: allowed APIs returned 200, and `https://example.com` was **blocked** by CSP. Relay: the same plus the sandbox CSP above (live headers confirmed with `curl -D -`). |
+| 15 | Session cookies | ✅ equivalent | No cookies. The session is a non-extractable key in IndexedDB (row 1), which page scripts can use but never read. |
+| 16 | CSRF | ✅ N/A by design | The relay is GET-only and stateless (POST/PUT answer 405, verified live). The app has no server session to forge requests against. |
+| 17 | Password reset | N/A | No email server or reset links. The sign-in page says accounts can't be recovered. |
+| 18 | Uploads restricted | ✅ **fixed** | The only upload is the `.kestrel` transfer file. **New:** the size is checked *before* the file is read (24 B to 8 MB). Then come the magic bytes, a bounded iteration count, authenticated decryption and field-by-field validation, and a confirm step before anything is replaced. Live: a 9 MB file, a 10-byte file and an HTML file were each refused in 8 ms total. Tests: `transfer.test.ts` (wrong passphrase, tampering, hostile iteration count, validation). |
+| 19 | Prices verified on the server | ⚠ open until payments | Paper fills are priced by the engine from live quotes, never from the UI. **Subscription:** any gate in a static site runs in the visitor's browser and can be bypassed. **New:** production builds no longer contain the "web preview" bypass (verified: 0 matches in the bundle), and the app ignores a forged preview flag. Real enforcement must come with payments: the relay should require a signed entitlement token on Pro data routes, issued only after server-verified payment. |
+| 20 | Debug off in production | ✅ | The `window.__kestrel` hook is dev-only and absent from the production bundle (grep: 0 matches). There are no source maps (`sourcemap: false`; `dist/` has no `.map`). |
+| 21 | Vulnerable dependencies | ⚠ dev-only residual | `npm audit --omit=dev`: **0 vulnerabilities** in what ships. Dev tools: `picomatch` ≤ 4.0.7 (GHSA-fc5q-39xc-vjpf, ReDoS, now rated high) through Vite and Vitest. **There is still no patched release** (latest is 4.0.7); `npm audit fix --force` would only downgrade the tools. It runs only on the project's own build globs, never in browsers or the relay. |
+| 22 | Unused packages | ✅ | Runtime dependencies: `react`, `react-dom`. Dev: Vite, Vitest, the React plugin, TypeScript, React types and Workers types, all used. |
+| 23 | No exposed files | ✅ | `dist/` holds only `index.html`, `favicon.svg`, hashed JS and CSS, and `_headers`: no `.env`, `.git`, maps or backups. `.env.production` holds only the public relay URL. |
+| 24 | Git history scanned | ✅ | gitleaks: 51 commits, no leaks (above). |
+| 25 | Leaked keys revoked | ✅ | Nothing leaked. GitHub secret scanning and push protection stay on. |
+| 26 | GitHub account | ⚠ yours | Unchanged from 2026-11-17: 2FA with a passkey and the commit email are your decisions. Every commit, including today's, still carries `kanaman@brandeis.edu`. |
+| 27 | Full review, tested | ✅ | This section. |
+
+### Owner decisions (web)
+
+1. **Memory-hard password hashing (row 5).** Moving to Argon2id means adding audited third-party code: for
+   example `hash-wasm` in the browser (which also needs `'wasm-unsafe-eval'` in the CSP) and a vendored Argon2
+   reference implementation in KestrelCore. Existing accounts would upgrade at their next sign-in. The transfer
+   file would get a new format version that both apps must ship together. PBKDF2 at 600k rounds is OWASP's
+   accepted setting, so this hardens against offline guessing on a stolen device or profile; it isn't an open hole.
+2. **Before charging on the web (row 19):** build the server-side entitlement check with payments.
+3. **Before deploying:** add one free Cloudflare rate-limiting rule on the relay (row 12).
 
 ## When the backend exists
 

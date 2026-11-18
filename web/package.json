@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/headers.mjs",
+    "build": "tsc -b && node scripts/check-env.mjs && vite build && node scripts/headers.mjs",
     "guide": "python3 scripts/gen-guide.py",
-    "deploy:relay": "wrangler deploy --config worker/wrangler.toml",
+    "deploy:relay": "wrangler deploy --config worker/wrangler.toml --env production",
     "preview": "vite preview",
     "test": "vitest run",
-    "relay": "wrangler dev --config worker/wrangler.toml --port 8787"
+    "relay": "wrangler dev --config worker/wrangler.toml --port 8787",
+    "build:local": "VITE_RELAY_URL=http://localhost:8787 KESTREL_LOCAL_BUILD=1 npm run build"
   },
   "dependencies": {
     "react": "^18.3.1",

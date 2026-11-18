@@ -2,8 +2,16 @@ name = "kestrel-relay"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
+# Local development (`npm run relay`). Production never sees these origins.
 [vars]
-# The deployed site's origin is added here at deploy time.
 ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173"
 
-# SEC_CONTACT is a secret: `wrangler secret put SEC_CONTACT` (production) or .dev.vars (local, gitignored).
+# Production (`npm run deploy:relay` deploys with --env production).
+# Set this to the site's exact origin before deploying; the relay refuses wildcards and non-https origins.
+[env.production]
+name = "kestrel-relay"
+[env.production.vars]
+ALLOWED_ORIGINS = "https://kestrel-web.pages.dev"
+
+# SEC_CONTACT is a secret: `npx wrangler secret put SEC_CONTACT --config worker/wrangler.toml --env production`
+# (production) or worker/.dev.vars (local, gitignored).

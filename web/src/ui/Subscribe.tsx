@@ -4,8 +4,10 @@ import { auth } from "../data/auth";
 import { KestrelMark } from "./components";
 
 const usd = (v: number) => `$${v.toFixed(2)}`;
-/** Until web payments are wired, the subscribe page lets people into a preview. VITE_WEB_PREVIEW=0 turns that off. */
-export const PREVIEW = import.meta.env.VITE_WEB_PREVIEW !== "0";
+/** Until web payments are wired, development builds let signed-in users into a preview. Production builds don't,
+ *  unless built with VITE_WEB_PREVIEW=1 on purpose. (Any gate in a static site is client-side; real enforcement
+ *  needs the server-side entitlement check planned with payments.) */
+export const PREVIEW = import.meta.env.DEV || import.meta.env.VITE_WEB_PREVIEW === "1";
 
 export function SubscribeView({ onPreview }: { onPreview: () => void }) {
   const [sel, setSel] = useState<Plan["id"]>("annual");
