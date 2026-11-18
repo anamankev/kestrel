@@ -108,20 +108,21 @@ export function PriceChart({ i }: { i: Instrument }) {
       </div>
       <div ref={box} style={{ flex: 1, minHeight: 160, position: "relative" }}>
         {failed ? <Empty title="Chart unavailable" detail="The data source didn't respond. It retries every minute." /> : !candles ? <Empty title="Loading chart…" /> :
-          <canvas ref={canvas} role="img" aria-label={`${i.ticker} price chart, ${range}${comparing ? `, compared with ${compare!.ticker}` : ""}`} style={{ width: "100%", height: "100%", display: "block", cursor: mode === "DRAW" ? "copy" : "crosshair" }}
-            onMouseDown={(e) => { if (mode !== "DRAW" || comparing) return; const p = at(e); start.current = p; const a = point(p); setDraft({ t1: a.t, p1: a.p, t2: a.t, p2: a.p }); }}
-            onMouseMove={(e) => {
+          <canvas ref={canvas} role="img" aria-label={`${i.ticker} price chart, ${range}${comparing ? `, compared with ${compare!.ticker}` : ""}`} style={{ width: "100%", height: "100%", display: "block", cursor: mode === "DRAW" ? "copy" : "crosshair", touchAction: mode === "DRAW" ? "none" : "pan-y" }}
+            onPointerDown={(e) => { if (mode !== "DRAW" || comparing) return; e.currentTarget.setPointerCapture(e.pointerId); const p = at(e); start.current = p; const a = point(p); setDraft({ t1: a.t, p1: a.p, t2: a.t, p2: a.p }); }}
+            onPointerMove={(e) => {
               const p = at(e);
               if (mode === "DRAW" && start.current && draft) { const b = point(p); setDraft({ ...draft, t2: b.t, p2: b.p }); return; }
               const n = candles.length, k = Math.round(((p.x - 4) / (e.currentTarget.getBoundingClientRect().width - 64 - 8)) * (n - 1));
               setHover(mode === "CROSS" && k >= 0 && k < n ? k : null);
             }}
-            onMouseUp={(e) => {
+            onPointerUp={(e) => {
               const s = start.current, p = at(e);
               if (mode === "DRAW" && s && draft && Math.hypot(p.x - s.x, p.y - s.y) > 12) saveLines([...lines, draft]);
               start.current = null; setDraft(null);
             }}
-            onMouseLeave={() => { setHover(null); start.current = null; setDraft(null); }} />}
+            onPointerLeave={(e) => { if (e.pointerType === "mouse") { setHover(null); start.current = null; setDraft(null); } }}
+            onPointerCancel={() => { start.current = null; setDraft(null); }} />}
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ export function Description({ panel, i }: { panel: number; i: Instrument }) {
   useEffect(() => { workspace.setHotspots(panel, links.map(([c]) => ({ cmd: { fn: c, instrument: i } }))); });
   const range = q?.high52 != null && q?.low52 != null && q.high52 > q.low52 ? (q.last - q.low52) / (q.high52 - q.low52) : undefined;
   return (
-    <div style={{ padding: 16, display: "grid", gap: 14, alignContent: "start" }}>
+    <div style={{ padding: 16, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 14, alignContent: "start" }}>
       <div>
         <div style={{ fontSize: 20, fontWeight: 600 }}>{market.displayName(i)}</div>
         <div className="mono dim" style={{ fontSize: 11 }}>{[i.ticker, i.assetClass, d?.exchange ?? (live ? "Coinbase" : undefined), d?.currency ?? "USD"].filter(Boolean).join(" · ")}</div>

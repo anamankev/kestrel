@@ -21,14 +21,16 @@ export function Terminal() {
   useStore(workspace);
   const [text, setText] = useState("");
   const input = useRef<HTMLInputElement>(null);
-  useEffect(() => { market.start(); broker.start(); alerts.start(); startOptionMarks(); input.current?.focus(); }, []);
+  useEffect(() => { market.start(); broker.start(); alerts.start(); startOptionMarks();
+    // Focus the command line on desktop only: on a phone it would pop the keyboard over the screen.
+    if (window.matchMedia("(pointer: fine)").matches) input.current?.focus(); }, []);
   useEffect(() => { market.focus = new Set(workspace.symbolsOnScreen); for (const p of workspace.visible) if (p.cmd.instrument) market.touch(p.cmd.instrument); });
   return (
     <div className="terminal">
       <Toasts />
       <Guide />
       <header className="topbar">
-        <div className="wordmark"><KestrelMark /> KESTREL</div>
+        <div className="wordmark"><KestrelMark /> <span className="wm">KESTREL</span></div>
         <CommandBar text={text} setText={setText} inputRef={input} />
         <div className="spacer" />
         <Live />
@@ -117,7 +119,7 @@ function Clocks() {
 
 function Live() {
   useStore(market);
-  return <div className="live" title="Coinbase live feed"><span className={`dot ${market.live ? "on" : ""}`} /><span className={market.live ? "" : "dim"}>{market.live ? "LIVE" : "OFFLINE"}</span><span className="faint">{market.messagesPerSecond} msg/s</span></div>;
+  return <div className="live" title="Coinbase live feed"><span className={`dot ${market.live ? "on" : ""}`} /><span className={market.live ? "" : "dim"}>{market.live ? "LIVE" : "OFFLINE"}</span><span className="faint mps">{market.messagesPerSecond} msg/s</span></div>;
 }
 
 const TAPE = [...indices.slice(0, 9), ...equities.slice(0, 6), ...crypto.slice(0, 3), currencies[0], currencies[2], commodities[0], commodities[3], rates[2]];

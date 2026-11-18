@@ -27,7 +27,8 @@ export function Sparkline({ values, w = 90, h = 20 }: { values?: number[]; w?: n
   const lo = Math.min(...values), hi = Math.max(...values), span = Math.max(hi - lo, hi * 1e-9, 1e-12);
   const pts = values.map((v, i) => `${((i / (values.length - 1)) * w).toFixed(1)},${(h - ((v - lo) / span) * (h - 2) - 1).toFixed(1)}`).join(" ");
   const up = values[values.length - 1] >= values[0];
-  return <svg width={w} height={h} aria-hidden="true"><polyline points={pts} fill="none" stroke={up ? "var(--up)" : "var(--down)"} strokeWidth="1.2" /></svg>;
+  // Shrinks with its container (narrow panels, phones) without distorting the stroke.
+  return <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ maxWidth: "100%", display: "block" }} aria-hidden="true"><polyline points={pts} fill="none" stroke={up ? "var(--up)" : "var(--down)"} strokeWidth="1.2" vectorEffect="non-scaling-stroke" /></svg>;
 }
 
 export const Tile = ({ k, v, s, className }: { k: string; v: ReactNode; s?: string; className?: string }) => (

@@ -19,7 +19,7 @@ a { color: var(--accent); }
 :focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 
 /* Shell */
-.terminal { display: grid; grid-template-rows: auto auto 1fr auto; height: 100vh; }
+.terminal { display: grid; grid-template-rows: auto auto 1fr auto; grid-template-columns: minmax(0, 1fr); height: 100vh; height: 100dvh; }
 .topbar { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--header); border-bottom: 1px solid var(--rule); position: relative; z-index: 10; }
 .wordmark { display: flex; align-items: center; gap: 8px; font: 800 15px var(--mono); letter-spacing: 4px; white-space: nowrap; }
 .cmd { position: relative; flex: 0 1 560px; display: flex; align-items: stretch; height: 30px; border: 1px solid var(--rule); background: var(--canvas); }
@@ -93,7 +93,35 @@ table.t tr.click { cursor: pointer; } table.t tr.click:hover td { background: va
 .field:focus { border-color: var(--accent-dim); }
 .price-big { font: 600 34px var(--mono); }
 .badge { font: 700 9px var(--mono); padding: 1px 5px; border-radius: 2px; }
-@media (max-width: 760px) { .grid.l2, .grid.l4, .grid.l6 { grid-template: auto / 1fr; overflow: auto; } .grid .panel { min-height: 60vh; } .clocks .c:nth-child(n+2) { display: none; } }
+/* Phones and narrow windows: the command line gets its own row, panels stack and scroll, wide tables scroll inside their panel. */
+@media (max-width: 760px) {
+  .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 8px; }
+  .wordmark { letter-spacing: 2px; font-size: 13px; }
+  .cmd { order: 10; flex: 1 1 100%; height: 36px; }
+  .cmd input { font-size: 16px; } /* 16px stops iOS zooming into the field */
+  .cmd .go { width: 48px; }
+  .clocks, .live .mps { display: none; }
+  .grid.l2, .grid.l4, .grid.l6 { grid-template: auto / minmax(0, 1fr); overflow: auto; }
+  .grid .panel { min-height: 70vh; }
+  .grid.l1 .panel { min-height: 0; }
+  .keys { padding: 6px; padding-bottom: max(6px, env(safe-area-inset-bottom)); }
+  .key { height: 32px; }
+  .layouts button { height: 28px; }
+  .toolbar { gap: 6px; }
+  .seg { flex-wrap: wrap; }
+  .field { font-size: 16px; }
+  .guide { right: 10px; bottom: 60px; }
+  .guide-fab { width: 46px; height: 46px; }
+  .guide-panel { height: min(520px, calc(100dvh - 150px)); }
+  .guide-input textarea { font-size: 16px; }
+  /* Wide tables scroll on their own, with the first column (name or ticker) pinned, instead of the whole panel. */
+  table.t { display: block; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+  table.t th, table.t td { padding: 4px 6px; }
+  table.t th { top: auto; } /* the table is its own scroller here, so the panel-level sticky offset would cover row 1 */
+  table.t th:first-child, table.t td:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); box-shadow: 1px 0 0 var(--rule); }
+  table.t thead th:first-child { z-index: 2; }
+  .price-big { font-size: 28px; }
+}
 
 /* Order book ladder: each level's bar is its cumulative depth. */
 .lrow { position: relative; display: grid; grid-template-columns: 1.2fr 1fr 1fr; padding: 3px 8px; font-size: 12px; font-variant-numeric: tabular-nums; }

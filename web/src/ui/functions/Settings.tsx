@@ -11,7 +11,7 @@ import { applyBundle, exportFile, fileName, readFile } from "../../data/transfer
 import { TransferError, type Bundle } from "../../core/transfer";
 
 const usd = (v: number) => `$${v.toFixed(2)}`;
-const row: CSSProperties = { display: "flex", alignItems: "center", gap: 12, padding: "8px 10px", fontSize: 12 };
+const row: CSSProperties = { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "8px 10px", fontSize: 12 };
 
 /** Encrypted transfer file, interchangeable with the iPad/Mac app. */
 function Transfer() {

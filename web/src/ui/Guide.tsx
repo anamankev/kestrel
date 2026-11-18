@@ -50,7 +50,7 @@ export function Guide() {
             {messages.map((m) => (
               <div key={m.id} className={`gm ${m.role === "user" ? "me" : "bot"}`}>
                 <div className="bubble">{m.text}</div>
-                {m.commands.length > 0 && <div className="chips">{m.commands.map((c) => <button key={c} className="cmdchip" onClick={() => workspace.run(c)} aria-label={`Run ${c}`}>{c} ↗</button>)}</div>}
+                {m.commands.length > 0 && <div className="chips">{m.commands.map((c) => <button key={c} className="cmdchip" onClick={() => { workspace.run(c); if (window.matchMedia("(max-width: 760px)").matches) setOpen(false); }} aria-label={`Run ${c}`}>{c} ↗</button>)}</div>}
                 {m.id === last && m.followUps.length > 0 && <div className="follow">{m.followUps.map((f) => <button key={f} onClick={() => ask(f)}>{f}</button>)}</div>}
               </div>
             ))}
