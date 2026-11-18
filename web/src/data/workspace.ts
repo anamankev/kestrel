@@ -8,7 +8,6 @@ export interface Panel { id: number; cmd: Command; history: Command[] }
 export type Hotspot = { cmd: Command } | { link: Instrument };
 
 const DEFAULTS = ["BTC CRYPTO GP", "W", "BTC CRYPTO DEPTH", "TOP", "BTC CRYPTO TAS", "WEI"];
-const KEY = "kestrel.workspace.v1";
 
 /** Saved form: commands as text, so a stored workspace can't inject anything but a command. */
 const text = (c: Command) => c.query ? `${c.fn} ${c.query}` : [c.instrument ? token(c.instrument) : "", c.instrument?.assetClass === "CRYPTO" ? "CRYPTO" : "", c.side ?? c.fn].filter(Boolean).join(" ");
@@ -21,24 +20,24 @@ export class Workspace extends Store {
   error: string | null = null;
   hotspots = new Map<number, Hotspot[]>();
 
-  constructor() {
-    super();
-    try {
-      const raw = JSON.parse(localStorage.getItem(KEY) ?? "null");
-      if (raw && Array.isArray(raw.panels)) {
-        this.panels = DEFAULTS.map((d, id) => {
-          let cmd: Command;
-          try { cmd = parse(String(raw.panels[id] ?? d)); } catch { cmd = parse(d); }
-          return { id, cmd, history: [] };
-        });
-        if ([1, 2, 4, 6].includes(raw.layout)) this.layout = raw.layout;
-      }
-    } catch { /* fresh workspace */ }
+  /** Called after every change; the signed-in account encrypts and stores the snapshot. */
+  persist: () => void = () => {};
+
+  snapshot() { return { layout: this.layout, panels: this.panels.map((p) => text(p.cmd)) }; }
+
+  /** Restores a saved workspace (commands are re-parsed, so stored data can only ever be a command). */
+  restore(raw: any) {
+    this.panels = DEFAULTS.map((d, id) => {
+      let cmd: Command;
+      try { cmd = parse(String(raw?.panels?.[id] ?? d)); } catch { cmd = parse(d); }
+      return { id, cmd, history: [] };
+    });
+    this.layout = [1, 2, 4, 6].includes(raw?.layout) ? raw.layout : 4;
+    this.focused = 0; this.maximized = null; this.error = null;
+    this.emit();
   }
 
-  private save() {
-    try { localStorage.setItem(KEY, JSON.stringify({ layout: this.layout, panels: this.panels.map((p) => text(p.cmd)) })); } catch { /* private mode */ }
-  }
+  private save() { this.persist(); }
 
   get visible(): Panel[] { return this.maximized !== null ? [this.panels[this.maximized]] : this.panels.slice(0, this.layout); }
   get current(): Instrument | undefined { return this.panels[this.focused].cmd.instrument; }
@@ -105,28 +104,28 @@ export class Workspace extends Store {
 }
 
 export interface Watchlist { id: string; name: string; symbols: string[] }
-const WKEY = "kestrel.watchlists.v1";
 export const MAX_SYMBOLS = 100;
 
-/** Watchlists (browser storage; per-account encryption arrives with sign-in). */
+/** Watchlists, stored in the signed-in account's encrypted vault. */
 export class UserData extends Store {
   lists: Watchlist[] = [{ id: "core", name: "CORE", symbols: [...crypto, ...equities].map((i) => i.symbol) }];
   activeId = "core";
 
-  constructor() {
-    super();
-    try {
-      const raw = JSON.parse(localStorage.getItem(WKEY) ?? "null");
-      if (raw && Array.isArray(raw.lists) && raw.lists.length) {
-        this.lists = raw.lists.slice(0, 50).map((l: Watchlist) => ({ id: String(l.id).slice(0, 40), name: String(l.name).slice(0, 40),
-          symbols: (Array.isArray(l.symbols) ? l.symbols : []).map(String).filter((s: string) => s.length <= 24).slice(0, MAX_SYMBOLS) }));
-        this.activeId = this.lists.some((l) => l.id === raw.activeId) ? raw.activeId : this.lists[0].id;
-      }
-    } catch { /* defaults */ }
+  persist: () => void = () => {};
+  static defaults(): Watchlist[] { return [{ id: "core", name: "CORE", symbols: [...crypto, ...equities].map((i) => i.symbol) }]; }
+
+  snapshot() { return { lists: this.lists, activeId: this.activeId }; }
+
+  restore(raw: any) {
+    const lists = Array.isArray(raw?.lists) && raw.lists.length ? raw.lists : UserData.defaults();
+    this.lists = lists.slice(0, 50).map((l: Watchlist) => ({ id: String(l.id).slice(0, 40), name: String(l.name).slice(0, 40),
+      symbols: (Array.isArray(l.symbols) ? l.symbols : []).map(String).filter((s: string) => s.length <= 24).slice(0, MAX_SYMBOLS) }));
+    this.activeId = this.lists.some((l) => l.id === raw?.activeId) ? raw.activeId : this.lists[0].id;
+    this.emit();
   }
 
   get active(): Watchlist { return this.lists.find((l) => l.id === this.activeId) ?? this.lists[0]; }
-  private save() { try { localStorage.setItem(WKEY, JSON.stringify({ lists: this.lists, activeId: this.activeId })); } catch { /* private mode */ } this.emit(); }
+  private save() { this.persist(); this.emit(); }
 
   /** Resolves a typed ticker and adds it; returns an error message, or null on success. */
   add(text: string): string | null {

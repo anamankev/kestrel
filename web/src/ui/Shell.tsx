@@ -7,6 +7,8 @@ import { market } from "../data/market";
 import { searchSecurities } from "../data/relay";
 import { useStore } from "../data/store";
 import { workspace, type Layout } from "../data/workspace";
+import { auth } from "../data/auth";
+import { initials } from "../core/auth";
 import { Change, KestrelMark, PanelBoundary } from "./components";
 import { FunctionView } from "./functions";
 
@@ -24,6 +26,7 @@ export function Terminal() {
         <div className="spacer" />
         <Live />
         <Clocks />
+        <AccountChip />
       </header>
       <Tape />
       <main className={`grid l${workspace.maximized !== null ? 1 : workspace.layout}`}>
@@ -159,3 +162,21 @@ function FunctionKeys({ setText, focusInput }: { setText: (s: string) => void; f
   );
 }
 
+
+function AccountChip() {
+  useStore(auth);
+  const [open, setOpen] = useState(false);
+  const me = auth.current;
+  if (!me) return null;
+  return (
+    <div style={{ position: "relative" }}>
+      <button className="chip" onClick={() => setOpen(!open)} aria-label={`Account: ${me.displayName}`} aria-expanded={open}>{initials(me)}</button>
+      {open && (
+        <div className="menu" role="menu">
+          <div style={{ padding: "8px 10px" }}><div style={{ fontWeight: 600 }}>{me.displayName}</div><div className="dim" style={{ fontSize: 11 }}>{me.email}</div></div>
+          <button role="menuitem" onClick={() => void auth.signOut()}>Sign out</button>
+        </div>
+      )}
+    </div>
+  );
+}
