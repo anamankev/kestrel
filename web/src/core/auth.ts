@@ -4,6 +4,8 @@
  * password-derived key. Passwords are never stored. Uses WebCrypto only.
  */
 const subtle = globalThis.crypto.subtle;
+/** Byte arrays over plain (not shared) memory, as WebCrypto requires. */
+export type Bytes = Uint8Array<ArrayBuffer>;
 const enc = new TextEncoder();
 
 export const ITERATIONS = 600_000;
@@ -30,16 +32,16 @@ export function passwordProblem(password: string, email: string): string | null 
   return null;
 }
 
-export const randomBytes = (n: number) => globalThis.crypto.getRandomValues(new Uint8Array(n));
+export const randomBytes = (n: number): Bytes => globalThis.crypto.getRandomValues(new Uint8Array(n));
 /** Base64 in 32 KB chunks (spreading a large array into one call overflows the stack). */
 export function b64(u: Uint8Array): string {
   let s = "";
   for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
   return btoa(s);
 }
-export const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+export const unb64 = (s: string): Bytes => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-async function pbkdf2(password: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
+async function pbkdf2(password: string, salt: Bytes, iterations: number): Promise<Bytes> {
   const base = await subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
   return new Uint8Array(await subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, base, 256));
 }
@@ -55,9 +57,9 @@ export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
 // MARK: Vault: "KSV1" | 12-byte IV | AES-256-GCM ciphertext+tag
 
 const MAGIC = enc.encode("KSV1");
-export const importDataKey = (raw: Uint8Array, extractable = false) => subtle.importKey("raw", raw, "AES-GCM", extractable, ["encrypt", "decrypt"]);
+export const importDataKey = (raw: Bytes, extractable = false) => subtle.importKey("raw", raw, "AES-GCM", extractable, ["encrypt", "decrypt"]);
 
-export async function seal(plain: Uint8Array, key: CryptoKey): Promise<Uint8Array> {
+export async function seal(plain: Bytes, key: CryptoKey): Promise<Bytes> {
   const iv = randomBytes(12);
   const ct = new Uint8Array(await subtle.encrypt({ name: "AES-GCM", iv }, key, plain));
   const out = new Uint8Array(4 + 12 + ct.length);
@@ -65,7 +67,7 @@ export async function seal(plain: Uint8Array, key: CryptoKey): Promise<Uint8Arra
   return out;
 }
 
-export async function open(box: Uint8Array, key: CryptoKey): Promise<Uint8Array> {
+export async function open(box: Bytes, key: CryptoKey): Promise<Bytes> {
   if (box.length < 16 + 16 || !MAGIC.every((b, i) => box[i] === b)) throw new Error("not a Kestrel vault");
   return new Uint8Array(await subtle.decrypt({ name: "AES-GCM", iv: box.slice(4, 16) }, key, box.slice(16)));
 }
@@ -121,7 +123,7 @@ export class AccountDirectory {
   }
 
   /** The account's data key (raw bytes) for a verified password; creates and wraps one the first time. */
-  async unlockDataKey(id: string, password: string): Promise<Uint8Array> {
+  async unlockDataKey(id: string, password: string): Promise<Bytes> {
     const r = this.accounts.find((a) => a.id === id);
     if (!r) throw new AuthError("Email or password is incorrect");
     if (r.wrappedKey && r.keySalt) {

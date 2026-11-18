@@ -65,6 +65,7 @@ Every ✅ row is backed by a test or a command whose output is quoted. Test coun
   unlocked, signed-in device can see your paper book, just as they could see the screen. Signing out locks it.
 - Market data comes from free, unauthenticated sources. It can be delayed or change format, so quotes are never
   executable prices.
+- **Web build tools (`web/`):** `npm audit` reports `picomatch` (GHSA-fc5q-39xc-vjpf, ReDoS) through Vite and Vitest. No patched release exists (every version up to 4.0.7 is affected). It only runs inside the development and build tools, on the project's own glob patterns; it is not shipped to browsers or the relay, so it isn't reachable by users. Re-check when picomatch publishes a fix. All other web dependency findings were fixed by upgrading Vite (8.3.5), Vitest (5.1.0), the React plugin (6.2.1) and TypeScript (5.9.3), each at least two weeks old. `npm audit --omit=dev`: 0 vulnerabilities.
 
 ## When the backend exists
 
