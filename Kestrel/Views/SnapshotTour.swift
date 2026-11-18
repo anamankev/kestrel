@@ -101,7 +101,7 @@ enum SnapshotTour {
             try? await Task.sleep(for: .seconds(10))
             capture(String(format: "8%d-grid-%d", g, group.count))
         }
-        guard grids.isEmpty, guideQuestions == nil else { log("SNAPSHOT TOUR DONE \(folder.path)"); return }
+        guard grids.isEmpty, guideQuestions == nil else { finish(); return }
         ws.layout = .four
         for (i, c) in ["TOP", "W", "BTC DEPTH", "TOP"].enumerated() { ws.focused = i; _ = ws.run(c) }
         try? await Task.sleep(for: .seconds(6))
@@ -110,7 +110,15 @@ enum SnapshotTour {
         for (i, c) in ["PORT", "W", "BTC DEPTH", "ETH TAS", "TOP", "ECO"].enumerated() { ws.focused = i; _ = ws.run(c) }
         try? await Task.sleep(for: .seconds(6))
         capture("91-layout-6")
+        finish()
+    }
+
+    /// Logs completion; on Mac the tour instance quits so repeated tours don't pile up windows.
+    static func finish() {
         log("SNAPSHOT TOUR DONE \(folder.path)")
+        #if os(macOS)
+        NSApp.terminate(nil)
+        #endif
     }
 
     /// Appends to <folder>/log.txt (stdout is buffered or detached when launched via `open`).
@@ -140,5 +148,8 @@ enum SnapshotTour {
 }
 #else
 /// Release builds never run the snapshot tour.
-enum SnapshotTour { static let isEnabled = false }
+enum SnapshotTour {
+    static let isEnabled = false
+    static let guideQuestions: [String]? = nil
+}
 #endif

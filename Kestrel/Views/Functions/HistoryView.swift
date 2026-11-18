@@ -26,7 +26,7 @@ struct HistoryView: View {
 
     private var yahooRange: String { ["1M": "1mo", "6M": "6mo", "1Y": "1y", "5Y": "5y"][span.rawValue]! }
     private var weekly: Bool { span == .y5 }
-    private var perYear: Double { weekly ? 52 : (instrument.isStreaming ? 365 : 252) }
+    private var perYear: Double { weekly ? 52 : (instrument.assetClass == .crypto ? 365 : 252) }
 
     private var shown: [Candle] {
         guard instrument.isStreaming else { return bars }

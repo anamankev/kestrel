@@ -11,8 +11,10 @@ cannot see, recover or delete your data; deleting your account in the app remove
 
 **What leaves your device.**
 - Requests for public market data go to Coinbase, Yahoo Finance, Deribit, the U.S. Bureau of Labor Statistics,
-  the Federal Reserve Bank of New York and public news feeds (CNBC, MarketWatch, CoinDesk, Yahoo). These requests
-  contain the symbols you view, not your identity.
+  the Federal Reserve Bank of New York, the World Bank, the Kenneth R. French Data Library (Dartmouth) and public
+  news feeds (CNBC, MarketWatch, CoinDesk, Yahoo). These requests contain the symbols you view, not your identity.
+- Security searches (the command line's suggestions and SECF) send the text you type to Yahoo Finance's search.
+- The in-app guide runs entirely on your device; your questions are never sent anywhere.
 - If you add an SEC contact email in Settings, it is sent only to the SEC (sec.gov), in the User-Agent header the
   SEC requires of every application.
 - Subscriptions are processed by Apple. Kestrel receives only Apple's signed confirmation of which plan is

@@ -32,7 +32,7 @@ struct BacktestView: View {
         case .hold: .buyAndHold
         }
     }
-    private var perYear: Double { instrument.isStreaming ? 365 : 252 }
+    private var perYear: Double { instrument.assetClass == .crypto ? 365 : 252 }
     private var result: BacktestResult? {
         Backtest.run(bars, strategy: strategy, costBps: costBps, periodsPerYear: perYear, riskFree: riskFreeSeries)
     }

@@ -270,9 +270,7 @@ import StoreKitTest
         #expect(store.isPro)
         // Period ends with auto-renew on: StoreKit renews, so Pro must stay.
         try s.expireSubscription(productIdentifier: ProPlan.monthly.productID)
-        try? await Task.sleep(for: .milliseconds(500))
-        await store.refresh()
-        #expect(store.isPro)
+        #expect(await staysPro(store))
         // A lapse without renewal is covered by EntitlementTests (expired transactions are free).
 
         await store.purchase(.annual, account: nil)
@@ -280,6 +278,17 @@ import StoreKitTest
         let tx = try #require(s.allTransactions().last { $0.productIdentifier == ProPlan.annual.productID })
         try s.refundTransaction(identifier: UInt(tx.identifier))
         #expect(await becomesFree(store))
+    }
+
+    /// After an expiry with auto-renew on, StoreKit posts the renewal asynchronously: a fixed
+    /// short wait was flaky under load, so poll for Pro the way `becomesFree` polls for free.
+    func staysPro(_ store: SubscriptionStore) async -> Bool {
+        for _ in 0..<50 {
+            try? await Task.sleep(for: .milliseconds(100))
+            await store.refresh()
+            if store.isPro { return true }
+        }
+        return false
     }
 
     /// StoreKit applies expiry and refunds asynchronously; the app picks them up from
@@ -351,5 +360,16 @@ struct OwnerUnlockTests {
         #expect(!store.isPro)
         store.signedIn(as: nil)
         #expect(!store.isPro)
+    }
+}
+
+struct ClockFormatTests {
+    @Test func clocksUse24HourTime() {
+        var c = DateComponents(); c.year = 2026; c.month = 11; c.day = 17; c.hour = 19; c.minute = 53; c.second = 23
+        var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "America/New_York")!
+        let d = cal.date(from: c)!
+        var style = Fmt.clock
+        style.timeZone = TimeZone(identifier: "America/New_York")!
+        #expect(d.formatted(style) == "19:53:23")
     }
 }

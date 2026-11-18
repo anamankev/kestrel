@@ -47,7 +47,7 @@ struct BetaView: View {
     @State private var failure: String?
     @State private var size: CGSize = .zero
 
-    private var periods: Double { frequency == .weekly ? 52 : (instrument.isStreaming ? 365 : 252) }
+    private var periods: Double { frequency == .weekly ? 52 : (instrument.assetClass == .crypto ? 365 : 252) }
     private var key: String { "\(instrument.symbol)|\(benchmark)|\(window.rawValue)|\(frequency.rawValue)" }
 
     var body: some View {
@@ -777,6 +777,14 @@ struct EventStudyView: View {
                     Text("Day 0 is the first session on or after the earnings 8-K filing date. Companies usually file it the day of the release, but a filing can trail the announcement by a day or two; releases after the close move the stock on day +1, so [−1, +1] is the headline window. Each event's market model is fitted on up to 250 earlier sessions, ending 10 days before the window and skipping other earnings windows. Total returns. Releases whose window is still open (such as today's) are shown as IN PROGRESS (~ marks drift so far) and left out of the averages. t-stats are cross-sectional; |t| > 2 ≈ 95% significance; the band is ±1.96 standard errors.")
                         .font(.ui(10)).foregroundStyle(Theme.faint).padding(.horizontal, 8).padding(.bottom, 8)
                 }
+            }
+        } else if case .failure(let e)? = sec.filings[instrument.symbol], study == nil {
+            // Without this, a company the SEC doesn't cover (e.g. 7203.T) would spin forever.
+            switch e {
+            case .notFound:
+                EmptyNote(title: "\(instrument.ticker) doesn't file with the SEC", detail: "EVST needs earnings 8-Ks, so it covers US-listed companies.", icon: "calendar.badge.exclamationmark")
+            case .failed(let why):
+                EmptyNote(title: "SEC request failed", detail: why, icon: "exclamationmark.triangle")
             }
         } else if loading || sec.releases[instrument.symbol] == nil {
             ProgressView().tint(Theme.accent).frame(maxWidth: .infinity, maxHeight: .infinity)

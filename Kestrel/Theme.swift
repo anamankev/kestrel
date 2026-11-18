@@ -102,5 +102,8 @@ nonisolated enum Fmt {
 
     static func qty(_ d: Decimal) -> String { d.formatted(.number.precision(.fractionLength(0...8))) }
 
-    static let clock: Date.FormatStyle = .dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).second(.twoDigits)
+    /// 24-hour HH:mm:ss whatever the device's 12/24-hour setting: with AM/PM omitted, a
+    /// 12-hour locale would show 7:53 PM as "07:53".
+    static let clock: Date.FormatStyle = Date.FormatStyle().locale(Locale(identifier: "en_GB"))
+        .hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).second(.twoDigits)
 }

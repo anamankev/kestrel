@@ -275,7 +275,7 @@ struct ChartCanvas: View {
             let labelEvery = max(n / max(Int(plotW / 110), 1), 1)
             for i in stride(from: labelEvery / 2, to: n, by: labelEvery) {
                 let d = candles[i].time
-                let s = range.isIntraday && range == .d1 ? d.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute())
+                let s = range.isIntraday && range == .d1 ? d.formatted(Date.FormatStyle().locale(Locale(identifier: "en_GB")).hour(.twoDigits(amPM: .omitted)).minute())
                     : range == .y5 ? d.formatted(.dateTime.month(.abbreviated).year(.twoDigits))
                     : d.formatted(.dateTime.month(.abbreviated).day())
                 ctx.draw(Text(s).font(.mono(9)).foregroundStyle(Theme.faint),
