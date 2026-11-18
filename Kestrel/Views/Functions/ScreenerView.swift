@@ -116,7 +116,7 @@ struct ScreenerView: View {
                 TextField("", text: $text)
                     .placeholder("filter by name or ticker", when: text.isEmpty)
                     .font(.mono(11, .medium)).foregroundStyle(Theme.text).textFieldStyle(.plain).autocorrectionDisabled()
-                    .padding(6).background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule)).frame(maxWidth: 240)
+                    .padding(6).background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule)).frame(maxWidth: 240.pt)
                 Spacer()
                 Button("RESET") { minRevenue = 0; minMargin = -1; minROE = -1; maxLeverage = 10; text = "" }
                     .font(.mono(10, .bold)).foregroundStyle(Theme.dim).buttonStyle(.plain)
@@ -149,7 +149,7 @@ struct ScreenerView: View {
         HStack(spacing: 6) {
             sortButton(.size, "COMPANY").frame(maxWidth: .infinity, alignment: .leading)
             ForEach(columns, id: \.self) { c in
-                sortButton(c, c.rawValue).frame(width: 84, alignment: .trailing)
+                sortButton(c, c.rawValue).frame(width: 84.pt, alignment: .trailing)
             }
         }
         .padding(.horizontal, 8).padding(.vertical, 5)
@@ -171,7 +171,7 @@ struct ScreenerView: View {
         } label: {
             HStack(spacing: 6) {
                 HStack(spacing: 8) {
-                    Text(r.ticker).font(.mono(11, .bold)).foregroundStyle(Theme.accent).lineLimit(1).frame(width: 58, alignment: .leading)
+                    Text(r.ticker).font(.mono(11, .bold)).foregroundStyle(Theme.accent).lineLimit(1).frame(width: 58.pt, alignment: .leading)
                     Text(r.name).font(.ui(11)).foregroundStyle(Theme.text).lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -186,7 +186,7 @@ struct ScreenerView: View {
                         case .leverage, .size: pct(r.leverage, tinted: false)
                         }
                     }
-                    .font(.mono(11)).monospacedDigit().lineLimit(1).frame(width: 84, alignment: .trailing)
+                    .font(.mono(11)).monospacedDigit().lineLimit(1).frame(width: 84.pt, alignment: .trailing)
                 }
             }
             .padding(.horizontal, 8).padding(.vertical, 5).contentShape(.rect)

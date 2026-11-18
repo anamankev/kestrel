@@ -66,7 +66,7 @@ struct RiskPanel: View {
             if broker.curve.count > 1 {
                 SectionBar(title: "EQUITY CURVE", trailing: "\(broker.curve.count) SNAPSHOTS")
                 EquityCurve(points: broker.curve.map(\.v), start: PaperAccount.startingCash.double)
-                    .frame(height: 90).padding(.horizontal, 8)
+                    .frame(height: 90.pt).padding(.horizontal, 8)
             }
         }
         .task(id: holdingsKey) { await compute() }
@@ -100,12 +100,12 @@ struct RiskPanel: View {
         return VStack(alignment: .leading, spacing: 3) {
             ForEach(byClass.sorted { $0.value > $1.value }, id: \.key) { cls, v in
                 HStack(spacing: 8) {
-                    Text(cls.rawValue).font(.mono(9, .bold)).foregroundStyle(Theme.label).frame(width: 60, alignment: .leading)
+                    Text(cls.rawValue).font(.mono(9, .bold)).foregroundStyle(Theme.label).frame(width: 60.pt, alignment: .leading)
                     GeometryReader { g in
                         Theme.accent.opacity(0.7).frame(width: g.size.width * CGFloat(gross > 0 ? v / gross : 0))
                     }
-                    .frame(height: 8)
-                    Text(String(format: "%.0f%%", gross > 0 ? v / gross * 100 : 0)).font(.mono(9)).foregroundStyle(Theme.dim).frame(width: 40, alignment: .trailing)
+                    .frame(height: 8.pt)
+                    Text(String(format: "%.0f%%", gross > 0 ? v / gross * 100 : 0)).font(.mono(9)).foregroundStyle(Theme.dim).frame(width: 40.pt, alignment: .trailing)
                 }
             }
         }

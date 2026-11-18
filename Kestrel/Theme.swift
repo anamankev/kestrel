@@ -81,6 +81,11 @@ extension Font {
     }
 }
 
+/// Layout sizes that sit next to text (column widths, row heights) grow with the text size, so columns stay aligned
+/// and nothing truncates at 130–150%. `64.pt` is 64 points at 100%.
+extension BinaryInteger { var pt: CGFloat { CGFloat(Int(self)) * Theme.fontScale } }
+extension Double { var pt: CGFloat { CGFloat(self) * Theme.fontScale } }
+
 /// Applies the text size (PREF setting × system Dynamic Type, capped at 1.5) and rebuilds the tree when it changes,
 /// because the font helpers read a static factor.
 struct ScaledRoot<Content: View>: View {

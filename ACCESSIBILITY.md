@@ -38,7 +38,9 @@
   available as tables: HP (history, CSV export), FA, DVD, BETA and EVST.
 - **Option chain cells** (OMON) open trades by click. By keyboard, type the contract on the command line
   (for example `BTC-25DEC26-70000-C BUY`). The table itself is focusable and labelled with this tip.
-- **App text size at 130–150%** has not been checked visually yet (the screenshot tour didn't start, so the
-  test instance was stopped). The setting compiles and is applied app-wide. Some fixed-width columns may truncate
-  at the largest size.
+- **App text size** was checked at 150% on the iPad Pro 13" simulator: DES, WEI, TRADE, OMON, EQS, PORT, W, TOP
+  and the 4-panel layout. Column widths and row heights now grow with the text (291 fixed sizes scaled; unchanged at
+  100%), so WEI tickers (MEXBOL, MERVAL, COLCAP) and news sources (MKTWATCH) no longer truncate or wrap. In the 4-panel
+  layout, long security names abbreviate ("Ether…"), as at 100%, while tickers and prices stay whole. The Mac build
+  compiles, but the Mac app at large sizes wasn't captured.
 - **VoiceOver** (app) and **NVDA/JAWS** (web) haven't been run by hand. The checks above are automated or computed.

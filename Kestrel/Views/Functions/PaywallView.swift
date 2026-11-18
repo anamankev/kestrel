@@ -35,7 +35,7 @@ struct PaywallView: View {
                 footer
             }
             .padding(16)
-            .frame(maxWidth: 760, alignment: .leading)
+            .frame(maxWidth: 760.pt, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         .task { if store.products.isEmpty { await store.loadProducts() } }
@@ -74,7 +74,7 @@ struct PaywallView: View {
                     Text(store.product(selected).map { "Subscribe · \($0.displayPrice) / \(selected.periodLabel)" } ?? "Subscribe")
                         .font(.ui(15, .semibold))
                 }
-                .foregroundStyle(Theme.canvas).frame(maxWidth: .infinity).frame(height: 44)
+                .foregroundStyle(Theme.canvas).frame(maxWidth: .infinity).frame(height: 44.pt)
                 .background(Theme.accent, in: .rect(cornerRadius: 3))
                 .opacity(store.product(selected) == nil || store.purchasing != nil ? 0.5 : 1)
             }
@@ -94,7 +94,7 @@ struct PaywallView: View {
                     Spacer()
                     if let p, let m = monthly, let save = plan.saving(price: p.price, monthlyPrice: m) {
                         Text("Save \(Int((save * 100).rounded()))%").font(.ui(11, .semibold)).foregroundStyle(Theme.canvas)
-                            .padding(.horizontal, 5).frame(height: 16).background(theme.up, in: .rect(cornerRadius: 2))
+                            .padding(.horizontal, 5).frame(height: 16.pt).background(theme.up, in: .rect(cornerRadius: 2))
                     }
                 }
                 // Crossed-out price = the same period on the monthly plan (never an invented "was" price).
@@ -174,7 +174,7 @@ struct SubscribeGate: View {
             Theme.canvas.ignoresSafeArea()
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
-                    KestrelMark().frame(width: 26, height: 22)
+                    KestrelMark().frame(width: 26.pt, height: 22.pt)
                     Text("KESTREL").font(.mono(20, .heavy)).tracking(6).foregroundStyle(Theme.text)
                     Spacer()
                     if auth.current != nil {

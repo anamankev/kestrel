@@ -30,14 +30,14 @@ struct AuthView: View {
                 if wide {
                     HStack(spacing: 0) {
                         brand.frame(maxWidth: .infinity, maxHeight: .infinity).padding(48)
-                        Rectangle().fill(Theme.rule).frame(width: 1)
-                        form.frame(width: 460).frame(maxHeight: .infinity).padding(.horizontal, 40)
+                        Rectangle().fill(Theme.rule).frame(width: 1.pt)
+                        form.frame(width: 460.pt).frame(maxHeight: .infinity).padding(.horizontal, 40)
                     }
                 } else {
                     ScrollView {
                         VStack(spacing: 32) {
                             header
-                            form.frame(maxWidth: 460)
+                            form.frame(maxWidth: 460.pt)
                         }
                         .padding(24)
                         .frame(maxWidth: .infinity)
@@ -60,7 +60,7 @@ struct AuthView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            KestrelMark().frame(width: 30, height: 26)
+            KestrelMark().frame(width: 30.pt, height: 26.pt)
             Text("KESTREL").font(.mono(22, .heavy)).tracking(6).foregroundStyle(Theme.text)
         }
     }
@@ -72,13 +72,13 @@ struct AuthView: View {
                 Text("Command-line market terminal")
                     .font(.ui(34, .semibold)).foregroundStyle(Theme.text)
                 Text("Live crypto depth and tape, delayed equities, FX, rates, options with greeks, filings, macro, and a paper book to trade it all.")
-                    .font(.ui(15)).foregroundStyle(Theme.dim).frame(maxWidth: 560, alignment: .leading)
+                    .font(.ui(15)).foregroundStyle(Theme.dim).frame(maxWidth: 560.pt, alignment: .leading)
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 1)], spacing: 1) {
                 ForEach(Self.tiles, id: \.self) { t in tile(t) }
             }
             .background(Theme.rule)
-            .frame(maxWidth: 560)
+            .frame(maxWidth: 560.pt)
             HStack(spacing: 16) {
                 ForEach(["BTC GP", "AAPL DES", "BTC OMON", "CORR"], id: \.self) { c in
                     Text(c + " <GO>").font(.mono(11, .semibold)).foregroundStyle(Theme.accent)
@@ -97,7 +97,7 @@ struct AuthView: View {
             HStack {
                 Text(ticker).font(.ui(12, .bold)).foregroundStyle(Theme.label)
                 Spacer()
-                if i?.isStreaming == true { Circle().fill(Theme.go).frame(width: 5, height: 5) }
+                if i?.isStreaming == true { Circle().fill(Theme.go).frame(width: 5.pt, height: 5.pt) }
             }
             Text(q.map { Fmt.price($0.last, i!.assetClass) } ?? "—")
                 .font(.ui(20, .semibold)).monospacedDigit().foregroundStyle(Theme.text)
@@ -118,7 +118,7 @@ struct AuthView: View {
                     Button { mode = m } label: {
                         VStack(spacing: 6) {
                             Text(m.rawValue).font(.ui(13, .bold)).foregroundStyle(mode == m ? Theme.text : Theme.dim)
-                            Rectangle().fill(mode == m ? Theme.accent : .clear).frame(height: 2)
+                            Rectangle().fill(mode == m ? Theme.accent : .clear).frame(height: 2.pt)
                         }
                         .fixedSize()
                     }
@@ -159,7 +159,7 @@ struct AuthView: View {
                         .font(.ui(15, .semibold))
                 }
                 .foregroundStyle(Theme.canvas)
-                .frame(maxWidth: .infinity).frame(height: 44)
+                .frame(maxWidth: .infinity).frame(height: 44.pt)
                 .background(Theme.accent, in: .rect(cornerRadius: 3))
                 .opacity(canSubmit || auth.busy ? 1 : 0.45)
             }
@@ -201,7 +201,7 @@ struct AuthView: View {
                 .autocorrectionDisabled()
                 .focused($focus, equals: field)
                 .submitLabel(.next)
-                .padding(.horizontal, 10).frame(height: 40)
+                .padding(.horizontal, 10).frame(height: 40.pt)
                 .background(Theme.panel)
                 .overlay(Rectangle().stroke(focus == field ? Theme.accent : Theme.rule))
         }
@@ -228,7 +228,7 @@ struct AuthView: View {
             #endif
             .focused($focus, equals: field)
             .submitLabel(field == .password && mode == .signIn || field == .confirm ? .go : .next)
-            .padding(.horizontal, 10).frame(height: 40)
+            .padding(.horizontal, 10).frame(height: 40.pt)
             .background(Theme.panel)
             .overlay(Rectangle().stroke(focus == field ? Theme.accent : Theme.rule))
         }

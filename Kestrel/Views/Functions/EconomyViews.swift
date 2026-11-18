@@ -59,7 +59,7 @@ struct EconomyView: View {
             if target, let lo = r?.targetLow, let hi = r?.targetHigh {
                 Text(String(format: "TARGET %.2f–%.2f%%", lo, hi)).font(.mono(10, .semibold)).foregroundStyle(Theme.warn)
             }
-            Sparkline(values: r?.series.map(\.value) ?? []).frame(height: 28)
+            Sparkline(values: r?.series.map(\.value) ?? []).frame(height: 28.pt)
             Text(last.map { "as of \($0.date.formatted(.dateTime.month(.abbreviated).day()))" } ?? "").font(.mono(9)).foregroundStyle(Theme.faint)
         }
         .padding(10)
@@ -103,10 +103,10 @@ struct EconomyView: View {
     private var header: some View {
         HStack {
             Text("INDICATOR").font(.mono(10, .semibold)).foregroundStyle(Theme.label).lineLimit(1)
-                .frame(minWidth: 110, idealWidth: 260, maxWidth: 260, alignment: .leading)
+                .frame(minWidth: 110.pt, idealWidth: 260.pt, maxWidth: 260.pt, alignment: .leading)
             HeaderCell(text: "LATEST"); HeaderCell(text: "PRIOR"); HeaderCell(text: "CHG")
-            HeaderCell(text: "PERIOD", width: 60)
-            HeaderCell(text: "2Y TREND", width: 90, align: .center)
+            HeaderCell(text: "PERIOD", width: 60.pt)
+            HeaderCell(text: "2Y TREND", width: 90.pt, align: .center)
         }
         .padding(.horizontal, 8).padding(.vertical, 3)
     }
@@ -128,17 +128,17 @@ struct EconomyView: View {
         let chg = (last?.value).flatMap { l in prior.map { l - $0.value } }
         return HStack {
             Text(ind.name).font(.ui(12)).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.tail)
-                .frame(minWidth: 110, idealWidth: 260, maxWidth: 260, alignment: .leading)
+                .frame(minWidth: 110.pt, idealWidth: 260.pt, maxWidth: 260.pt, alignment: .leading)
             Text(fmt(last?.value)).font(.mono(12, .semibold)).foregroundStyle(Theme.text).frame(maxWidth: .infinity, alignment: .trailing)
             Text(fmt(prior?.value)).font(.mono(11)).foregroundStyle(Theme.dim).frame(maxWidth: .infinity, alignment: .trailing)
             Text(chg.map { ind.unit == "K" ? String(format: "%+.0fK", $0) : String(format: "%+.1f", $0) } ?? "—")
                 .font(.mono(11)).foregroundStyle(Theme.dim).frame(maxWidth: .infinity, alignment: .trailing)
             Text(last.map { $0.date.formatted(Self.month) } ?? "—")
-                .font(.mono(10)).foregroundStyle(Theme.dim).frame(width: 60, alignment: .trailing)
-            Sparkline(values: s.suffix(24).map(\.value)).frame(width: 90, height: 18)
+                .font(.mono(10)).foregroundStyle(Theme.dim).frame(width: 60.pt, alignment: .trailing)
+            Sparkline(values: s.suffix(24).map(\.value)).frame(width: 90.pt, height: 18.pt)
         }
         .monospacedDigit()
-        .padding(.horizontal, 8).frame(height: 26)
+        .padding(.horizontal, 8).frame(height: 26.pt)
     }
 }
 
@@ -196,17 +196,17 @@ struct EventsView: View {
                 ForEach(Array(shown.enumerated()), id: \.element.id) { n, f in
                     Button { openURL(f.url) } label: {
                         HStack(spacing: 10) {
-                            Text(f.date.formatted(.dateTime.year().month(.twoDigits).day(.twoDigits))).font(.mono(10)).foregroundStyle(Theme.dim).frame(width: 82, alignment: .leading)
+                            Text(f.date.formatted(.dateTime.year().month(.twoDigits).day(.twoDigits))).font(.mono(10)).foregroundStyle(Theme.dim).frame(width: 82.pt, alignment: .leading)
                             Text(f.form).font(.mono(9, .heavy))
                                 .foregroundStyle(f.isEarnings ? Theme.canvas : Theme.label)
-                                .padding(.horizontal, 5).frame(height: 16)
+                                .padding(.horizontal, 5).frame(height: 16.pt)
                                 .background(f.isEarnings ? Theme.warn : Theme.header, in: .rect(cornerRadius: 2))
-                                .frame(width: 70, alignment: .leading)
+                                .frame(width: 70.pt, alignment: .leading)
                             Text(f.title).font(.ui(12, f.isEarnings ? .semibold : .regular)).foregroundStyle(Theme.text).lineLimit(1)
                             Spacer()
                             Image(systemName: "arrow.up.right").font(.system(size: 9)).foregroundStyle(Theme.faint)
                         }
-                        .padding(.horizontal, 8).frame(height: 26).contentShape(.rect)
+                        .padding(.horizontal, 8).frame(height: 26.pt).contentShape(.rect)
                     }
                     .buttonStyle(.plain)
                     .rowBackground(n)

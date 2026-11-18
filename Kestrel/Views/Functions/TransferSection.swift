@@ -35,7 +35,7 @@ struct TransferSection: View {
                 SecureField("", text: $passphrase)
                     .placeholder("Transfer passphrase (10+ characters)", when: passphrase.isEmpty)
                     .font(.mono(12)).foregroundStyle(Theme.text).textFieldStyle(.plain)
-                    .padding(.horizontal, 8).frame(height: 30).background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule))
+                    .padding(.horizontal, 8).frame(height: 30.pt).background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule))
                 button(working ? "Working…" : "Export…", enabled: passphrase.count >= 10 && !working) { export() }
                 button("Import…", enabled: passphrase.count >= 10 && !working) { importing = true }
             }
@@ -103,7 +103,7 @@ struct TransferSection: View {
     private func button(_ title: String, enabled: Bool, destructive: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title).font(.mono(11, .bold)).foregroundStyle(destructive ? Theme.canvas : Theme.text)
-                .padding(.horizontal, 12).frame(height: 30)
+                .padding(.horizontal, 12).frame(height: 30.pt)
                 .background(destructive ? Theme.cancel : Theme.header, in: .rect(cornerRadius: 3))
                 .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.rule))
                 .opacity(enabled ? 1 : 0.4)

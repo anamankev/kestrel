@@ -71,16 +71,16 @@ struct TopBar: View {
             Clocks()
         }
         .padding(.horizontal, 12)
-        .frame(height: 46)
+        .frame(height: 46.pt)
         .background(Theme.header)
-        .overlay(alignment: .bottom) { Theme.rule.frame(height: 1) }
+        .overlay(alignment: .bottom) { Theme.rule.frame(height: 1.pt) }
     }
 }
 
 struct Wordmark: View {
     var body: some View {
         HStack(spacing: 6) {
-            KestrelMark().frame(width: 18, height: 18)
+            KestrelMark().frame(width: 18.pt, height: 18.pt)
             Text("KESTREL").font(.mono(13, .heavy)).tracking(2.5).foregroundStyle(Theme.text)
         }
     }
@@ -128,7 +128,7 @@ struct CommandBar: View {
         HStack(spacing: 0) {
             Text("\(ws.focused + 1)")
                 .font(.mono(11, .bold)).foregroundStyle(Theme.canvas)
-                .frame(width: 22, height: 28)
+                .frame(width: 22.pt, height: 28.pt)
                 .background(Theme.accent)
             Text(">").font(.mono(13, .bold)).foregroundStyle(Theme.accent).padding(.leading, 8)
             TextField("", text: $text)
@@ -160,11 +160,11 @@ struct CommandBar: View {
                 .onKeyPress(.escape) { text = ""; ws.error = nil; return .handled }
             Button(action: submit) {
                 Text("GO").font(.mono(11, .heavy)).foregroundStyle(Theme.canvas)
-                    .frame(width: 38, height: 28).background(Theme.go)
+                    .frame(width: 38.pt, height: 28.pt).background(Theme.go)
             }
             .buttonStyle(.plain)
         }
-        .frame(maxWidth: 520)
+        .frame(maxWidth: 520.pt)
         .background(Theme.canvas)
         .task(id: ws.error) {
             guard ws.error != nil else { return }
@@ -228,7 +228,7 @@ struct SuggestionList: View {
                 .buttonStyle(.plain)
             }
         }
-        .frame(width: 420)
+        .frame(width: 420.pt)
         .overlay(Rectangle().stroke(Theme.accentDim))
         .shadow(color: .black.opacity(0.6), radius: 12, y: 6)
     }
@@ -259,7 +259,7 @@ struct LinkStatus: View {
     var body: some View {
         let live = market.link == .live
         HStack(spacing: 6) {
-            Circle().fill(live ? theme.up : Theme.warn).frame(width: 7, height: 7)
+            Circle().fill(live ? theme.up : Theme.warn).frame(width: 7.pt, height: 7.pt)
                 .shadow(color: live ? theme.up : Theme.warn, radius: 4)
             VStack(alignment: .leading, spacing: 0) {
                 Text(market.link.rawValue).font(.mono(9, .bold)).foregroundStyle(live ? theme.up : Theme.warn)
@@ -289,7 +289,7 @@ struct AccountChip: View {
         if let me = auth.current {
             Button { ws.run("PREF") } label: {
                 Text(me.initials).font(.mono(10, .heavy)).foregroundStyle(Theme.canvas)
-                    .frame(width: 24, height: 24).background(Theme.accent, in: .circle)
+                    .frame(width: 24.pt, height: 24.pt).background(Theme.accent, in: .circle)
             }
             .buttonStyle(.plain)
             .help("\(me.displayName) · \(me.email)")
@@ -316,7 +316,7 @@ struct TickerTape: View {
         // The marquee lives in an overlay so its (very wide) ideal size never reaches the window:
         // on macOS a window sizes itself to its content's ideal width.
         Color.clear
-            .frame(maxWidth: .infinity, minHeight: 24, maxHeight: 24)
+            .frame(maxWidth: .infinity, minHeight: 24.pt, maxHeight: 24.pt)
             .overlay(alignment: .leading) {
                 TimelineView(.animation(minimumInterval: 1.0 / 60)) { ctx in
                     let x = -CGFloat(ctx.date.timeIntervalSinceReferenceDate * 40).truncatingRemainder(dividingBy: contentWidth)
@@ -326,7 +326,7 @@ struct TickerTape: View {
             }
             .clipped()
         .background(Theme.canvas)
-        .overlay(alignment: .bottom) { Theme.rule.frame(height: 1) }
+        .overlay(alignment: .bottom) { Theme.rule.frame(height: 1.pt) }
     }
 
     private var strip: some View {
@@ -409,7 +409,7 @@ struct PanelView: View {
             Text("\(panel.id + 1)")
                 .font(.mono(10, .bold))
                 .foregroundStyle(focused ? Theme.canvas : Theme.dim)
-                .frame(width: 18, height: 18)
+                .frame(width: 18.pt, height: 18.pt)
                 .background(focused ? Theme.accent : Theme.rule, in: .rect(cornerRadius: 2))
             if panel.canGoBack {
                 Button { ws.back(panel.id) } label: {
@@ -440,9 +440,9 @@ struct PanelView: View {
             .accessibilityLabel(ws.maximized == panel.id ? "Restore panel" : "Maximize panel")
         }
         .padding(.horizontal, 8)
-        .frame(height: 28)
+        .frame(height: 28.pt)
         .background(Theme.header)
-        .overlay(alignment: .bottom) { Theme.rule.frame(height: 1) }
+        .overlay(alignment: .bottom) { Theme.rule.frame(height: 1.pt) }
     }
 }
 
@@ -540,13 +540,13 @@ struct FunctionKeyBar: View {
                 if ws.run(commandText) { commandText = "" }
                 commandFocused.wrappedValue = true
             }
-            Theme.rule.frame(width: 1, height: 18).padding(.horizontal, 4)
+            Theme.rule.frame(width: 1.pt, height: 18.pt).padding(.horizontal, 4)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
                     ForEach(Self.quick, id: \.self) { f in
                         Button { ws.run(f.rawValue) } label: {
                             Text(f.rawValue).font(.mono(10, .bold)).foregroundStyle(Theme.label)
-                                .padding(.horizontal, 8).frame(height: 22)
+                                .padding(.horizontal, 8).frame(height: 22.pt)
                                 .background(Theme.panel, in: .rect(cornerRadius: 2))
                                 .overlay(RoundedRectangle(cornerRadius: 2).stroke(Theme.rule))
                         }
@@ -561,7 +561,7 @@ struct FunctionKeyBar: View {
                 ForEach(PanelLayout.allCases) { l in Image(systemName: l.symbol).accessibilityLabel("\(l.count) panels").tag(l) }
             }
             .pickerStyle(.segmented).labelsHidden()
-            .frame(width: 150)
+            .frame(width: 150.pt)
             .onChange(of: ws.layout) { old, new in
                 // 4- and 6-panel layouts are Pro: snap back and show the plans.
                 if !store.isPro, new.count > ProFeature.freePanels {
@@ -579,15 +579,15 @@ struct FunctionKeyBar: View {
             .accessibilityLabel("Colour-vision-safe colours")
         }
         .padding(.horizontal, 10)
-        .frame(height: 36)
+        .frame(height: 36.pt)
         .background(Theme.header)
-        .overlay(alignment: .top) { Theme.rule.frame(height: 1) }
+        .overlay(alignment: .top) { Theme.rule.frame(height: 1.pt) }
     }
 
     private func key(_ title: String, _ bg: Color, _ fg: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title).font(.mono(10, .heavy)).foregroundStyle(fg)
-                .padding(.horizontal, 10).frame(height: 22)
+                .padding(.horizontal, 10).frame(height: 22.pt)
                 .background(bg, in: .rect(cornerRadius: 3))
         }
         .buttonStyle(.plain)
@@ -650,7 +650,7 @@ struct PagesMenu: View {
             }
         } label: {
             Text("PAGES").font(.mono(10, .bold)).foregroundStyle(Theme.label)
-                .padding(.horizontal, 8).frame(height: 22)
+                .padding(.horizontal, 8).frame(height: 22.pt)
                 .background(Theme.panel, in: .rect(cornerRadius: 2))
                 .overlay(RoundedRectangle(cornerRadius: 2).stroke(Theme.rule))
         }

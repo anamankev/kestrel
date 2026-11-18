@@ -87,8 +87,8 @@ struct EarningsCalendarView: View {
 
     private var header: some View {
         HStack {
-            HeaderCell(text: "TICKER", width: 64, align: .leading)
-            HeaderCell(text: "NAME", width: 170, align: .leading)
+            HeaderCell(text: "TICKER", width: 64.pt, align: .leading)
+            HeaderCell(text: "NAME", width: 170.pt, align: .leading)
             HeaderCell(text: "LAST")
             HeaderCell(text: "LAST REPORT")
             HeaderCell(text: "NEXT (EST.)")
@@ -103,8 +103,8 @@ struct EarningsCalendarView: View {
         let days = e.map { Int(($0.next.timeIntervalSince(now) / 86_400).rounded(.up)) }
         return Button { ws.run("\(i.ticker) EVTS") } label: {
             HStack {
-                Text(i.ticker).font(.mono(12, .bold)).foregroundStyle(Theme.text).frame(width: 64, alignment: .leading)
-                Text(i.name).font(.ui(11)).foregroundStyle(Theme.dim).lineLimit(1).frame(width: 170, alignment: .leading)
+                Text(i.ticker).font(.mono(12, .bold)).foregroundStyle(Theme.text).frame(width: 64.pt, alignment: .leading)
+                Text(i.name).font(.ui(11)).foregroundStyle(Theme.dim).lineLimit(1).frame(width: 170.pt, alignment: .leading)
                 Text(Fmt.price(market.quotes[i.symbol]?.last, i.assetClass)).foregroundStyle(Theme.text).frame(maxWidth: .infinity, alignment: .trailing)
                 Text(e.map { $0.last.formatted(.dateTime.month(.abbreviated).day().year(.twoDigits)) } ?? "—").foregroundStyle(Theme.dim).frame(maxWidth: .infinity, alignment: .trailing)
                 Text(e.map { $0.next.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()) } ?? (r.state ?? "—"))
@@ -114,7 +114,7 @@ struct EarningsCalendarView: View {
                 Text(e.map { String(format: "%.0fd · %d", $0.cadenceDays, $0.releases) } ?? "").foregroundStyle(Theme.dim).frame(maxWidth: .infinity, alignment: .trailing)
             }
             .font(.mono(11)).monospacedDigit()
-            .padding(.horizontal, 8).frame(height: 26).contentShape(.rect)
+            .padding(.horizontal, 8).frame(height: 26.pt).contentShape(.rect)
         }
         .buttonStyle(.plain)
         .help("Open \(i.ticker) filings")

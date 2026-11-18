@@ -84,7 +84,7 @@ struct OptionMonitorView: View {
                             Text("\(days)D").font(.mono(8, .semibold)).opacity(0.7)
                         }
                         .foregroundStyle(e == selected ? Theme.canvas : Theme.label)
-                        .padding(.horizontal, 7).frame(height: 30)
+                        .padding(.horizontal, 7).frame(height: 30.pt)
                         .background(e == selected ? Theme.accent : Theme.header, in: .rect(cornerRadius: 2))
                     }
                     .buttonStyle(.plain)
@@ -121,14 +121,14 @@ struct OptionMonitorView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 Text("CALLS").frame(maxWidth: .infinity)
-                Text("STRIKE").frame(width: 76)
+                Text("STRIKE").frame(width: 76.pt)
                 Text("PUTS").frame(maxWidth: .infinity)
             }
             .font(.mono(9, .heavy)).foregroundStyle(Theme.accent)
             .padding(.vertical, 3).background(Theme.header)
             HStack(spacing: 0) {
                 sideHeader(call: true, wide: wide)
-                Text("").frame(width: 76)
+                Text("").frame(width: 76.pt)
                 sideHeader(call: false, wide: wide)
             }
             .padding(.vertical, 3)
@@ -140,7 +140,7 @@ struct OptionMonitorView: View {
                                 side(r.call, call: true, wide: wide)
                                 Text(Fmt.price(r.strike).replacingOccurrences(of: ".00", with: ""))
                                     .font(.mono(11, .bold)).foregroundStyle(r.strike == atm ? Theme.canvas : Theme.text)
-                                    .frame(width: 76, height: 22)
+                                    .frame(width: 76.pt, height: 22.pt)
                                     .background(r.strike == atm ? Theme.accent : Theme.header)
                                 side(r.put, call: false, wide: wide)
                             }
@@ -186,7 +186,7 @@ struct OptionMonitorView: View {
             }
         }
         .padding(.horizontal, 4)
-        .frame(height: 22)
+        .frame(height: 22.pt)
         .background((c?.isITM ?? false) ? Theme.selection.opacity(0.55) : Theme.panel)
         .contentShape(.rect)
         .onTapGesture {
@@ -225,7 +225,8 @@ struct SmileChart: View {
             if forward > k0, forward < k1 {
                 ctx.stroke(Path { $0.move(to: .init(x: x(forward), y: pad)); $0.addLine(to: .init(x: x(forward), y: size.height - pad)) },
                            with: .color(Theme.warn.opacity(0.7)), style: .init(lineWidth: 0.8, dash: [3, 3]))
-                ctx.draw(Text("FWD").font(.mono(8, .bold)).foregroundStyle(Theme.warn), at: .init(x: x(forward) + 3, y: size.height - pad + 2), anchor: .topLeading)
+                // At the top of the forward line, so it never collides with the strike-range caption along the bottom.
+                ctx.draw(Text("FWD").font(.mono(8, .bold)).foregroundStyle(Theme.warn), at: .init(x: x(forward) + 3, y: 16.pt), anchor: .topLeading)
             }
             var p = Path()
             for (i, pt) in pts.enumerated() { i == 0 ? p.move(to: .init(x: x(pt.0), y: y(pt.1))) : p.addLine(to: .init(x: x(pt.0), y: y(pt.1))) }

@@ -61,9 +61,9 @@ struct CorrelationView: View {
     private var controls: some View {
         HStack(spacing: 10) {
             Picker("Basket", selection: $basket) { ForEach(Basket.allCases, id: \.self) { Text($0.rawValue) } }
-                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 260)
+                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 260.pt)
             Picker("Window", selection: $window) { ForEach(Window.allCases, id: \.self) { Text($0.rawValue) } }
-                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 150)
+                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 150.pt)
             Spacer()
             if let (r, c) = hover, let m = matrix, r < m.symbols.count, c < m.symbols.count {
                 Text("\(m.symbols[r].ticker) × \(m.symbols[c].ticker)  \(fmt(m.values[r][c]))")
@@ -79,10 +79,10 @@ struct CorrelationView: View {
         let cell = max(min((size.width - label - CGFloat(n)) / CGFloat(n), (size.height - 21 - CGFloat(n)) / CGFloat(n)), 18)
         return VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: 1) {
-                Color.clear.frame(width: label, height: 20)
+                Color.clear.frame(width: label, height: 20.pt)
                 ForEach(0..<n, id: \.self) { c in
                     Text(m.symbols[c].ticker).font(.mono(cell > 40 ? 9 : 7, .bold)).foregroundStyle(Theme.label)
-                        .lineLimit(1).minimumScaleFactor(0.6).frame(width: cell, height: 20)
+                        .lineLimit(1).minimumScaleFactor(0.6).frame(width: cell, height: 20.pt)
                 }
             }
             ForEach(0..<n, id: \.self) { r in
@@ -114,7 +114,7 @@ struct CorrelationView: View {
         HStack(spacing: 6) {
             Text("−1").font(.mono(9)).foregroundStyle(Theme.dim)
             LinearGradient(colors: [color(-1), color(-0.5), color(0), color(0.5), color(1)], startPoint: .leading, endPoint: .trailing)
-                .frame(width: 180, height: 8)
+                .frame(width: 180.pt, height: 8.pt)
             Text("+1").font(.mono(9)).foregroundStyle(Theme.dim)
             Spacer()
             Text("Tap a cell for the pair · tap a row label to load the security").font(.mono(9)).foregroundStyle(Theme.faint)

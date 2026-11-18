@@ -58,16 +58,16 @@ struct BacktestView: View {
                 if let r {
                     stats(r)
                     SectionBar(title: "EQUITY · \(strategy.label.uppercased())", trailing: "vs BUY & HOLD · \(bars.count) DAILY BARS")
-                    BacktestChart(result: r).frame(height: 220).padding(.horizontal, 8)
+                    BacktestChart(result: r).frame(height: 220.pt).padding(.horizontal, 8)
                     legend
                     trades(r)
                     Text("Hypothetical results on past data: long or flat, signals at the close, fills at the next open, \(Int(costBps)) bp per side; idle cash earns the 3-month T-bill. Not a forecast.")
                         .font(.mono(9)).foregroundStyle(Theme.faint).padding(.horizontal, 8)
                 } else if loading {
-                    ProgressView().tint(Theme.accent).frame(maxWidth: .infinity, minHeight: 200)
+                    ProgressView().tint(Theme.accent).frame(maxWidth: .infinity, minHeight: 200.pt)
                 } else {
                     EmptyNote(title: failed ? "No history for \(instrument.ticker)" : "Not enough history", icon: "chart.line.uptrend.xyaxis")
-                        .frame(minHeight: 200)
+                        .frame(minHeight: 200.pt)
                 }
             }
             .padding(.vertical, 8)
@@ -81,9 +81,9 @@ struct BacktestView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 Picker("Rule", selection: $rule) { ForEach(Rule.allCases, id: \.self) { Text($0.rawValue) } }
-                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 420)
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 420.pt)
                 Picker("Span", selection: $span) { ForEach(Span.allCases, id: \.self) { Text($0.rawValue) } }
-                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 150)
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 150.pt)
                 Spacer()
             }
             HStack(spacing: 18) {
@@ -111,7 +111,7 @@ struct BacktestView: View {
             Text(label).font(.mono(9, .bold)).foregroundStyle(Theme.label)
             Button { value.wrappedValue = max(range.lowerBound, value.wrappedValue - (value.wrappedValue > 20 ? 5 : 1)) } label: { Image(systemName: "minus") }
                 .accessibilityLabel("Decrease \(label)")
-            Text("\(value.wrappedValue)").font(.mono(12, .semibold)).monospacedDigit().foregroundStyle(Theme.text).frame(minWidth: 28)
+            Text("\(value.wrappedValue)").font(.mono(12, .semibold)).monospacedDigit().foregroundStyle(Theme.text).frame(minWidth: 28.pt)
             Button { value.wrappedValue = min(range.upperBound, value.wrappedValue + (value.wrappedValue >= 20 ? 5 : 1)) } label: { Image(systemName: "plus") }
                 .accessibilityLabel("Increase \(label)")
         }
@@ -147,9 +147,9 @@ struct BacktestView: View {
 
     private var legend: some View {
         HStack(spacing: 14) {
-            HStack(spacing: 5) { Rectangle().fill(Theme.accent).frame(width: 14, height: 2); Text("STRATEGY") }
-            HStack(spacing: 5) { Rectangle().fill(Theme.dim).frame(width: 14, height: 2); Text("BUY & HOLD") }
-            HStack(spacing: 5) { Rectangle().fill(Theme.accent.opacity(0.12)).frame(width: 14, height: 8); Text("IN MARKET") }
+            HStack(spacing: 5) { Rectangle().fill(Theme.accent).frame(width: 14.pt, height: 2.pt); Text("STRATEGY") }
+            HStack(spacing: 5) { Rectangle().fill(Theme.dim).frame(width: 14.pt, height: 2.pt); Text("BUY & HOLD") }
+            HStack(spacing: 5) { Rectangle().fill(Theme.accent.opacity(0.12)).frame(width: 14.pt, height: 8.pt); Text("IN MARKET") }
         }
         .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8)
     }
@@ -158,21 +158,21 @@ struct BacktestView: View {
         VStack(spacing: 0) {
             SectionBar(title: "TRADES", trailing: r.trades.count > 25 ? "LAST 25 OF \(r.trades.count)" : "\(r.trades.count)")
             HStack {
-                HeaderCell(text: "ENTRY", width: 110, align: .leading); HeaderCell(text: "EXIT", width: 110, align: .leading)
+                HeaderCell(text: "ENTRY", width: 110.pt, align: .leading); HeaderCell(text: "EXIT", width: 110.pt, align: .leading)
                 HeaderCell(text: "IN"); HeaderCell(text: "OUT"); HeaderCell(text: "RETURN")
             }
             .padding(.horizontal, 8).padding(.vertical, 3)
             ForEach(Array(r.trades.suffix(25).reversed().enumerated()), id: \.element.id) { n, t in
                 HStack {
-                    Text(t.entry.formatted(.dateTime.year().month(.twoDigits).day(.twoDigits))).frame(width: 110, alignment: .leading).foregroundStyle(Theme.dim)
-                    Text(t.exit?.formatted(.dateTime.year().month(.twoDigits).day(.twoDigits)) ?? "OPEN").frame(width: 110, alignment: .leading)
+                    Text(t.entry.formatted(.dateTime.year().month(.twoDigits).day(.twoDigits))).frame(width: 110.pt, alignment: .leading).foregroundStyle(Theme.dim)
+                    Text(t.exit?.formatted(.dateTime.year().month(.twoDigits).day(.twoDigits)) ?? "OPEN").frame(width: 110.pt, alignment: .leading)
                         .foregroundStyle(t.exit == nil ? Theme.warn : Theme.dim)
                     Text(Fmt.price(t.entryPrice, instrument.assetClass)).frame(maxWidth: .infinity, alignment: .trailing).foregroundStyle(Theme.text)
                     Text(Fmt.price(t.exitPrice, instrument.assetClass)).frame(maxWidth: .infinity, alignment: .trailing).foregroundStyle(Theme.text)
                     Text(pct(t.returnPct)).frame(maxWidth: .infinity, alignment: .trailing).foregroundStyle(theme.tint(t.returnPct))
                 }
                 .font(.mono(11)).monospacedDigit()
-                .padding(.horizontal, 8).frame(height: 22).rowBackground(n)
+                .padding(.horizontal, 8).frame(height: 22.pt).rowBackground(n)
             }
         }
     }

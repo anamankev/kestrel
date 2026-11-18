@@ -40,7 +40,7 @@ struct HistoryView: View {
                 ForEach(Span.allCases, id: \.self) { s in
                     Button { span = s } label: {
                         Text(s.rawValue).font(.mono(10, .bold)).foregroundStyle(span == s ? Theme.canvas : Theme.dim)
-                            .padding(.horizontal, 8).frame(height: 20)
+                            .padding(.horizontal, 8).frame(height: 20.pt)
                             .background(span == s ? Theme.accent : Theme.header, in: .rect(cornerRadius: 2))
                     }.buttonStyle(.plain)
                 }
@@ -51,7 +51,7 @@ struct HistoryView: View {
                                             text: CSV.candles(shown, intraday: false)),
                               preview: SharePreview("\(instrument.ticker) \(span.rawValue) prices")) {
                         Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
-                            .foregroundStyle(Theme.canvas).padding(.horizontal, 8).frame(height: 22)
+                            .foregroundStyle(Theme.canvas).padding(.horizontal, 8).frame(height: 22.pt)
                             .background(Theme.accent, in: .rect(cornerRadius: 2))
                     }
                     .buttonStyle(.plain)
@@ -70,7 +70,7 @@ struct HistoryView: View {
                 .padding(.horizontal, 8).padding(.bottom, 6)
             }
             HStack {
-                HeaderCell(text: "DATE", width: 110, align: .leading)
+                HeaderCell(text: "DATE", width: 110.pt, align: .leading)
                 ForEach(["OPEN", "HIGH", "LOW", "CLOSE", "CHG %", "VOLUME"], id: \.self) { HeaderCell(text: $0) }
             }
             .padding(.horizontal, 8).padding(.vertical, 3).background(Theme.header)
@@ -86,14 +86,14 @@ struct HistoryView: View {
                             let prev = i > 0 ? shown[i - 1].close : nil
                             let chg = prev.map { (k.close / $0 - 1) * 100 }
                             HStack {
-                                Text(k.time.formatted(Self.day)).foregroundStyle(Theme.dim).frame(width: 110, alignment: .leading)
+                                Text(k.time.formatted(Self.day)).foregroundStyle(Theme.dim).frame(width: 110.pt, alignment: .leading)
                                 cell(k.open); cell(k.high); cell(k.low)
                                 Text(Fmt.price(k.close, instrument.assetClass)).foregroundStyle(Theme.text).bold().frame(maxWidth: .infinity, alignment: .trailing)
                                 Text(Fmt.pct(chg)).foregroundStyle(theme.tint(chg)).frame(maxWidth: .infinity, alignment: .trailing)
                                 Text(Fmt.compact(k.volume)).foregroundStyle(Theme.dim).frame(maxWidth: .infinity, alignment: .trailing)
                             }
                             .font(.mono(11)).monospacedDigit()
-                            .padding(.horizontal, 8).frame(height: 22).rowBackground(n)
+                            .padding(.horizontal, 8).frame(height: 22.pt).rowBackground(n)
                         }
                     }
                 }

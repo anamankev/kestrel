@@ -59,7 +59,7 @@ struct AlertsView: View {
                     #if os(iOS)
                     .keyboardType(.decimalPad)
                     #endif
-                    .padding(.horizontal, 8).frame(height: 34)
+                    .padding(.horizontal, 8).frame(height: 34.pt)
                     .background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule))
                     .onSubmit { create(i, last) }
                 if kind != .move, let last, let level = Double(levelText.replacingOccurrences(of: ",", with: "")), last > 0 {
@@ -67,7 +67,7 @@ struct AlertsView: View {
                 }
                 Button { create(i, last) } label: {
                     Text("SET").font(.mono(12, .heavy)).foregroundStyle(Theme.canvas)
-                        .frame(width: 64, height: 34).background(Theme.accent, in: .rect(cornerRadius: 3))
+                        .frame(width: 64.pt, height: 34.pt).background(Theme.accent, in: .rect(cornerRadius: 3))
                 }
                 .buttonStyle(.plain)
             }
@@ -114,19 +114,19 @@ struct AlertsView: View {
         }()
         return HStack(spacing: 10) {
             Image(systemName: "bell.fill").font(.system(size: 10)).foregroundStyle(Theme.warn)
-            Text(ticker(a.symbol)).font(.mono(12, .bold)).foregroundStyle(Theme.text).frame(width: 64, alignment: .leading)
+            Text(ticker(a.symbol)).font(.mono(12, .bold)).foregroundStyle(Theme.text).frame(width: 64.pt, alignment: .leading)
             Text(a.condition.label).font(.mono(11)).foregroundStyle(Theme.label)
             Spacer()
             Text("LAST \(Fmt.price(q?.last))").font(.mono(11)).foregroundStyle(Theme.text)
-            Text(distance).font(.mono(11)).foregroundStyle(Theme.dim).frame(width: 70, alignment: .trailing)
+            Text(distance).font(.mono(11)).foregroundStyle(Theme.dim).frame(width: 70.pt, alignment: .trailing)
             Button { user.cancelAlert(a.id) } label: {
                 Text("CXL").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas)
-                    .padding(.horizontal, 6).frame(height: 18).background(Theme.cancel, in: .rect(cornerRadius: 2))
+                    .padding(.horizontal, 6).frame(height: 18.pt).background(Theme.cancel, in: .rect(cornerRadius: 2))
             }
             .buttonStyle(.plain)
         }
         .monospacedDigit()
-        .padding(.horizontal, 8).frame(height: 28)
+        .padding(.horizontal, 8).frame(height: 28.pt)
         .contentShape(.rect)
         .onTapGesture { if let i = Universe.instrument(symbol: a.symbol) ?? Universe.resolve(a.symbol) { ws.link(i, from: panelID) } }
     }
@@ -134,7 +134,7 @@ struct AlertsView: View {
     private func historyRow(_ a: PriceAlert) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 10)).foregroundStyle(theme.up)
-            Text(ticker(a.symbol)).font(.mono(12, .bold)).foregroundStyle(Theme.text).frame(width: 64, alignment: .leading)
+            Text(ticker(a.symbol)).font(.mono(12, .bold)).foregroundStyle(Theme.text).frame(width: 64.pt, alignment: .leading)
             Text(a.condition.label).font(.mono(11)).foregroundStyle(Theme.dim)
             Spacer()
             Text("@ \(Fmt.price(a.triggerPrice))").font(.mono(11)).foregroundStyle(Theme.text)
@@ -142,7 +142,7 @@ struct AlertsView: View {
                 .font(.mono(10)).foregroundStyle(Theme.dim)
         }
         .monospacedDigit()
-        .padding(.horizontal, 8).frame(height: 26)
+        .padding(.horizontal, 8).frame(height: 26.pt)
     }
 }
 

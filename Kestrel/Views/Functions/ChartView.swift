@@ -162,13 +162,13 @@ struct ChartView: View {
             ForEach(ChartRange.allCases) { r in
                 chip(r.rawValue, on: range == r) { range = r; zoom = 1; pinchBase = 1 }
             }
-            Theme.rule.frame(width: 1, height: 14).padding(.horizontal, 4)
+            Theme.rule.frame(width: 1.pt, height: 14.pt).padding(.horizontal, 4)
             chip(lineStyle ? "LINE" : "OHLC", on: true) { lineStyle.toggle() }
             chip("SMA 20/50", on: showSMA) { showSMA.toggle() }
             chip("BOLL", on: showBB) { showBB.toggle() }
             if range.isIntraday { chip("VWAP", on: showVWAP) { showVWAP.toggle() } }
             chip("RSI", on: showRSI) { showRSI.toggle() }
-            Theme.rule.frame(width: 1, height: 14).padding(.horizontal, 4)
+            Theme.rule.frame(width: 1.pt, height: 14.pt).padding(.horizontal, 4)
             ForEach(Mode.allCases, id: \.self) { m in chip(m.rawValue, on: mode == m) { mode = m; hover = nil } }
             if !lines.isEmpty { chip("CLR \(lines.count)", on: false) { lines = []; saveLines() } }
             Menu {
@@ -179,7 +179,7 @@ struct ChartView: View {
             } label: {
                 Text(compare.map { "VS \($0.ticker)" } ?? "VS…").font(.mono(10, .bold))
                     .foregroundStyle(compare == nil ? Theme.dim : Theme.canvas)
-                    .padding(.horizontal, 7).frame(height: 20)
+                    .padding(.horizontal, 7).frame(height: 20.pt)
                     .background(compare == nil ? Theme.header : Theme.warn, in: .rect(cornerRadius: 2))
             }
             .menuStyle(.button).buttonStyle(.plain).fixedSize()
@@ -209,7 +209,7 @@ struct ChartView: View {
         .monospacedDigit()
         .lineLimit(1)
         .padding(.horizontal, 8)
-        .frame(height: 18)
+        .frame(height: 18.pt)
     }
 
     private func field(_ k: String, _ v: Double) -> Text {
@@ -220,7 +220,7 @@ struct ChartView: View {
         Button(action: action) {
             Text(t).font(.mono(10, .bold))
                 .foregroundStyle(on ? Theme.canvas : Theme.dim)
-                .padding(.horizontal, 7).frame(height: 20)
+                .padding(.horizontal, 7).frame(height: 20.pt)
                 .background(on ? Theme.accent : Theme.header, in: .rect(cornerRadius: 2))
         }
         .buttonStyle(.plain)

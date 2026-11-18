@@ -60,12 +60,12 @@ struct OptionStrategyView: View {
                             Button { template = t; rebuild() } label: {
                                 Text(t.rawValue).font(.mono(10, .bold))
                                     .foregroundStyle(template == t ? Theme.canvas : Theme.label)
-                                    .padding(.horizontal, 9).frame(height: 24)
+                                    .padding(.horizontal, 9).frame(height: 24.pt)
                                     .background(template == t ? Theme.accent : Theme.header, in: .rect(cornerRadius: 2))
                             }
                             .buttonStyle(.plain)
                         }
-                        Divider().frame(height: 18).padding(.horizontal, 6)
+                        Divider().frame(height: 18.pt).padding(.horizontal, 6)
                         Menu {
                             ForEach(chain.expiries, id: \.self) { e in
                                 Button(e.formatted(.dateTime.day().month(.abbreviated).year(.twoDigits))) { self.expiry = e; rebuild() }
@@ -73,7 +73,7 @@ struct OptionStrategyView: View {
                         } label: {
                             Text("EXPIRY " + expiry.formatted(.dateTime.day().month(.abbreviated).year(.twoDigits)).uppercased() + " ▾")
                                 .font(.mono(10, .bold)).foregroundStyle(Theme.text)
-                                .padding(.horizontal, 9).frame(height: 24).background(Theme.header, in: .rect(cornerRadius: 2))
+                                .padding(.horizontal, 9).frame(height: 24.pt).background(Theme.header, in: .rect(cornerRadius: 2))
                         }
                     }
                     .padding(.horizontal, 8)
@@ -81,11 +81,11 @@ struct OptionStrategyView: View {
 
                 if legs.isEmpty {
                     EmptyNote(title: "This expiry is too sparse for \(template.rawValue.lowercased())", detail: "Pick a later expiry.", icon: "function")
-                        .frame(height: 160)
+                        .frame(height: 160.pt)
                 } else {
                     summary(a, f)
                     SectionBar(title: "P&L vs \(instrument.ticker) AT EXPIRY AND TODAY", trailing: "FORWARD \(Fmt.price(f, .crypto))")
-                    PayoffChart(analysis: a, forward: f).frame(height: 240).padding(.horizontal, 8)
+                    PayoffChart(analysis: a, forward: f).frame(height: 240.pt).padding(.horizontal, 8)
                     legend
                     legTable(chain, expiry)
                     Text("Model values use Black-76 at each leg's Deribit mark IV, with premiums at the mark. Paper trading supports long legs only; shorts here are for analysis.")
@@ -124,9 +124,9 @@ struct OptionStrategyView: View {
 
     private var legend: some View {
         HStack(spacing: 14) {
-            HStack(spacing: 5) { Rectangle().fill(Theme.accent).frame(width: 14, height: 2); Text("AT EXPIRY") }
-            HStack(spacing: 5) { Rectangle().fill(Theme.warn).frame(width: 14, height: 2); Text("TODAY (MODEL)") }
-            HStack(spacing: 5) { Rectangle().fill(Theme.text).frame(width: 2, height: 10); Text("FORWARD") }
+            HStack(spacing: 5) { Rectangle().fill(Theme.accent).frame(width: 14.pt, height: 2.pt); Text("AT EXPIRY") }
+            HStack(spacing: 5) { Rectangle().fill(Theme.warn).frame(width: 14.pt, height: 2.pt); Text("TODAY (MODEL)") }
+            HStack(spacing: 5) { Rectangle().fill(Theme.text).frame(width: 2.pt, height: 10.pt); Text("FORWARD") }
         }
         .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8)
     }
@@ -137,8 +137,8 @@ struct OptionStrategyView: View {
         return VStack(spacing: 0) {
             SectionBar(title: "LEGS", trailing: "\(legs.count)")
             HStack {
-                HeaderCell(text: "SIDE", width: 64, align: .leading); HeaderCell(text: "QTY", width: 92, align: .center)
-                HeaderCell(text: "TYPE", width: 48, align: .leading); HeaderCell(text: "STRIKE", width: 150, align: .center)
+                HeaderCell(text: "SIDE", width: 64.pt, align: .leading); HeaderCell(text: "QTY", width: 92.pt, align: .center)
+                HeaderCell(text: "TYPE", width: 48.pt, align: .leading); HeaderCell(text: "STRIKE", width: 150.pt, align: .center)
                 HeaderCell(text: "MARK"); HeaderCell(text: "IV"); HeaderCell(text: "DELTA")
             }
             .padding(.horizontal, 8).padding(.vertical, 3)
@@ -149,32 +149,32 @@ struct OptionStrategyView: View {
                         Text(leg.quantity > 0 ? "LONG" : "SHORT").font(.mono(10, .heavy))
                             .foregroundStyle(leg.quantity > 0 ? theme.up : theme.down)
                     }
-                    .buttonStyle(.plain).frame(width: 64, alignment: .leading)
+                    .buttonStyle(.plain).frame(width: 64.pt, alignment: .leading)
                     HStack(spacing: 6) {
                         step("minus") { let q = abs(legs[n].quantity); if q > 1 { legs[n].quantity = (q - 1) * (legs[n].quantity > 0 ? 1 : -1) } }
-                        Text(Fmt.qty(Decimal(abs(leg.quantity)))).frame(minWidth: 22)
+                        Text(Fmt.qty(Decimal(abs(leg.quantity)))).frame(minWidth: 22.pt)
                         step("plus") { let q = abs(legs[n].quantity); if q < 50 { legs[n].quantity = (q + 1) * (legs[n].quantity > 0 ? 1 : -1) } }
                     }
-                    .frame(width: 92)
-                    Text(c.isCall ? "CALL" : "PUT").foregroundStyle(Theme.label).frame(width: 48, alignment: .leading)
+                    .frame(width: 92.pt)
+                    Text(c.isCall ? "CALL" : "PUT").foregroundStyle(Theme.label).frame(width: 48.pt, alignment: .leading)
                     HStack(spacing: 6) {
                         step("chevron.left") { shift(n, by: -1, in: strikes) }
-                        Text(Fmt.price(c.strike, .crypto)).frame(minWidth: 70)
+                        Text(Fmt.price(c.strike, .crypto)).frame(minWidth: 70.pt)
                         step("chevron.right") { shift(n, by: 1, in: strikes) }
                     }
-                    .frame(width: 150)
+                    .frame(width: 150.pt)
                     Text(Fmt.price(c.mark, .crypto)).frame(maxWidth: .infinity, alignment: .trailing)
                     Text(c.iv.map { String(format: "%.1f%%", $0 * 100) } ?? "—").frame(maxWidth: .infinity, alignment: .trailing).foregroundStyle(Theme.dim)
                     Text(c.greeks().map { String(format: "%+.2f", $0.delta * leg.quantity) } ?? "—").frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 .font(.mono(11)).monospacedDigit().foregroundStyle(Theme.text)
-                .padding(.horizontal, 8).frame(height: 28).rowBackground(n)
+                .padding(.horizontal, 8).frame(height: 28.pt).rowBackground(n)
             }
         }
     }
 
     private func step(_ icon: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) { Image(systemName: icon).font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.accent).frame(width: 18, height: 18) }
+        Button(action: action) { Image(systemName: icon).font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.accent).frame(width: 18.pt, height: 18.pt) }
             .buttonStyle(.plain)
             .accessibilityLabel(["minus": "Fewer contracts", "plus": "More contracts", "chevron.left": "Lower strike", "chevron.right": "Higher strike"][icon] ?? icon)
     }

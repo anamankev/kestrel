@@ -30,7 +30,7 @@ struct DepthView: View {
                         Spacer()
                         Text("MID \(Fmt.price(book.mid, instrument.assetClass))").foregroundStyle(Theme.text)
                     }
-                    .font(.mono(10, .bold)).padding(.horizontal, 8).frame(height: 20).background(Theme.header)
+                    .font(.mono(10, .bold)).padding(.horizontal, 8).frame(height: 20.pt).background(Theme.header)
                     ForEach(l.bids) { lvl in row(lvl, maxCum, theme.up) }
                     Spacer(minLength: 0)
                 }
@@ -59,7 +59,7 @@ struct DepthView: View {
                         theme.down
                     }
                 }
-                .frame(height: 4).clipShape(Capsule())
+                .frame(height: 4.pt).clipShape(Capsule())
                 Text("\(100 - Int(imb * 100))% ASK").font(.mono(9, .bold)).foregroundStyle(theme.down)
             }
             .help("Top-10-level size imbalance")
@@ -83,7 +83,7 @@ struct DepthView: View {
         }
         .font(.mono(11, .medium)).monospacedDigit()
         .padding(.horizontal, 8)
-        .frame(height: 18)
+        .frame(height: 18.pt)
         .background(alignment: .trailing) {
             GeometryReader { g in
                 color.opacity(0.13).frame(width: g.size.width * CGFloat(l.cumulative / maxCum))
@@ -148,7 +148,7 @@ struct TimeAndSalesView: View {
                                     Text(Fmt.compact(value)).foregroundStyle(block ? Theme.warn : Theme.dim).frame(maxWidth: .infinity, alignment: .trailing)
                                 }
                                 .font(.mono(11, block ? .bold : .regular)).monospacedDigit()
-                                .padding(.horizontal, 8).frame(height: 18)
+                                .padding(.horizontal, 8).frame(height: 18.pt)
                                 .background((p.side == .buy ? theme.up : theme.down).opacity(block ? 0.16 : 0))
                             }
                         }
@@ -232,12 +232,12 @@ struct NewsView: View {
                 }
                 Text("\(shown) OF \(total)").font(.mono(9, .bold)).foregroundStyle(Theme.dim).fixedSize()
             }
-            .padding(.horizontal, 8).frame(height: 30)
+            .padding(.horizontal, 8).frame(height: 30.pt)
             .background(Theme.canvas)
             .overlay(Rectangle().stroke(searching ? Theme.accent : Theme.rule))
             HStack(spacing: 4) {
                 ForEach(Window.allCases, id: \.self) { w in chip(w.rawValue, on: window == w) { window = w } }
-                Divider().frame(height: 14).padding(.horizontal, 4)
+                Divider().frame(height: 14.pt).padding(.horizontal, 4)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 4) {
                         ForEach(sources, id: \.self) { s in
@@ -253,7 +253,7 @@ struct NewsView: View {
     private func chip(_ label: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label).font(.mono(9, .bold)).foregroundStyle(on ? Theme.canvas : Theme.dim)
-                .padding(.horizontal, 7).frame(height: 20)
+                .padding(.horizontal, 7).frame(height: 20.pt)
                 .background(on ? Theme.accent.opacity(0.85) : Theme.header, in: .rect(cornerRadius: 2))
         }
         .buttonStyle(.plain)
@@ -262,8 +262,8 @@ struct NewsView: View {
     private func row(_ item: NewsItem, _ query: NewsQuery) -> some View {
         let tags = instrument == nil ? Array(NewsQuery.mentions(item.title).prefix(3)) : []
         return HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(item.published?.ago ?? "").font(.mono(10)).foregroundStyle(Theme.dim).frame(width: 30, alignment: .trailing)
-            Text(item.source).font(.mono(9, .bold)).foregroundStyle(Theme.warn).frame(width: 64, alignment: .leading)
+            Text(item.published?.ago ?? "").font(.mono(10)).foregroundStyle(Theme.dim).frame(width: 30.pt, alignment: .trailing)
+            Text(item.source).font(.mono(9, .bold)).foregroundStyle(Theme.warn).frame(width: 64.pt, alignment: .leading)
             Button { openURL(item.link) } label: {
                 Text(highlighted(item.title, query)).font(.ui(12, .medium)).foregroundStyle(Theme.text)
                     .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
@@ -272,7 +272,7 @@ struct NewsView: View {
             ForEach(tags) { i in
                 Button { ws.run("\(i.ticker) DES") } label: {
                     Text(i.ticker).font(.mono(9, .bold)).foregroundStyle(Theme.accent)
-                        .padding(.horizontal, 5).frame(height: 16).overlay(RoundedRectangle(cornerRadius: 2).stroke(Theme.accent.opacity(0.5)))
+                        .padding(.horizontal, 5).frame(height: 16.pt).overlay(RoundedRectangle(cornerRadius: 2).stroke(Theme.accent.opacity(0.5)))
                 }
                 .buttonStyle(.plain)
                 .help("Load \(i.name)")
@@ -319,12 +319,12 @@ struct HelpView: View {
                         ForEach(Array(fns.enumerated()), id: \.offset) { n, item in
                             Button { ws.run(item.1) } label: {
                                 HStack {
-                                    Text(item.0.rawValue).font(.mono(12, .heavy)).foregroundStyle(Theme.accent).frame(width: 60, alignment: .leading)
+                                    Text(item.0.rawValue).font(.mono(12, .heavy)).foregroundStyle(Theme.accent).frame(width: 60.pt, alignment: .leading)
                                     Text(item.0.title).font(.ui(12)).foregroundStyle(Theme.text)
                                     Spacer()
                                     Text(item.1 + " <GO>").font(.mono(11)).foregroundStyle(Theme.dim)
                                 }
-                                .padding(.horizontal, 8).frame(height: 26).contentShape(.rect)
+                                .padding(.horizontal, 8).frame(height: 26.pt).contentShape(.rect)
                             }
                             .buttonStyle(.plain).rowBackground(n)
                         }

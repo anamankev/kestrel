@@ -34,13 +34,13 @@ struct GuideButton: View {
                 if open {
                     Image(systemName: "xmark").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.accent)
                 } else {
-                    KestrelMark().frame(width: 26, height: 22).offset(y: 1)
+                    KestrelMark().frame(width: 26.pt, height: 22.pt).offset(y: 1)
                     Text("?").font(.ui(12, .heavy)).foregroundStyle(Theme.canvas)
-                        .frame(width: 18, height: 18).background(Theme.accent, in: .circle)
+                        .frame(width: 18.pt, height: 18.pt).background(Theme.accent, in: .circle)
                         .offset(x: 18, y: -18)
                 }
             }
-            .frame(width: 54, height: 54)
+            .frame(width: 54.pt, height: 54.pt)
             .shadow(color: Theme.accent.opacity(0.25), radius: 10)
             .offset(y: bob && !open ? -3 : 0)
             .contentShape(.circle)
@@ -73,7 +73,7 @@ struct GuidePanel: View {
             }
             input
         }
-        .frame(width: 380, height: 500)
+        .frame(width: 380.pt, height: 500.pt)
         .background(Theme.panel)
         .clipShape(.rect(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.accentDim))
@@ -83,18 +83,18 @@ struct GuidePanel: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            KestrelMark().frame(width: 18, height: 15)
+            KestrelMark().frame(width: 18.pt, height: 15.pt)
             Text("Kestrel Guide").font(.ui(14, .semibold)).foregroundStyle(Theme.text)
             Text("ON DEVICE")
                 .font(.mono(8, .bold)).foregroundStyle(Theme.canvas)
-                .padding(.horizontal, 5).frame(height: 15)
+                .padding(.horizontal, 5).frame(height: 15.pt)
                 .background(Theme.dim, in: .rect(cornerRadius: 2))
                 .help("The guide runs entirely on this device; your questions never leave it.")
             Spacer()
             Button { guide.reset() } label: { Image(systemName: "arrow.counterclockwise").font(.system(size: 12, weight: .semibold)) }
                 .buttonStyle(.plain).foregroundStyle(Theme.dim).accessibilityLabel("Start over")
         }
-        .padding(.horizontal, 12).frame(height: 40)
+        .padding(.horizontal, 12).frame(height: 40.pt)
         .background(Theme.header)
     }
 
@@ -105,7 +105,7 @@ struct GuidePanel: View {
                 .textSelection(.enabled)
                 .padding(.horizontal, 10).padding(.vertical, 8)
                 .background(m.role == .user ? Theme.accent : Theme.header, in: .rect(cornerRadius: 8))
-                .frame(maxWidth: 300, alignment: m.role == .user ? .trailing : .leading)
+                .frame(maxWidth: 300.pt, alignment: m.role == .user ? .trailing : .leading)
             if !m.commands.isEmpty {
                 FlowChips(items: m.commands) { cmd in _ = guide.run(cmd) }
             }
@@ -136,14 +136,14 @@ struct GuidePanel: View {
                 .onSubmit(send)
             Button(action: send) {
                 Image(systemName: "arrow.up").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.canvas)
-                    .frame(width: 28, height: 28).background(draft.isEmpty ? Theme.faint : Theme.accent, in: .circle)
+                    .frame(width: 28.pt, height: 28.pt).background(draft.isEmpty ? Theme.faint : Theme.accent, in: .circle)
             }
             .buttonStyle(.plain).disabled(draft.isEmpty)
             .accessibilityLabel("Send")
         }
         .padding(10)
         .background(Theme.canvas)
-        .overlay(alignment: .top) { Rectangle().fill(Theme.rule).frame(height: 1) }
+        .overlay(alignment: .top) { Rectangle().fill(Theme.rule).frame(height: 1.pt) }
     }
 
     private func send() {

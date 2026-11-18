@@ -84,13 +84,13 @@ struct MonitorView: View {
                     Text(user.active.name).font(.mono(11, .heavy)).foregroundStyle(Theme.text)
                     Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.dim)
                 }
-                .padding(.horizontal, 8).frame(height: 24)
+                .padding(.horizontal, 8).frame(height: 24.pt)
                 .background(Theme.header, in: .rect(cornerRadius: 3))
             }
             .menuStyle(.button).buttonStyle(.plain).fixedSize()
 
             HStack(spacing: 0) {
-                Text("ADD").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas).padding(.horizontal, 6).frame(height: 24).background(Theme.accent)
+                Text("ADD").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas).padding(.horizontal, 6).frame(height: 24.pt).background(Theme.accent)
                 TextField("", text: $addText)
                 .placeholder("ticker ↩", when: addText.isEmpty)
                     .font(.mono(11, .medium)).foregroundStyle(Theme.text).textFieldStyle(.plain)
@@ -105,7 +105,7 @@ struct MonitorView: View {
                     }
                     .onChange(of: addText) { addError = nil }
             }
-            .frame(maxWidth: 200).frame(height: 24)
+            .frame(maxWidth: 200.pt).frame(height: 24.pt)
             .background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule))
 
             if let addError { Text(addError).font(.mono(10, .medium)).foregroundStyle(Theme.cancel).lineLimit(1) }
@@ -140,11 +140,11 @@ struct QuoteHeader: View {
                 HeaderCell(text: "BID"); HeaderCell(text: "ASK")
                 HeaderCell(text: "HIGH"); HeaderCell(text: "LOW"); HeaderCell(text: "VOLUME")
             }
-            HeaderCell(text: "INTRADAY", width: 74, align: .center)
+            HeaderCell(text: "INTRADAY", width: 74.pt, align: .center)
         }
         .padding(.horizontal, 8).padding(.vertical, 4)
         .background(Theme.panel)
-        .overlay(alignment: .bottom) { Theme.rule.frame(height: 1) }
+        .overlay(alignment: .bottom) { Theme.rule.frame(height: 1.pt) }
     }
 }
 
@@ -165,12 +165,12 @@ struct QuoteRow: View {
         HStack(spacing: 6) {
             HStack(spacing: 6) {
                 if let number {
-                    Text("\(number)").font(.mono(9)).foregroundStyle(Theme.faint).frame(width: 18, alignment: .trailing)
+                    Text("\(number)").font(.mono(9)).foregroundStyle(Theme.faint).frame(width: 18.pt, alignment: .trailing)
                 }
-                Text(i.ticker).font(.mono(12, .bold)).foregroundStyle(Theme.text).frame(width: 64, alignment: .leading)
+                Text(i.ticker).font(.mono(12, .bold)).foregroundStyle(Theme.text).frame(width: 64.pt, alignment: .leading)
                 Text(market.displayName(i)).font(.ui(11)).foregroundStyle(Theme.dim).lineLimit(1)
             }
-            .frame(width: wide ? 210 : 130, alignment: .leading)
+            .frame(width: (wide ? 210 : 130).pt, alignment: .leading)
             TickText(value: q?.last, cls: i.assetClass).frame(maxWidth: .infinity, alignment: .trailing)
             Group {
                 if yields {
@@ -187,10 +187,10 @@ struct QuoteRow: View {
                 cell(Fmt.compact(q?.volume))
             }
             Sparkline(values: market.sparks[i.symbol] ?? [], baseline: q?.previousClose)
-                .frame(width: 74, height: 18)
+                .frame(width: 74.pt, height: 18.pt)
         }
         .padding(.horizontal, 8)
-        .frame(height: 26)
+        .frame(height: 26.pt)
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(i.ticker), \(market.displayName(i)), last \(Fmt.price(q?.last, i.assetClass)), \(Fmt.pct(q?.changePercent))")
@@ -323,7 +323,7 @@ struct HeatmapView: View {
                         Text(Fmt.pct(pct)).font(.mono(11, .medium)).monospacedDigit()
                     }
                     .foregroundStyle(Theme.text)
-                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .frame(maxWidth: .infinity, minHeight: 50.pt)
                     .background(color(pct), in: .rect(cornerRadius: 2))
                     .onTapGesture { ws.link(i, from: panelID) }
                     .accessibilityElement(children: .ignore)
@@ -374,7 +374,7 @@ struct DescriptionView: View {
                         .foregroundStyle(i.isStreaming ? Theme.go : Theme.warn)
                 }
                 Sparkline(values: market.sparks[i.symbol] ?? [], baseline: q?.previousClose)
-                    .frame(height: 80)
+                    .frame(height: 80.pt)
                     .padding(.vertical, 4)
                 Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 8) {
                     GridRow { stat("PREV CLOSE", Fmt.price(q?.previousClose, i.assetClass)); stat("VOLUME", Fmt.compact(q?.volume)) }

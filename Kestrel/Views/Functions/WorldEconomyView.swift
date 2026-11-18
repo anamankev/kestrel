@@ -29,18 +29,18 @@ struct WorldEconomyView: View {
         VStack(alignment: .leading, spacing: 0) {
             ControlBar {
                 Picker("Mode", selection: $mode) { ForEach(Mode.allCases, id: \.self) { Text($0.rawValue) } }
-                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320)
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320.pt)
                 if mode == .profile {
                     Picker("Country", selection: $country) { ForEach(macro.countries) { Text($0.name).tag($0.id) } }
-                        .labelsHidden().frame(maxWidth: 240)
+                        .labelsHidden().frame(maxWidth: 240.pt)
                 } else {
                     Picker("Indicator", selection: $indicator) { ForEach(WorldBank.indicators) { Text($0.name).tag($0.id) } }
-                        .labelsHidden().frame(maxWidth: 300)
+                        .labelsHidden().frame(maxWidth: 300.pt)
                     Picker("Region", selection: $region) {
                         Text("All regions").tag("ALL")
                         ForEach(Array(Set(macro.countries.map(\.region))).filter { !$0.isEmpty }.sorted(), id: \.self) { Text($0).tag($0) }
                     }
-                    .labelsHidden().frame(maxWidth: 220)
+                    .labelsHidden().frame(maxWidth: 220.pt)
                 }
                 Spacer()
                 ShareLink(item: CSVFile(name: csvName, text: csv), preview: SharePreview("World Bank data")) {
@@ -87,8 +87,8 @@ struct WorldEconomyView: View {
             if loaded > 0 {
                 HStack(spacing: 6) {
                     Text("INDICATOR").frame(maxWidth: .infinity, alignment: .leading)
-                    ForEach(years, id: \.self) { Text(String($0)).frame(width: 74, alignment: .trailing) }
-                    if showSpark { Text("15Y").frame(width: 90, alignment: .center) }
+                    ForEach(years, id: \.self) { Text(String($0)).frame(width: 74.pt, alignment: .trailing) }
+                    if showSpark { Text("15Y").frame(width: 90.pt, alignment: .center) }
                 }
                 .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
                 ScrollView {
@@ -106,9 +106,9 @@ struct WorldEconomyView: View {
                                         let v = points.first { $0.year == y }?.value
                                         Text(format(v, i.unit)).font(.mono(11)).monospacedDigit()
                                             .foregroundStyle(v == nil ? Theme.faint : (["NY.GDP.MKTP.KD.ZG", "BN.CAB.XOKA.GD.ZS"].contains(i.id) ? theme.tint(v) : Theme.text))
-                                            .frame(width: 74, alignment: .trailing)
+                                            .frame(width: 74.pt, alignment: .trailing)
                                     }
-                                    if showSpark { Sparkline(values: points.suffix(15).map(\.value)).frame(width: 90, height: 18) }
+                                    if showSpark { Sparkline(values: points.suffix(15).map(\.value)).frame(width: 90.pt, height: 18.pt) }
                                     }
                                 }
                                 .padding(.horizontal, 8).padding(.vertical, 6).contentShape(.rect)
@@ -143,14 +143,14 @@ struct WorldEconomyView: View {
         return VStack(alignment: .leading, spacing: 0) {
             SectionBar(title: "\(info.short) · LATEST AVAILABLE YEAR", trailing: macro.ranking(indicator) == nil ? (macro.failedIndicators.contains(indicator) ? "WORLD BANK DIDN'T RESPOND" : "LOADING…") : "\(rows.count) COUNTRIES")
             HStack(spacing: 6) {
-                Text("#").frame(width: 34, alignment: .trailing)
+                Text("#").frame(width: 34.pt, alignment: .trailing)
                 Text("COUNTRY").frame(maxWidth: .infinity, alignment: .leading)
-                if showRegion { Text("REGION").frame(width: 200, alignment: .leading) }
+                if showRegion { Text("REGION").frame(width: 200.pt, alignment: .leading) }
                 Button { ascending.toggle() } label: {
                     Text("VALUE " + (ascending ? "▲" : "▼")).foregroundStyle(Theme.accent)
                 }
-                .buttonStyle(.plain).frame(width: 110, alignment: .trailing)
-                Text("YEAR").frame(width: 50, alignment: .trailing)
+                .buttonStyle(.plain).frame(width: 110.pt, alignment: .trailing)
+                Text("YEAR").frame(width: 50.pt, alignment: .trailing)
             }
             .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
             if macro.ranking(indicator) == nil, macro.failedIndicators.contains(indicator) {
@@ -163,12 +163,12 @@ struct WorldEconomyView: View {
                         ForEach(Array(rows.enumerated()), id: \.element.0.id) { n, r in
                             Button { country = r.0.id; mode = .profile } label: {
                                 HStack(spacing: 6) {
-                                    Text("\(n + 1)").foregroundStyle(Theme.faint).frame(width: 34, alignment: .trailing)
+                                    Text("\(n + 1)").foregroundStyle(Theme.faint).frame(width: 34.pt, alignment: .trailing)
                                     Text(r.0.name).font(.ui(11)).foregroundStyle(r.0.id == country ? Theme.accent : Theme.text).lineLimit(1)
                                         .frame(maxWidth: .infinity, alignment: .leading)
-                                    if showRegion { Text(r.0.region).font(.ui(10)).foregroundStyle(Theme.dim).lineLimit(1).frame(width: 200, alignment: .leading) }
-                                    Text(format(r.1.value, info.unit)).foregroundStyle(Theme.text).frame(width: 110, alignment: .trailing)
-                                    Text(String(r.1.year)).foregroundStyle(Theme.dim).frame(width: 50, alignment: .trailing)
+                                    if showRegion { Text(r.0.region).font(.ui(10)).foregroundStyle(Theme.dim).lineLimit(1).frame(width: 200.pt, alignment: .leading) }
+                                    Text(format(r.1.value, info.unit)).foregroundStyle(Theme.text).frame(width: 110.pt, alignment: .trailing)
+                                    Text(String(r.1.year)).foregroundStyle(Theme.dim).frame(width: 50.pt, alignment: .trailing)
                                 }
                                 .font(.mono(11)).monospacedDigit().padding(.horizontal, 8).padding(.vertical, 5).contentShape(.rect)
                             }

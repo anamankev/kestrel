@@ -77,11 +77,11 @@ struct BetaView: View {
     private var controls: some View {
         ControlBar {
             Picker("Benchmark", selection: $benchmark) { ForEach(Self.benchmarks, id: \.self) { Text($0) } }
-                .labelsHidden().frame(maxWidth: 110)
+                .labelsHidden().frame(maxWidth: 110.pt)
             Picker("Window", selection: $window) { ForEach([StudyWindow.y1, .y2, .y5], id: \.self) { Text($0.rawValue) } }
-                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 150)
+                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 150.pt)
             Picker("Frequency", selection: $frequency) { ForEach(Frequency.allCases, id: \.self) { Text($0.rawValue) } }
-                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 180)
+                .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 180.pt)
             Spacer()
             if let r = result {
                 ShareLink(item: CSVFile(name: "\(instrument.ticker)-vs-\(benchmark)-\(frequency.rawValue.lowercased()).csv", text: csv(r)),
@@ -176,7 +176,7 @@ struct ComparisonView: View {
         VStack(alignment: .leading, spacing: 0) {
             ControlBar {
                 Picker("Window", selection: $window) { ForEach(StudyWindow.allCases, id: \.self) { Text($0.rawValue) } }
-                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 260)
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 260.pt)
                 Spacer()
                 if !series.isEmpty {
                     ShareLink(item: CSVFile(name: "comparison-\(window.rawValue).csv", text: csv), preview: SharePreview("Comparison")) {
@@ -228,7 +228,7 @@ struct ComparisonView: View {
         return VStack(spacing: 0) {
             HStack {
                 Text("SECURITY").frame(maxWidth: .infinity, alignment: .leading)
-                ForEach(Array(["TOTAL", "ANN. RETURN", "ANN. VOL", "SHARPE", "MAX DD"].prefix(shown)), id: \.self) { Text($0).frame(width: 80, alignment: .trailing) }
+                ForEach(Array(["TOTAL", "ANN. RETURN", "ANN. VOL", "SHARPE", "MAX DD"].prefix(shown)), id: \.self) { Text($0).frame(width: 80.pt, alignment: .trailing) }
             }
             .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
             ForEach(Array(series.enumerated()), id: \.offset) { n, s in
@@ -236,7 +236,7 @@ struct ComparisonView: View {
                 HStack {
                     Button { ws.link(s.0, from: panelID) } label: {
                         HStack(spacing: 6) {
-                            Rectangle().fill(SeriesPalette.color(n)).frame(width: 10, height: 3)
+                            Rectangle().fill(SeriesPalette.color(n)).frame(width: 10.pt, height: 3.pt)
                             Text(s.0.ticker).font(.mono(11, .bold)).foregroundStyle(Theme.text)
                             if roomy { Text(market.displayName(s.0)).font(.ui(10)).foregroundStyle(Theme.dim).lineLimit(1) }
                         }
@@ -251,7 +251,7 @@ struct ComparisonView: View {
                         (percent(p?.maxDrawdown), theme.down),
                     ]
                     ForEach(0..<shown, id: \.self) { k in
-                        Text(cells[k].0).foregroundStyle(cells[k].1).font(.mono(11)).monospacedDigit().frame(width: 80, alignment: .trailing)
+                        Text(cells[k].0).foregroundStyle(cells[k].1).font(.mono(11)).monospacedDigit().frame(width: 80.pt, alignment: .trailing)
                     }
                 }
                 .padding(.horizontal, 8).padding(.vertical, 5).rowBackground(n)
@@ -312,7 +312,7 @@ struct OptimizerView: View {
         VStack(alignment: .leading, spacing: 0) {
             ControlBar {
                 Picker("Window", selection: $window) { ForEach([StudyWindow.y1, .y2, .y5], id: \.self) { Text($0.rawValue) } }
-                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 160)
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 160.pt)
                 Spacer()
                 if let o = out {
                     ShareLink(item: CSVFile(name: "optimizer-\(window.rawValue).csv", text: csv(o)), preview: SharePreview("Weights")) {
@@ -327,7 +327,7 @@ struct OptimizerView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         tiles(o)
-                        chart(o).frame(height: 260).padding(.horizontal, 8)
+                        chart(o).frame(height: 260.pt).padding(.horizontal, 8)
                         weights(o)
                         Text("Inputs are historical means and covariances, which are noisy estimates of the future; the optimizer amplifies their errors. Treat the weights as a study of risk and diversification, not as advice.")
                             .font(.ui(10)).foregroundStyle(Theme.faint).padding(.horizontal, 8).padding(.bottom, 8)
@@ -380,7 +380,7 @@ struct OptimizerView: View {
         VStack(spacing: 0) {
             HStack {
                 Text("ASSET").frame(maxWidth: .infinity, alignment: .leading)
-                ForEach(["ANN. RET", "ANN. VOL", "MIN VAR", "MAX SHARPE"], id: \.self) { Text($0).frame(width: 82, alignment: .trailing) }
+                ForEach(["ANN. RET", "ANN. VOL", "MIN VAR", "MAX SHARPE"], id: \.self) { Text($0).frame(width: 82.pt, alignment: .trailing) }
             }
             .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
             ForEach(Array(o.assets.enumerated()), id: \.offset) { n, a in
@@ -395,7 +395,7 @@ struct OptimizerView: View {
                         weight(o.minVariance.weights[n], Theme.warn)
                         weight(o.maxSharpe.weights[n], Theme.accent)
                     }
-                    .font(.mono(11)).monospacedDigit().frame(width: 82, alignment: .trailing)
+                    .font(.mono(11)).monospacedDigit().frame(width: 82.pt, alignment: .trailing)
                 }
                 .padding(.horizontal, 8).padding(.vertical, 5).rowBackground(n)
             }
@@ -463,9 +463,9 @@ struct FactorView: View {
         VStack(alignment: .leading, spacing: 0) {
             ControlBar {
                 Picker("Model", selection: $model) { ForEach(FactorModel.allCases, id: \.self) { Text($0.rawValue) } }
-                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 340)
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 340.pt)
                 Picker("Window", selection: $window) { ForEach([StudyWindow.y1, .y2, .y5], id: \.self) { Text($0.rawValue) } }
-                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 150)
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 150.pt)
                 Spacer()
                 if let o = out {
                     ShareLink(item: CSVFile(name: "\(instrument.ticker)-\(model.rawValue.replacingOccurrences(of: " ", with: ""))-\(window.rawValue).csv", text: csv(o)),
@@ -484,7 +484,7 @@ struct FactorView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         tiles(o.fit)
                         loadings(o.fit)
-                        chart(o.fit).frame(height: 180).padding(.horizontal, 8)
+                        chart(o.fit).frame(height: 180.pt).padding(.horizontal, 8)
                         Text("Excess return (total return − 1-month T-bill) regressed on Fama-French factors from the Kenneth R. French Data Library, built from US stocks; data runs to \(day(o.dataEnds)), so the regression uses the overlap. Alpha is annualized ×252. |t| > 2 ≈ 95% significance; bars show ±1.96 standard errors.")
                             .font(.ui(10)).foregroundStyle(Theme.faint).padding(.horizontal, 8).padding(.bottom, 8)
                     }
@@ -514,21 +514,21 @@ struct FactorView: View {
     private func loadings(_ f: LinearFit) -> some View {
         VStack(spacing: 0) {
             HStack {
-                Text("FACTOR").frame(width: 70, alignment: .leading)
+                Text("FACTOR").frame(width: 70.pt, alignment: .leading)
                 Text("MEANING").frame(maxWidth: .infinity, alignment: .leading)
-                ForEach(["LOADING", "STD ERR", "T-STAT"], id: \.self) { Text($0).frame(width: 84, alignment: .trailing) }
+                ForEach(["LOADING", "STD ERR", "T-STAT"], id: \.self) { Text($0).frame(width: 84.pt, alignment: .trailing) }
             }
             .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
             ForEach(Array(f.terms.dropFirst().enumerated()), id: \.offset) { n, t in
                 HStack {
-                    Text(t.name).font(.mono(11, .bold)).foregroundStyle(Theme.text).frame(width: 70, alignment: .leading)
+                    Text(t.name).font(.mono(11, .bold)).foregroundStyle(Theme.text).frame(width: 70.pt, alignment: .leading)
                     Text(FactorModel.describe(t.name)).font(.ui(11)).foregroundStyle(Theme.dim).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
                     Group {
                         Text(String(format: "%+.3f", t.coefficient)).foregroundStyle(abs(t.t) > 2 ? Theme.text : Theme.dim)
                         Text(String(format: "%.3f", t.standardError)).foregroundStyle(Theme.dim)
                         Text(String(format: "%.2f", t.t) + (abs(t.t) > 2.58 ? " **" : abs(t.t) > 1.96 ? " *" : "")).foregroundStyle(abs(t.t) > 1.96 ? Theme.accent : Theme.dim)
                     }
-                    .font(.mono(11)).monospacedDigit().frame(width: 84, alignment: .trailing)
+                    .font(.mono(11)).monospacedDigit().frame(width: 84.pt, alignment: .trailing)
                 }
                 .padding(.horizontal, 8).padding(.vertical, 5).rowBackground(n)
             }
@@ -619,7 +619,7 @@ struct DividendView: View {
                         }
                         .padding(.horizontal, 8).padding(.top, 6)
                         tiles(s)
-                        annual(s).frame(height: 170).padding(.horizontal, 8)
+                        annual(s).frame(height: 170.pt).padding(.horizontal, 8)
                         payments
                     }
                 }
@@ -683,17 +683,17 @@ struct DividendView: View {
         return VStack(spacing: 0) {
             HStack {
                 Text("EX-DATE").frame(maxWidth: .infinity, alignment: .leading)
-                Text("AMOUNT").frame(width: 100, alignment: .trailing)
-                Text("CHANGE").frame(width: 100, alignment: .trailing)
+                Text("AMOUNT").frame(width: 100.pt, alignment: .trailing)
+                Text("CHANGE").frame(width: 100.pt, alignment: .trailing)
             }
             .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
             ForEach(Array(rows.enumerated()), id: \.offset) { n, e in
                 let change = e.offset > 0 ? e.element.amount / divs[e.offset - 1].amount - 1 : nil
                 HStack {
                     Text(e.element.date.formatted(.dateTime.year().month(.abbreviated).day())).foregroundStyle(Theme.text).frame(maxWidth: .infinity, alignment: .leading)
-                    Text(amount(e.element.amount)).foregroundStyle(Theme.text).frame(width: 100, alignment: .trailing)
+                    Text(amount(e.element.amount)).foregroundStyle(Theme.text).frame(width: 100.pt, alignment: .trailing)
                     Text(change.map { abs($0) < 0.0005 ? "—" : percent($0) } ?? "—").foregroundStyle(change.map { abs($0) < 0.0005 ? Theme.faint : theme.tint($0) } ?? Theme.faint)
-                        .frame(width: 100, alignment: .trailing)
+                        .frame(width: 100.pt, alignment: .trailing)
                 }
                 .font(.mono(11)).monospacedDigit().padding(.horizontal, 8).padding(.vertical, 4).rowBackground(n)
             }
@@ -736,9 +736,9 @@ struct EventStudyView: View {
         VStack(alignment: .leading, spacing: 0) {
             ControlBar {
                 Picker("Benchmark", selection: $benchmark) { ForEach(["SPY", "QQQ", "IWM", "DIA"], id: \.self) { Text($0) } }
-                    .labelsHidden().frame(maxWidth: 100)
+                    .labelsHidden().frame(maxWidth: 100.pt)
                 Picker("Window", selection: $span) { ForEach(Span.allCases, id: \.self) { Text($0.label) } }
-                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 220)
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 220.pt)
                 Spacer()
                 if let s = study {
                     ShareLink(item: CSVFile(name: "\(instrument.ticker)-earnings-event-study.csv", text: csv(s)), preview: SharePreview("Event study")) {
@@ -771,7 +771,7 @@ struct EventStudyView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     if !s.events.isEmpty {
                         tiles(s)
-                        chart(s).frame(height: 220).padding(.horizontal, 8)
+                        chart(s).frame(height: 220.pt).padding(.horizontal, 8)
                     }
                     table(s)
                     Text("Day 0 is the first session on or after the earnings 8-K filing date. Companies usually file it the day of the release, but a filing can trail the announcement by a day or two; releases after the close move the stock on day +1, so [−1, +1] is the headline window. Each event's market model is fitted on up to 250 earlier sessions, ending 10 days before the window and skipping other earnings windows. Total returns. Releases whose window is still open (such as today's) are shown as IN PROGRESS (~ marks drift so far) and left out of the averages. t-stats are cross-sectional; |t| > 2 ≈ 95% significance; the band is ±1.96 standard errors.")
@@ -840,7 +840,7 @@ struct EventStudyView: View {
         return VStack(spacing: 0) {
             HStack {
                 Text("EARNINGS (DAY 0)").frame(maxWidth: .infinity, alignment: .leading)
-                ForEach(Array(["CAR [−1,+1]", "DAY 0", "DRIFT [+2,+\(w)]", "β (EST.)"].prefix(shown)), id: \.self) { Text($0).frame(width: 84, alignment: .trailing) }
+                ForEach(Array(["CAR [−1,+1]", "DAY 0", "DRIFT [+2,+\(w)]", "β (EST.)"].prefix(shown)), id: \.self) { Text($0).frame(width: 84.pt, alignment: .trailing) }
             }
             .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
             ForEach(Array((s.pending.reversed() + s.events.reversed()).enumerated()), id: \.offset) { n, e in
@@ -853,7 +853,7 @@ struct EventStudyView: View {
                         Text(Self.utcDay.string(from: e.day0)).foregroundStyle(Theme.text)
                         if last < w {
                             Text("IN PROGRESS \(last >= 0 ? "+" : "")\(last)/+\(w)").font(.mono(8, .bold)).foregroundStyle(Theme.canvas).lineLimit(1)
-                                .padding(.horizontal, 4).frame(height: 14).background(Theme.warn, in: .rect(cornerRadius: 2))
+                                .padding(.horizontal, 4).frame(height: 14.pt).background(Theme.warn, in: .rect(cornerRadius: 2))
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -864,7 +864,7 @@ struct EventStudyView: View {
                         (String(format: "%.2f", e.beta), Theme.dim),
                     ]
                     ForEach(0..<shown, id: \.self) { k in
-                        Text(cells[k].0).foregroundStyle(cells[k].1).lineLimit(1).frame(width: 84, alignment: .trailing)
+                        Text(cells[k].0).foregroundStyle(cells[k].1).lineLimit(1).frame(width: 84.pt, alignment: .trailing)
                     }
                 }
                 .font(.mono(11)).monospacedDigit().padding(.horizontal, 8).padding(.vertical, 4).rowBackground(n)

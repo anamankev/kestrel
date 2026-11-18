@@ -35,11 +35,11 @@ struct SettingsView: View {
                             #if os(iOS)
                             .textInputAutocapitalization(.never).keyboardType(.emailAddress)
                             #endif
-                            .padding(.horizontal, 8).frame(height: 32)
+                            .padding(.horizontal, 8).frame(height: 32.pt)
                             .background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule))
                             .onSubmit(saveContact)
                         Button("SAVE", action: saveContact).font(.mono(11, .heavy)).foregroundStyle(Theme.canvas)
-                            .frame(width: 64, height: 32).background(Theme.accent, in: .rect(cornerRadius: 3)).buttonStyle(.plain)
+                            .frame(width: 64.pt, height: 32.pt).background(Theme.accent, in: .rect(cornerRadius: 3)).buttonStyle(.plain)
                             .disabled(!SECFacts.isValidContact(contactDraft))
                             .opacity(SECFacts.isValidContact(contactDraft) ? 1 : 0.4)
                     }
@@ -62,7 +62,7 @@ struct SettingsView: View {
                         Picker("Text size", selection: $theme.textScale) {
                             ForEach(Theme.textScales, id: \.self) { s in Text("\(Int((s * 100).rounded()))%").tag(s) }
                         }
-                        .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320)
+                        .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320.pt)
                     }
                     Text("Also follows your iPad's text size (Settings → Display & Brightness), up to 150% in total.")
                         .font(.ui(10)).foregroundStyle(Theme.dim)
@@ -75,7 +75,7 @@ struct SettingsView: View {
                         Picker("", selection: $interval) {
                             Text("30 s").tag(30.0); Text("45 s").tag(45.0); Text("90 s").tag(90.0)
                         }
-                        .pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                        .pickerStyle(.segmented).labelsHidden().frame(width: 200.pt)
                     }
                     Text("Shorter is fresher but sends more requests to a free endpoint. Crypto always streams live.")
                         .font(.ui(10)).foregroundStyle(Theme.faint)
@@ -150,7 +150,7 @@ struct SettingsView: View {
             section("ACCOUNT") {
                 HStack(spacing: 10) {
                     Text(me.initials).font(.mono(12, .heavy)).foregroundStyle(Theme.canvas)
-                        .frame(width: 32, height: 32).background(Theme.accent, in: .circle)
+                        .frame(width: 32.pt, height: 32.pt).background(Theme.accent, in: .circle)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(me.displayName).font(.ui(13, .semibold)).foregroundStyle(Theme.text)
                         Text(me.email + " · since " + me.created.formatted(.dateTime.month(.abbreviated).year()))
@@ -159,7 +159,7 @@ struct SettingsView: View {
                     Spacer()
                     Button { auth.signOut() } label: {
                         Text("Sign out").font(.mono(11, .bold)).foregroundStyle(Theme.text)
-                            .padding(.horizontal, 12).frame(height: 28).overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.rule))
+                            .padding(.horizontal, 12).frame(height: 28.pt).overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.rule))
                     }
                     .buttonStyle(.plain)
                 }
@@ -168,7 +168,7 @@ struct SettingsView: View {
                         SecureField("", text: $deletePassword)
                 .placeholder("Password to confirm", when: deletePassword.isEmpty)
                             .font(.mono(12)).foregroundStyle(Theme.text).textFieldStyle(.plain)
-                            .padding(.horizontal, 8).frame(height: 30).background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule))
+                            .padding(.horizontal, 8).frame(height: 30.pt).background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule))
                         Button {
                             Task {
                                 do throws(AuthError) { try await auth.deleteAccount(password: deletePassword) }
@@ -176,7 +176,7 @@ struct SettingsView: View {
                             }
                         } label: {
                             Text(auth.busy ? "Deleting…" : "Delete forever").font(.mono(11, .bold)).foregroundStyle(Theme.canvas)
-                                .padding(.horizontal, 12).frame(height: 30).background(Theme.cancel, in: .rect(cornerRadius: 3))
+                                .padding(.horizontal, 12).frame(height: 30.pt).background(Theme.cancel, in: .rect(cornerRadius: 3))
                         }
                         .buttonStyle(.plain).disabled(deletePassword.isEmpty || auth.busy)
                         Button("Keep") { deleting = false; deletePassword = ""; deleteError = nil }
@@ -198,7 +198,7 @@ struct SettingsView: View {
             content()
         }
         .padding(10)
-        .frame(maxWidth: 720, alignment: .leading)
+        .frame(maxWidth: 720.pt, alignment: .leading)
         .background(Theme.header, in: .rect(cornerRadius: 4))
     }
 
@@ -207,14 +207,14 @@ struct SettingsView: View {
             Text(what).font(.ui(11)).foregroundStyle(Theme.text)
             Spacer()
             Text(source).font(.ui(11)).foregroundStyle(Theme.dim)
-            Text(status).font(.mono(9, .bold)).foregroundStyle(Theme.label).frame(width: 140, alignment: .trailing)
+            Text(status).font(.mono(9, .bold)).foregroundStyle(Theme.label).frame(width: 140.pt, alignment: .trailing)
         }
     }
 
     private func resetButton(_ title: String, _ r: Reset) -> some View {
         Button(title) { confirm = r }
             .font(.mono(10, .bold)).foregroundStyle(Theme.cancel)
-            .padding(.horizontal, 10).frame(height: 26)
+            .padding(.horizontal, 10).frame(height: 26.pt)
             .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.cancel.opacity(0.5)))
             .buttonStyle(.plain)
     }

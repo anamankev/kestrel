@@ -95,9 +95,9 @@ struct SecurityFinderView: View {
         HStack(spacing: 8) {
             Text("TICKER").frame(width: tickerWidth, alignment: .leading)
             Text("NAME").frame(maxWidth: .infinity, alignment: .leading)
-            if wide { Text("TYPE").frame(width: 110, alignment: .leading) }
+            if wide { Text("TYPE").frame(width: 110.pt, alignment: .leading) }
             Text("EXCHANGE").frame(width: exchangeWidth, alignment: .leading)
-            Color.clear.frame(width: 28, height: 1)
+            Color.clear.frame(width: 28.pt, height: 1.pt)
         }
         .font(.mono(9, .bold)).foregroundStyle(Theme.label)
         .padding(.horizontal, 8).padding(.vertical, 5)
@@ -113,7 +113,7 @@ struct SecurityFinderView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if wide {
                         Text(h.kind.uppercased()).font(.mono(10)).foregroundStyle(Theme.dim).lineLimit(1)
-                            .frame(width: 110, alignment: .leading)
+                            .frame(width: 110.pt, alignment: .leading)
                     }
                     Text(h.exchange).font(.mono(10)).foregroundStyle(Theme.dim).lineLimit(1)
                         .frame(width: exchangeWidth, alignment: .leading)
@@ -125,7 +125,7 @@ struct SecurityFinderView: View {
                 note = user.add(h.token) ?? "ADDED \(h.token) TO \(user.active.name.uppercased())"
             } label: {
                 Image(systemName: user.active.symbols.contains(h.instrument.symbol) ? "checkmark" : "plus")
-                    .font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.accent).frame(width: 28, height: 22)
+                    .font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.accent).frame(width: 28.pt, height: 22.pt)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Add \(h.token) to watchlist")

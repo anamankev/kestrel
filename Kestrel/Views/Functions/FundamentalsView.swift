@@ -86,10 +86,10 @@ struct FundamentalsView: View {
                 .padding(.horizontal, 8)
 
                 HStack(spacing: 0) {
-                    HeaderCell(text: "USD · FISCAL YEAR", width: 200, align: .leading)
+                    HeaderCell(text: "USD · FISCAL YEAR", width: 200.pt, align: .leading)
                     ForEach(years) { y in HeaderCell(text: "FY\(y.year % 100)") }
-                    HeaderCell(text: "YOY", width: 64)
-                    HeaderCell(text: "TREND", width: 70, align: .center)
+                    HeaderCell(text: "YOY", width: 64.pt)
+                    HeaderCell(text: "TREND", width: 70.pt, align: .center)
                 }
                 .padding(.horizontal, 8).padding(.vertical, 4).background(Theme.header)
 
@@ -110,17 +110,17 @@ struct FundamentalsView: View {
         return HStack(spacing: 0) {
             Text(line.label).font(.ui(11, line.bold ? .semibold : .regular))
                 .foregroundStyle(line.kind == .percent ? Theme.dim : Theme.text)
-                .frame(width: 200, alignment: .leading).lineLimit(1)
+                .frame(width: 200.pt, alignment: .leading).lineLimit(1)
             ForEach(Array(values.enumerated()), id: \.offset) { _, v in
                 Text(format(v, line.kind)).font(.mono(11, line.bold ? .semibold : .regular)).monospacedDigit()
                     .foregroundStyle((v ?? 0) < 0 ? theme.down : Theme.text)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
             Text(yoy.map { Fmt.pct($0 * 100) } ?? "").font(.mono(10)).foregroundStyle(theme.tint(yoy))
-                .frame(width: 64, alignment: .trailing)
-            TrendBars(values: values).frame(width: 70, height: 14)
+                .frame(width: 64.pt, alignment: .trailing)
+            TrendBars(values: values).frame(width: 70.pt, height: 14.pt)
         }
-        .padding(.horizontal, 8).frame(height: 24)
+        .padding(.horizontal, 8).frame(height: 24.pt)
     }
 
     private func format(_ v: Double?, _ kind: Kind) -> String {

@@ -70,7 +70,7 @@ struct TicketView: View {
                     ForEach(presets, id: \.self) { p in
                         Button { qtyText = "\(p)" } label: {
                             Text(Fmt.qty(p)).font(.mono(10, .bold)).foregroundStyle(Theme.label)
-                                .frame(maxWidth: .infinity).frame(height: 22)
+                                .frame(maxWidth: .infinity).frame(height: 22.pt)
                                 .background(Theme.header, in: .rect(cornerRadius: 2))
                         }.buttonStyle(.plain)
                     }
@@ -120,7 +120,7 @@ struct TicketView: View {
                              : "\(side.rawValue) \(qtyText.isEmpty ? "" : qtyText + " ")\(instrument.ticker) \(shortKind)")
                             .font(.mono(14, .heavy))
                             .foregroundStyle(Theme.canvas)   // dark text: white on green/red fails contrast
-                            .frame(maxWidth: .infinity).frame(height: 40)
+                            .frame(maxWidth: .infinity).frame(height: 40.pt)
                             .background(confirming ? Theme.warn : (side == .buy ? theme.up : theme.down), in: .rect(cornerRadius: 3))
                             .opacity(qty == nil ? 0.4 : 1)
                     }
@@ -129,7 +129,7 @@ struct TicketView: View {
                     if confirming {
                         Button { confirming = false } label: {
                             Text("CXL").font(.mono(12, .heavy)).foregroundStyle(Theme.canvas)
-                                .frame(width: 56, height: 40).background(Theme.cancel, in: .rect(cornerRadius: 3))
+                                .frame(width: 56.pt, height: 40.pt).background(Theme.cancel, in: .rect(cornerRadius: 3))
                         }
                         .buttonStyle(.plain)
                     }
@@ -218,7 +218,7 @@ struct TicketView: View {
                 Text(Fmt.price(price, instrument.assetClass)).font(.mono(17, .bold)).monospacedDigit()
             }
             .foregroundStyle(side == s ? Theme.canvas : color)
-            .frame(maxWidth: .infinity).frame(height: 54)
+            .frame(maxWidth: .infinity).frame(height: 54.pt)
             .background(side == s ? color : color.opacity(0.08), in: .rect(cornerRadius: 3))
             .overlay(RoundedRectangle(cornerRadius: 3).stroke(color.opacity(0.6)))
         }
@@ -230,7 +230,7 @@ struct TicketView: View {
             Text(label).font(.mono(9, .bold)).foregroundStyle(Theme.label)
             content()
                 .foregroundStyle(Theme.text)
-                .padding(.horizontal, 8).frame(height: 34)
+                .padding(.horizontal, 8).frame(height: 34.pt)
                 .background(Theme.canvas)
                 .overlay(Rectangle().stroke(Theme.rule))
         }
@@ -262,9 +262,9 @@ struct OrderRow: View {
     var body: some View {
         let o = order
         HStack(spacing: 8) {
-            Text("#\(o.id)").foregroundStyle(Theme.dim).frame(width: 36, alignment: .leading)
+            Text("#\(o.id)").foregroundStyle(Theme.dim).frame(width: 36.pt, alignment: .leading)
             Text(o.created.formatted(Fmt.clock)).foregroundStyle(Theme.dim)
-            Text(o.side.rawValue).foregroundStyle(o.side == .buy ? theme.up : theme.down).frame(width: 34, alignment: .leading)
+            Text(o.side.rawValue).foregroundStyle(o.side == .buy ? theme.up : theme.down).frame(width: 34.pt, alignment: .leading)
             Text(Fmt.qty(o.quantity)).foregroundStyle(Theme.text)
             Text(Universe.instrument(symbol: o.symbol)?.ticker ?? o.symbol).foregroundStyle(Theme.text).bold()
             Text(typeLabel(o.type)).foregroundStyle(Theme.label)
@@ -274,12 +274,12 @@ struct OrderRow: View {
             if o.status == .working {
                 Button { broker.cancel(o.id) } label: {
                     Text("CXL").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas)
-                        .padding(.horizontal, 6).frame(height: 18).background(Theme.cancel, in: .rect(cornerRadius: 2))
+                        .padding(.horizontal, 6).frame(height: 18.pt).background(Theme.cancel, in: .rect(cornerRadius: 2))
                 }.buttonStyle(.plain)
             }
         }
         .font(.mono(11)).monospacedDigit().lineLimit(1)
-        .padding(.horizontal, 8).frame(height: 24)
+        .padding(.horizontal, 8).frame(height: 24.pt)
         .help(o.note ?? "")
     }
 
@@ -319,7 +319,7 @@ struct PortfolioView: View {
                 RiskPanel()
                 SectionBar(title: "POSITIONS", trailing: "\(a.openPositions.count) OPEN")
                 HStack {
-                    HeaderCell(text: "SECURITY", width: 180, align: .leading)
+                    HeaderCell(text: "SECURITY", width: 180.pt, align: .leading)
                     HeaderCell(text: "QTY"); HeaderCell(text: "AVG COST"); HeaderCell(text: "MARK")
                     HeaderCell(text: "MKT VALUE"); HeaderCell(text: "UNRL P&L"); HeaderCell(text: "%")
                 }
@@ -336,14 +336,14 @@ struct PortfolioView: View {
                     HStack {
                         Text(inst.map { $0.assetClass == .option ? $0.name : $0.ticker } ?? p.symbol)
                             .font(.mono(12, .bold)).foregroundStyle(Theme.text).lineLimit(1).minimumScaleFactor(0.7)
-                            .frame(width: 180, alignment: .leading)
+                            .frame(width: 180.pt, alignment: .leading)
                         cell(Fmt.qty(p.quantity)); cell(Fmt.price(p.averageCost.double)); cell(Fmt.price(mark.double))
                         cell(Fmt.money(p.quantity * mark))
                         Text(signedMoney(u)).foregroundStyle(theme.tint(u.double)).frame(maxWidth: .infinity, alignment: .trailing)
                         ChangeText(value: pct, percent: true, size: 11).frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     .font(.mono(11)).monospacedDigit()
-                    .padding(.horizontal, 8).frame(height: 26).rowBackground(n)
+                    .padding(.horizontal, 8).frame(height: 26.pt).rowBackground(n)
                     .contentShape(.rect)
                     .onTapGesture { if let inst { ws.link(inst, from: panelID) } }
                 }
@@ -397,7 +397,7 @@ struct BlotterView: View {
                     ForEach(Array(a.fills.reversed().enumerated()), id: \.element.id) { n, f in
                         HStack(spacing: 8) {
                             Text(f.time.formatted(Fmt.clock)).foregroundStyle(Theme.dim)
-                            Text(f.side.rawValue).foregroundStyle(f.side == .buy ? theme.up : theme.down).frame(width: 34, alignment: .leading)
+                            Text(f.side.rawValue).foregroundStyle(f.side == .buy ? theme.up : theme.down).frame(width: 34.pt, alignment: .leading)
                             Text("\(Fmt.qty(f.quantity)) \(Universe.instrument(symbol: f.symbol)?.ticker ?? f.symbol)").foregroundStyle(Theme.text)
                             Text("@ \(Fmt.price(f.price.double))").foregroundStyle(Theme.text)
                             Spacer()
@@ -407,7 +407,7 @@ struct BlotterView: View {
                             }
                         }
                         .font(.mono(11)).monospacedDigit().lineLimit(1)
-                        .padding(.horizontal, 8).frame(height: 24).rowBackground(n)
+                        .padding(.horizontal, 8).frame(height: 24.pt).rowBackground(n)
                     }
                 } header: { SectionBar(title: "EXECUTIONS", trailing: "\(a.fills.count)") }
             }

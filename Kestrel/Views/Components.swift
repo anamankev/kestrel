@@ -123,7 +123,7 @@ struct EmptyNote: View {
             Image(systemName: icon).font(.system(size: 22)).foregroundStyle(Theme.accentDim)
             Text(title).font(.mono(12, .semibold)).foregroundStyle(Theme.dim)
             if let detail {
-                Text(detail).font(.ui(11)).foregroundStyle(Theme.faint).multilineTextAlignment(.center).frame(maxWidth: 320)
+                Text(detail).font(.ui(11)).foregroundStyle(Theme.faint).multilineTextAlignment(.center).frame(maxWidth: 320.pt)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -142,7 +142,7 @@ struct Hotspot: View {
                 Text("\(number)")
                     .font(.mono(10, .bold))
                     .foregroundStyle(Theme.canvas)
-                    .frame(width: 16, height: 16)
+                    .frame(width: 16.pt, height: 16.pt)
                     .background(Theme.accent, in: .rect(cornerRadius: 2))
                 Text(title).font(.mono(11, .medium)).foregroundStyle(Theme.text)
             }
@@ -163,16 +163,16 @@ struct RangeBar: View {
     var body: some View {
         GeometryReader { g in
             ZStack(alignment: .leading) {
-                Capsule().fill(Theme.rule).frame(height: 4)
+                Capsule().fill(Theme.rule).frame(height: 4.pt)
                 if let lo = low, let hi = high, let v = value, hi > lo {
                     let x = g.size.width * CGFloat(min(max((v - lo) / (hi - lo), 0), 1))
-                    Capsule().fill(Theme.accentDim).frame(width: x, height: 4)
-                    Rectangle().fill(Theme.accent).frame(width: 2, height: 12).offset(x: x - 1)
+                    Capsule().fill(Theme.accentDim).frame(width: x, height: 4.pt)
+                    Rectangle().fill(Theme.accent).frame(width: 2.pt, height: 12.pt).offset(x: x - 1)
                 }
             }
             .frame(maxHeight: .infinity)
         }
-        .frame(height: 12)
+        .frame(height: 12.pt)
     }
 }
 
