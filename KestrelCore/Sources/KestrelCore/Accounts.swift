@@ -1,6 +1,36 @@
 import Foundation
 import CommonCrypto
 import CryptoKit
+import CArgon2
+
+/// How a password becomes a key. New accounts and files use Argon2id, which is memory-hard: each guess needs
+/// 64 MiB, so GPUs can't run thousands of guesses in parallel. PBKDF2 remains only to open older accounts
+/// and transfer files; accounts upgrade at their next sign-in.
+public enum KDF: Codable, Sendable, Equatable {
+    case pbkdf2(iterations: Int)
+    /// RFC 9106's second recommended option (64 MiB, 3 passes), with one lane so no threads are needed.
+    case argon2id(memoryKiB: Int, passes: Int, lanes: Int)
+
+    public static let standard = KDF.argon2id(memoryKiB: 65_536, passes: 3, lanes: 1)
+    /// Cheap settings for tests only.
+    public static let testing = KDF.argon2id(memoryKiB: 64, passes: 1, lanes: 1)
+
+    /// Bounds for parameters read from a file, so a crafted one can't demand unbounded memory or time.
+    public var isWithinImportLimits: Bool {
+        switch self {
+        case .pbkdf2(let n): (1_000...5_000_000).contains(n)
+        case .argon2id(let m, let t, let p): (1...4).contains(p) && (8 * p...262_144).contains(m) && (1...10).contains(t)
+        }
+    }
+
+    /// A 32-byte key from `password` and `salt`.
+    public func derive(_ password: String, salt: Data) -> Data {
+        switch self {
+        case .pbkdf2(let n): return Credentials.derive(password, salt: salt, iterations: n)
+        case .argon2id(let m, let t, let p): return Credentials.argon2id(password, salt: salt, memoryKiB: m, passes: t, lanes: p)
+        }
+    }
+}
 
 /// On-device accounts: each person on a shared iPad or Mac gets their own paper account,
 /// watchlists and alerts. Passwords are never stored; only a salted PBKDF2-SHA256 hash is.
@@ -10,7 +40,12 @@ public struct AccountRecord: Codable, Sendable, Equatable, Identifiable {
     public private(set) var displayName: String
     var salt: Data
     var hash: Data
+    /// PBKDF2 rounds for accounts created before Argon2id (0 once upgraded).
     var iterations: Int
+    /// nil for accounts created before Argon2id, which use PBKDF2 with `iterations`.
+    var kdf: KDF?
+    /// The KDF behind both `hash` and the key that wraps the data key.
+    public var passwordKDF: KDF { kdf ?? .pbkdf2(iterations: iterations) }
     public let created: Date
     public internal(set) var failedAttempts = 0
     public internal(set) var lockedUntil: Date?
@@ -97,6 +132,19 @@ public enum Credentials {
         return Data(out)
     }
 
+    /// Argon2id (RFC 9106) through the vendored reference implementation; 32-byte output.
+    public static func argon2id(_ password: String, salt: Data, memoryKiB: Int, passes: Int, lanes: Int) -> Data {
+        let pw = Array(password.utf8)
+        var out = [UInt8](repeating: 0, count: 32)
+        let rc = salt.withUnsafeBytes { s in
+            pw.withUnsafeBytes { p in
+                argon2id_hash_raw(UInt32(passes), UInt32(memoryKiB), UInt32(lanes), p.baseAddress, pw.count, s.baseAddress, salt.count, &out, out.count)
+            }
+        }
+        precondition(rc == ARGON2_OK.rawValue, "argon2id failed: \(rc)")
+        return Data(out)
+    }
+
     /// Compares every byte so timing doesn't reveal how much of a hash matched.
     public static func constantTimeEqual(_ a: Data, _ b: Data) -> Bool {
         guard a.count == b.count else { return false }
@@ -116,7 +164,7 @@ public struct AccountDirectory: Codable, Sendable, Equatable {
 
     @discardableResult
     public mutating func register(name: String, email: String, password: String, confirm: String,
-                                  iterations: Int = Credentials.iterations, now: Date = .now) throws(AuthError) -> AccountRecord {
+                                  kdf: KDF = .standard, now: Date = .now) throws(AuthError) -> AccountRecord {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, name.count <= 60 else { throw .nameRequired }
         guard Credentials.isValidEmail(email) else { throw .invalidEmail }
@@ -125,9 +173,11 @@ public struct AccountDirectory: Codable, Sendable, Equatable {
         if let why = Credentials.passwordProblem(password, email: e) { throw .weakPassword(why) }
         guard password == confirm else { throw .passwordsDiffer }
         let salt = Credentials.salt()
+        var iterations = 0
+        if case .pbkdf2(let n) = kdf { iterations = n }
         let r = AccountRecord(id: UUID(), email: e, displayName: name, salt: salt,
-                              hash: Credentials.derive(password, salt: salt, iterations: iterations),
-                              iterations: iterations, created: now)
+                              hash: kdf.derive(password, salt: salt),
+                              iterations: iterations, kdf: iterations > 0 ? nil : kdf, created: now)
         accounts.append(r)
         return r
     }
@@ -137,12 +187,12 @@ public struct AccountDirectory: Codable, Sendable, Equatable {
     public mutating func signIn(email: String, password: String, now: Date = .now) throws(AuthError) -> AccountRecord {
         let e = Credentials.normalize(email)
         guard let i = accounts.firstIndex(where: { $0.email == e }) else {
-            _ = Credentials.derive(password, salt: Data(count: 16), iterations: accounts.first?.iterations ?? Credentials.iterations)
+            _ = (accounts.first?.passwordKDF ?? .standard).derive(password, salt: Data(count: 16))
             throw .invalidCredentials
         }
         if let until = accounts[i].lockedUntil, until > now { throw .locked(until: until) }
         let r = accounts[i]
-        guard Credentials.constantTimeEqual(Credentials.derive(password, salt: r.salt, iterations: r.iterations), r.hash) else {
+        guard Credentials.constantTimeEqual(r.passwordKDF.derive(password, salt: r.salt), r.hash) else {
             accounts[i].failedAttempts += 1
             let over = accounts[i].failedAttempts - Self.maxAttempts
             if over >= 0 {
@@ -162,18 +212,32 @@ public struct AccountDirectory: Codable, Sendable, Equatable {
     // MARK: Data key
 
     /// The account's data key for `password` (already verified by `signIn` or `register`).
-    /// Creates and wraps one the first time, which also migrates pre-encryption accounts.
-    public mutating func unlockDataKey(id: UUID, password: String) throws(AuthError) -> Data {
+    /// Creates and wraps one the first time, which also migrates pre-encryption accounts. A PBKDF2 account is
+    /// upgraded here to `upgradeTo` (Argon2id): new salts, and the login hash and wrapped key re-derived.
+    public mutating func unlockDataKey(id: UUID, password: String, upgradeTo target: KDF = .standard) throws(AuthError) -> Data {
         guard let i = accounts.firstIndex(where: { $0.id == id }) else { throw .invalidCredentials }
         let r = accounts[i]
+        var upgrade = false
+        if case .pbkdf2 = r.passwordKDF, case .argon2id = target { upgrade = true }
+        let kdf = upgrade ? target : r.passwordKDF
+        let key: Data
         if let wrapped = r.wrappedKey, let salt = r.keySalt {
-            let kek = Vault.passwordKey(password, salt: salt, iterations: r.iterations)
-            do { return try Vault.open(wrapped, key: kek) } catch { throw .invalidCredentials }
+            do { key = try Vault.open(wrapped, key: r.passwordKDF.derive(password, salt: salt)) } catch { throw .invalidCredentials }
+            if !upgrade { return key }
+        } else {
+            key = Vault.newKey()
         }
-        let salt = Credentials.salt(), key = Vault.newKey()
-        let kek = Vault.passwordKey(password, salt: salt, iterations: r.iterations)
-        guard let wrapped = try? Vault.seal(key, key: kek) else { throw .invalidCredentials }
-        accounts[i].keySalt = salt
+        // (Re)wrap under `kdf`. Unwrapping above (or signIn/register) proved the password, so re-hashing is safe.
+        let keySalt = Credentials.salt()
+        guard let wrapped = try? Vault.seal(key, key: kdf.derive(password, salt: keySalt)) else { throw .invalidCredentials }
+        if upgrade {
+            let loginSalt = Credentials.salt()
+            accounts[i].salt = loginSalt
+            accounts[i].hash = kdf.derive(password, salt: loginSalt)
+            accounts[i].iterations = 0
+            accounts[i].kdf = kdf
+        }
+        accounts[i].keySalt = keySalt
         accounts[i].wrappedKey = wrapped
         return key
     }

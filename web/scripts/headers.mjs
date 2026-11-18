@@ -18,7 +18,8 @@ const connect = [
   "https://api.worldbank.org", "https://markets.newyorkfed.org", "https://www.deribit.com", // direct public APIs
 ];
 const csp = [
-  "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data:", "font-src 'self'",
+  // 'wasm-unsafe-eval' allows WebAssembly only (Argon2id password hashing); eval() stays blocked.
+  "default-src 'self'", "script-src 'self' 'wasm-unsafe-eval'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data:", "font-src 'self'",
   `connect-src ${connect.join(" ")}`, "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
   // Upgrading would break a local http relay; production relays are https anyway.
   ...(relayOrigin.startsWith("https://") ? ["upgrade-insecure-requests"] : []),

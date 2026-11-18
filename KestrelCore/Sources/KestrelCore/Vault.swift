@@ -26,8 +26,10 @@ public enum Vault {
         } catch { throw .wrongKey }
     }
 
-    /// Key-encryption key from the password (PBKDF2, separate salt from the login hash).
+    /// Key-encryption key from the password (separate salt from the login hash).
     public static func passwordKey(_ password: String, salt: Data, iterations: Int) -> Data {
         Credentials.derive(password, salt: salt, iterations: iterations)
     }
+
+    public static func passwordKey(_ password: String, salt: Data, kdf: KDF) -> Data { kdf.derive(password, salt: salt) }
 }

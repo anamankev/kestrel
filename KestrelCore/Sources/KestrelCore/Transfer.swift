@@ -2,7 +2,7 @@ import Foundation
 
 /// Moving an account between iPad and Mac without a server: watchlists, alerts and the paper
 /// book in one file, sealed with AES-256-GCM under a key derived from a passphrase the user
-/// chooses (PBKDF2, random salt). The file is treated as untrusted input on import.
+/// chooses (Argon2id, random salt; older files used PBKDF2). The file is treated as untrusted input on import.
 public struct TransferBundle: Codable, Sendable, Equatable {
     public static let format = 1
     public var format = TransferBundle.format
@@ -30,28 +30,43 @@ public struct TransferBundle: Codable, Sendable, Equatable {
     }
 
     static let magic = Data("KXF1".utf8)
+    static let magic2 = Data("KXF2".utf8)
     public static let iterations = 600_000
     public static let maxFileSize = 8 * 1024 * 1024
 
-    /// Layout: "KXF1" · salt (16) · iterations (UInt32, big-endian) · Vault-sealed JSON.
-    public func seal(passphrase: String, iterations: Int = TransferBundle.iterations) throws(Failure) -> Data {
+    /// Layouts (integers big-endian):
+    /// - "KXF2" · salt (16) · Argon2id memory KiB, passes, lanes (UInt32 each) · Vault-sealed JSON. Written by default.
+    /// - "KXF1" · salt (16) · PBKDF2 iterations (UInt32) · Vault-sealed JSON. Older files; still opened.
+    public func seal(passphrase: String, kdf: KDF = .standard) throws(Failure) -> Data {
         guard passphrase.count >= 10 else { throw .weakPassphrase }
         let salt = Credentials.salt()
-        let key = Vault.passwordKey(passphrase, salt: salt, iterations: iterations)
+        let key = kdf.derive(passphrase, salt: salt)
         guard let json = try? JSONEncoder().encode(self), let sealed = try? Vault.seal(json, key: key) else { throw .invalidContents("encode") }
-        var n = UInt32(iterations).bigEndian
-        return Self.magic + salt + Data(bytes: &n, count: 4) + sealed
+        func be(_ v: Int) -> Data { var n = UInt32(v).bigEndian; return Data(bytes: &n, count: 4) }
+        switch kdf {
+        case .pbkdf2(let n): return Self.magic + salt + be(n) + sealed
+        case .argon2id(let m, let t, let p): return Self.magic2 + salt + be(m) + be(t) + be(p) + sealed
+        }
     }
 
+    /// The older PBKDF2 format (tests and compatibility checks).
+    public func seal(passphrase: String, iterations: Int) throws(Failure) -> Data { try seal(passphrase: passphrase, kdf: .pbkdf2(iterations: iterations)) }
+
     public static func open(_ data: Data, passphrase: String) throws(Failure) -> TransferBundle {
-        guard data.count <= maxFileSize, data.count > 24, data.starts(with: magic) else { throw .notATransferFile }
-        let salt = data.subdata(in: 4..<20)
-        let iterations = Int(data.subdata(in: 20..<24).reduce(0) { $0 << 8 | UInt32($1) })
+        guard data.count <= maxFileSize, data.count > 24 else { throw .notATransferFile }
+        let bytes = [UInt8](data)
+        func u32(_ at: Int) -> Int { Int(bytes[at..<at + 4].reduce(UInt32(0)) { $0 << 8 | UInt32($1) }) }
+        let kdf: KDF, body: Int
+        if data.starts(with: magic2), data.count > 32 {
+            kdf = .argon2id(memoryKiB: u32(20), passes: u32(24), lanes: u32(28)); body = 32
+        } else if data.starts(with: magic) {
+            kdf = .pbkdf2(iterations: u32(20)); body = 24
+        } else { throw .notATransferFile }
         // Bound the work an attacker-supplied file can demand.
-        guard (1_000...5_000_000).contains(iterations) else { throw .notATransferFile }
-        let key = Vault.passwordKey(passphrase, salt: salt, iterations: iterations)
+        guard kdf.isWithinImportLimits else { throw .notATransferFile }
+        let key = kdf.derive(passphrase, salt: data.subdata(in: 4..<20))
         let json: Data
-        do { json = try Vault.open(data.subdata(in: 24..<data.count), key: key) } catch { throw .wrongPassphrase }
+        do { json = try Vault.open(data.subdata(in: body..<data.count), key: key) } catch { throw .wrongPassphrase }
         guard let b = try? JSONDecoder().decode(TransferBundle.self, from: json) else { throw .invalidContents("unreadable") }
         guard b.format <= format else { throw .unsupportedVersion }
         try b.validate()

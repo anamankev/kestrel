@@ -1,18 +1,19 @@
 /**
  * Kestrel transfer files, byte-compatible with the iPad/Mac app's TransferBundle (KestrelCore/Transfer.swift):
- * "KXF1" · salt (16) · PBKDF2 iterations (UInt32 big-endian) · "KSV1" AES-256-GCM sealed JSON.
+ * "KXF2" · salt (16) · Argon2id memory KiB, passes, lanes (UInt32 big-endian each) · "KSV1" AES-256-GCM sealed JSON,
+ * written by default; older "KXF1" files (salt · PBKDF2 iterations · sealed JSON) still open.
  * The JSON uses Swift's Codable shapes: dates are seconds since 2001-01-01, enums with values are {"case":{"_0":v}},
  * ids are UUIDs. Imports are untrusted input and get the same limits as typed input.
  */
-import { importDataKey, open, pbkdf2, randomBytes, seal, type Bytes } from "./auth";
+import { importDataKey, open, randomBytes, seal, type Bytes } from "./auth";
+import { derive, STANDARD, withinImportLimits, type KDF } from "./kdf";
 import { PaperAccount, type Order, type OrderType } from "./paper";
 import { AlertBook, type AlertCondition, type PriceAlert } from "./alerts";
 import { parseOption } from "./options";
 
 export const FORMAT = 1;
-export const ITERATIONS = 600_000;
 export const MAX_FILE = 8 * 1024 * 1024;
-const MAGIC = new TextEncoder().encode("KXF1");
+const MAGIC = new TextEncoder().encode("KXF1"), MAGIC2 = new TextEncoder().encode("KXF2");
 const REF = 978_307_200_000; // 2001-01-01T00:00:00Z in ms (Foundation's reference date)
 const toSwiftDate = (ms: number) => (ms - REF) / 1000;
 const fromSwiftDate = (s: unknown) => (Number.isFinite(s) ? (s as number) * 1000 + REF : 0);
@@ -103,24 +104,32 @@ export function fromSwiftJSON(j: any): Bundle {
 
 // MARK: Sealing
 
-export async function sealBundle(b: Bundle, passphrase: string, iterations = ITERATIONS): Promise<Bytes> {
+export async function sealBundle(b: Bundle, passphrase: string, kdf: KDF = STANDARD): Promise<Bytes> {
   if ([...passphrase].length < 10) fail("Use a passphrase of at least 10 characters");
   const salt = randomBytes(16);
-  const key = await importDataKey(await pbkdf2(passphrase, salt, iterations));
+  const key = await importDataKey(await derive(kdf, passphrase, salt) as Bytes);
   const sealed = await seal(new TextEncoder().encode(JSON.stringify(toSwiftJSON(b))) as Bytes, key);
-  const out = new Uint8Array(4 + 16 + 4 + sealed.length);
-  out.set(MAGIC); out.set(salt, 4); new DataView(out.buffer).setUint32(20, iterations, false); out.set(sealed, 24);
+  const head = kdf.kind === "argon2id" ? 32 : 24;
+  const out = new Uint8Array(head + sealed.length), v = new DataView(out.buffer);
+  out.set(kdf.kind === "argon2id" ? MAGIC2 : MAGIC); out.set(salt, 4);
+  if (kdf.kind === "argon2id") { v.setUint32(20, kdf.memoryKiB); v.setUint32(24, kdf.passes); v.setUint32(28, kdf.lanes); } else v.setUint32(20, kdf.iterations);
+  out.set(sealed, head);
   return out;
 }
 
 export async function openBundle(data: Bytes, passphrase: string): Promise<Bundle> {
-  if (data.length > MAX_FILE || data.length <= 24 || !MAGIC.every((b, i) => data[i] === b)) fail("That isn't a Kestrel transfer file");
-  const iterations = new DataView(data.buffer, data.byteOffset).getUint32(20, false);
+  const is = (m: Uint8Array) => m.every((b, i) => data[i] === b);
+  if (data.length > MAX_FILE || data.length <= 24) fail("That isn't a Kestrel transfer file");
+  const v = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  let kdf: KDF, body: number;
+  if (is(MAGIC2) && data.length > 32) { kdf = { kind: "argon2id", memoryKiB: v.getUint32(20), passes: v.getUint32(24), lanes: v.getUint32(28) }; body = 32; }
+  else if (is(MAGIC)) { kdf = { kind: "pbkdf2", iterations: v.getUint32(20) }; body = 24; }
+  else return fail("That isn't a Kestrel transfer file");
   // Bound the work an attacker-supplied file can demand.
-  if (iterations < 1_000 || iterations > 5_000_000) fail("That isn't a Kestrel transfer file");
-  const key = await importDataKey(await pbkdf2(passphrase, data.slice(4, 20), iterations));
+  if (!withinImportLimits(kdf)) fail("That isn't a Kestrel transfer file");
+  const key = await importDataKey(await derive(kdf, passphrase, data.slice(4, 20)) as Bytes);
   let json: Bytes;
-  try { json = await open(data.slice(24), key); } catch { return fail("Wrong passphrase, or the file was changed"); }
+  try { json = await open(data.slice(body), key); } catch { return fail("Wrong passphrase, or the file was changed"); }
   let parsed: unknown;
   try { parsed = JSON.parse(new TextDecoder().decode(json)); } catch { return fail("The file's contents were rejected: unreadable"); }
   return fromSwiftJSON(parsed);

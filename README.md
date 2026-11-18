@@ -19,7 +19,7 @@ locally with `Config/Kestrel.storekit` (selected in the scheme). Selling require
 membership and the three products in App Store Connect: `dev.kestrel.pro.monthly`, `dev.kestrel.pro.halfyear`,
 `dev.kestrel.pro.annual`. [Privacy policy](docs/PRIVACY.md).
 
-Sign in or create an account on the first screen. Accounts stay on the device (salted PBKDF2), and each one has its own paper book, watchlists and alerts, encrypted with AES-256-GCM under a key only the password unlocks.
+Sign in or create an account on the first screen. Accounts stay on the device (salted Argon2id), and each one has its own paper book, watchlists and alerts, encrypted with AES-256-GCM under a key only the password unlocks.
 
 ![Sign in](docs/screenshots/sign-in.png)
 

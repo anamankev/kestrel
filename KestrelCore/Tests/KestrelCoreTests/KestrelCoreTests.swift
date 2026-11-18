@@ -662,7 +662,7 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
     let pw = "correct horse battery"
     func dir() throws -> (AccountDirectory, AccountRecord) {
         var d = AccountDirectory()
-        let r = try d.register(name: "Ada Lovelace", email: " Ada@Example.com ", password: pw, confirm: pw, iterations: 1_000, now: t0)
+        let r = try d.register(name: "Ada Lovelace", email: " Ada@Example.com ", password: pw, confirm: pw, kdf: .testing, now: t0)
         return (d, r)
     }
 
@@ -697,10 +697,10 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
 
     @Test func rejectsBadSignUps() throws {
         var (d, _) = try dir()
-        #expect(throws: AuthError.emailTaken) { try d.register(name: "A", email: "ada@example.com", password: pw, confirm: pw, iterations: 1_000) }
-        #expect(throws: AuthError.invalidEmail) { try d.register(name: "A", email: "ada@", password: pw, confirm: pw, iterations: 1_000) }
-        #expect(throws: AuthError.nameRequired) { try d.register(name: "  ", email: "b@example.com", password: pw, confirm: pw, iterations: 1_000) }
-        #expect(throws: AuthError.passwordsDiffer) { try d.register(name: "B", email: "b@example.com", password: pw, confirm: pw + "!", iterations: 1_000) }
+        #expect(throws: AuthError.emailTaken) { try d.register(name: "A", email: "ada@example.com", password: pw, confirm: pw, kdf: .testing) }
+        #expect(throws: AuthError.invalidEmail) { try d.register(name: "A", email: "ada@", password: pw, confirm: pw, kdf: .testing) }
+        #expect(throws: AuthError.nameRequired) { try d.register(name: "  ", email: "b@example.com", password: pw, confirm: pw, kdf: .testing) }
+        #expect(throws: AuthError.passwordsDiffer) { try d.register(name: "B", email: "b@example.com", password: pw, confirm: pw + "!", kdf: .testing) }
         #expect(Credentials.passwordProblem("short", email: "b@example.com") != nil)
         #expect(Credentials.passwordProblem("aaaaaaaaaaaa", email: "b@example.com") != nil)
         #expect(Credentials.passwordProblem("mypassword99", email: "b@example.com") != nil)
@@ -832,7 +832,7 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
     let t0 = Date(timeIntervalSince1970: 1_800_000_000)
     func setup() throws -> (AccountDirectory, AccountRecord, Data) {
         var d = AccountDirectory()
-        let r = try d.register(name: "Ada", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine", iterations: 1_000, now: t0)
+        let r = try d.register(name: "Ada", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine", kdf: .testing, now: t0)
         let token = AccountDirectory.newSessionToken()
         d.beginSession(id: r.id, token: token, now: t0)
         return (d, r, token)
@@ -923,7 +923,7 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
 
     @Test func dataKeyIsStableAndPasswordBound() throws {
         var d = AccountDirectory()
-        let r = try d.register(name: "Ada", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine", iterations: 1_000)
+        let r = try d.register(name: "Ada", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine", kdf: .testing)
         #expect(d.account(id: r.id)?.hasDataKey == false)
         let k1 = try d.unlockDataKey(id: r.id, password: "analytical engine")      // created
         let k2 = try d.unlockDataKey(id: r.id, password: "analytical engine")      // unwrapped
@@ -958,6 +958,50 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
     }
 }
 
+@Suite struct Argon2Tests {
+    func hex(_ d: Data) -> String { d.map { String(format: "%02x", $0) }.joined() }
+
+    /// Argon2id vectors from the reference implementation's test suite (src/test.c, version 0x13).
+    @Test func matchesReferenceVectors() {
+        let salt = Data("somesalt".utf8)
+        #expect(hex(Credentials.argon2id("password", salt: salt, memoryKiB: 1 << 16, passes: 2, lanes: 1)) == "09316115d5cf24ed5a15a31a3ba326e5cf32edc24702987c02b6566f61913cf7")
+        #expect(hex(Credentials.argon2id("password", salt: salt, memoryKiB: 1 << 8, passes: 2, lanes: 1)) == "9dfeb910e80bad0311fee20f9c0e2b12c17987b4cac90c2ef54d5b3021c68bfe")
+        #expect(hex(Credentials.argon2id("password", salt: salt, memoryKiB: 1 << 8, passes: 2, lanes: 2)) == "6d093c501fd5999645e0ea3bf620d7b8be7fd2db59c20d9fff9539da2bf57037")
+        #expect(hex(Credentials.argon2id("password", salt: salt, memoryKiB: 1 << 16, passes: 1, lanes: 1)) == "f6a5adc1ba723dddef9b5ac1d464e180fcd9dffc9d1cbf76cca2fed795d9ca98")
+        #expect(hex(Credentials.argon2id("differentpassword", salt: salt, memoryKiB: 1 << 16, passes: 2, lanes: 1)) == "0b84d652cf6b0c4beaef0dfe278ba6a80df6696281d7e0d2891b817d8c458fde")
+        #expect(hex(Credentials.argon2id("password", salt: Data("diffsalt".utf8), memoryKiB: 1 << 16, passes: 2, lanes: 1)) == "bdf32b05ccc42eb15d58fd19b1f856b113da1e9a5874fdcc544308565aa8141c")
+    }
+
+    @Test func newAccountsUseArgon2id() throws {
+        var d = AccountDirectory()
+        let r = try d.register(name: "Ada", email: "ada@example.com", password: "analytical engine", confirm: "analytical engine")
+        #expect(r.passwordKDF == .standard && KDF.standard == .argon2id(memoryKiB: 65_536, passes: 3, lanes: 1))
+    }
+
+    /// Accounts created before Argon2id open with PBKDF2 once, then are re-keyed; data and password survive.
+    @Test func upgradesLegacyAccountsAtSignIn() throws {
+        var d = AccountDirectory()
+        let pw = "analytical engine"
+        let r = try d.register(name: "Ada", email: "ada@example.com", password: pw, confirm: pw, kdf: .pbkdf2(iterations: 1_000))
+        let k0 = try d.unlockDataKey(id: r.id, password: pw, upgradeTo: .pbkdf2(iterations: 1_000))     // a pre-Argon2 account
+        let legacy = d.account(id: r.id)!
+        #expect(legacy.passwordKDF == .pbkdf2(iterations: 1_000) && legacy.kdf == nil)
+        // A record saved by an older build (no "kdf" field) still decodes.
+        let old = try JSONDecoder().decode(AccountDirectory.self, from: try JSONEncoder().encode(d))
+        #expect(old.account(id: r.id)?.passwordKDF == .pbkdf2(iterations: 1_000))
+
+        _ = try d.signIn(email: "ada@example.com", password: pw)
+        let k1 = try d.unlockDataKey(id: r.id, password: pw, upgradeTo: .testing)
+        let up = d.account(id: r.id)!
+        #expect(k1 == k0)                                                       // same data key: files still open
+        #expect(up.passwordKDF == .testing && up.iterations == 0 && up.salt != legacy.salt && up.keySalt != legacy.keySalt)
+        #expect(try d.signIn(email: "ada@example.com", password: pw).id == r.id)
+        #expect(throws: AuthError.invalidCredentials) { try d.signIn(email: "ada@example.com", password: pw + "x") }
+        #expect(try d.unlockDataKey(id: r.id, password: pw, upgradeTo: .testing) == k0)
+        #expect(throws: AuthError.invalidCredentials) { try d.unlockDataKey(id: r.id, password: "wrong password!") }
+    }
+}
+
 @Suite struct TransferTests {
     func bundle() -> TransferBundle {
         var book = AlertBook()
@@ -981,6 +1025,24 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(throws: TransferBundle.Failure.weakPassphrase) { try self.bundle().seal(passphrase: "short") }
     }
 
+    @Test func writesArgon2idFilesAndStillOpensPBKDF2Ones() throws {
+        let file = try bundle().seal(passphrase: "move my desk please", kdf: .testing)
+        #expect(file.prefix(4) == Data("KXF2".utf8))
+        #expect(try TransferBundle.open(file, passphrase: "move my desk please").account.cash == 12_345)
+        #expect(throws: TransferBundle.Failure.wrongPassphrase) { try TransferBundle.open(file, passphrase: "not the passphrase") }
+        let old = try bundle().seal(passphrase: "move my desk please", iterations: 1_000)
+        #expect(old.prefix(4) == Data("KXF1".utf8))
+        #expect(try TransferBundle.open(old, passphrase: "move my desk please").alerts.active.count == 1)
+    }
+
+    @Test func rejectsHostileArgon2Settings() throws {
+        var file = try bundle().seal(passphrase: "move my desk please", kdf: .testing)
+        file.replaceSubrange(20..<24, with: [0x7F, 0xFF, 0xFF, 0xFF])               // 2 TiB of memory
+        #expect(throws: TransferBundle.Failure.notATransferFile) { try TransferBundle.open(file, passphrase: "move my desk please") }
+        file.replaceSubrange(20..<24, with: [0, 0, 0, 64]); file.replaceSubrange(24..<28, with: [0, 0, 1, 0])   // 256 passes
+        #expect(throws: TransferBundle.Failure.notATransferFile) { try TransferBundle.open(file, passphrase: "move my desk please") }
+    }
+
     @Test func rejectsHostileIterationCounts() throws {
         var file = try bundle().seal(passphrase: "move my desk please", iterations: 1_000)
         file.replaceSubrange(20..<24, with: [0xFF, 0xFF, 0xFF, 0xFF])               // 4 billion rounds: a DoS
@@ -1001,6 +1063,18 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         // The reverse direction: write an app-made file for the web test suite to open.
         if let out = ProcessInfo.processInfo.environment["KESTREL_FIXTURE_OUT"] {
             try bundle().seal(passphrase: "move my desk please", iterations: 1_000).base64EncodedString().write(toFile: out, atomically: true, encoding: .utf8)
+        }
+    }
+
+    /// The same for the Argon2id format (KXF2) the web app now writes.
+    @Test func opensArgon2FilesExportedByTheWebApp() throws {
+        let web = Data(base64Encoded: "S1hGMpkPtGKIX4JrFdqjPeVjOFcAAABAAAAAAQAAAAFLU1YxmheTVpROf3TgY6yePtFESxd7mcjDfa5RJZxf/uqbJQfaMDydqU0FR+wHYtNxC89ZV4JG7WtDPVKCBIL4lQv3PUT2QS4PezUcueY0P1F6uW4a2WJUWCC0PgaMPjhrs4TTdf0gEu8rC/7gcjRUfarJlhtGl6Ao4IRVCC2Y+bOc7nln6M1/eHUQEM+JCuxN/OqLe1fbd1qie43OUp8TP0YyX4N6GpaJKxeknHV+hV+F44FSNVzPF/31Ly3FW0ood3LqqRTgNUJiYQwE8O+F8nt/PMJi002ypn1ENGIrQA9HLYN8P25BOUbZ/jOO7KGsSqlsZwTc7Lqg4bDj7EDnKgYuN6tINviQWwQaCq+SlV9wS5Qe01a1UMQzKBYW7AE0d46zAhjSu4HO2bXfp6Qdw7U/7r4YbmaFLIoQVad/PPmCou6q+4okJ8Z2mTVItTyTEbfbWTzh5bVLd1bQquOZvCMoIMtM7JmDpGpTy1bzMFhTESqMMYvL5lw+YcH+g4xJFMVzGHWTXIU+cW2bYAOdChj2F9a8hDwsU71USOveVZXy8ZvQtuJ7y89vjNC+T2+Cieb4SBMdyS1pGMSkUxjGsPgplNXwhfEoHdaTjqZmpuRzPmvtoawqxf6PlKE6W16ezroVTYnOwFqOgfXcF3IwFz4soiBUKiCMx8B7K6hn219JdBNuCFOXP4y8SnYLupiOAOiv5IogwWRIl8Fti2uL/9pcXxlPYYdg9NyrnvcUVCYovB0ToHBsimddww8OqYZp1fFB5xderqdMXPmrvZAaPGrh73Ahjsr/HMF6lvHL4K6XR1bD4dGOC05RNTco8et/mA6TwsriBHwbLXmMq6laZ09jnfrZ7NLZVCI18CV6rB0YbGYns0DhO802iday1/3s5iSKZcqOe7t/evY8Q6EnuM5fLSrh3ulIfAa/P6z1pCDjqPTiWNoRPI5+a9pBYDNPov4EBgglNjtu0bz6/0uL1JbuDTPvh5nqYwP42Y2DDnOAEX7Of7o5aKTttxIAxnFgAg==")!
+        #expect(web.prefix(4) == Data("KXF2".utf8))
+        let b = try TransferBundle.open(web, passphrase: "move my desk please")
+        #expect(b.account.positions["AAPL"]?.quantity == 7 && b.alerts.active.first?.condition == .movePercent(5))
+        #expect(b.watchlists.first?.symbols == ["AAPL", "BTC-USD"])
+        if let out = ProcessInfo.processInfo.environment["KESTREL_FIXTURE_OUT2"] {
+            try bundle().seal(passphrase: "move my desk please", kdf: .testing).base64EncodedString().write(toFile: out, atomically: true, encoding: .utf8)
         }
     }
 

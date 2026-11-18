@@ -1,13 +1,16 @@
 /**
- * Browser accounts, mirroring the app's Accounts.swift: PBKDF2-SHA256 (600k rounds) password
- * hashes, lockout after five failures, and a per-account AES-256-GCM data key wrapped with a
- * password-derived key. Passwords are never stored. Uses WebCrypto only.
+ * Browser accounts, mirroring the app's Accounts.swift: Argon2id password hashes (older accounts used
+ * PBKDF2 and upgrade at their next sign-in), lockout after five failures, and a per-account AES-256-GCM data
+ * key wrapped with a password-derived key. Passwords are never stored.
  */
+import { derive, parseKDF, STANDARD, type KDF } from "./kdf";
+
 const subtle = globalThis.crypto.subtle;
 /** Byte arrays over plain (not shared) memory, as WebCrypto requires. */
 export type Bytes = Uint8Array<ArrayBuffer>;
 const enc = new TextEncoder();
 
+/** PBKDF2 rounds used by accounts created before Argon2id. */
 export const ITERATIONS = 600_000;
 export const MIN_PASSWORD = 10, MAX_PASSWORD = 128, MAX_ATTEMPTS = 5;
 export const SESSION_LIFETIME = 30 * 86_400_000;
@@ -41,10 +44,7 @@ export function b64(u: Uint8Array): string {
 }
 export const unb64 = (s: string): Bytes => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-export async function pbkdf2(password: string, salt: Bytes, iterations: number): Promise<Bytes> {
-  const base = await subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
-  return new Uint8Array(await subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, base, 256));
-}
+export const pbkdf2 = (password: string, salt: Bytes, iterations: number): Promise<Bytes> => derive({ kind: "pbkdf2", iterations }, password, salt);
 
 /** Compares every byte so timing doesn't reveal how much of a hash matched. */
 export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -76,10 +76,17 @@ export async function open(box: Bytes, key: CryptoKey): Promise<Bytes> {
 
 export interface AccountRecord {
   id: string; email: string; displayName: string; created: number;
-  salt: string; hash: string; iterations: number;
+  salt: string; hash: string;
+  /** PBKDF2 rounds for accounts created before Argon2id (0 once upgraded). */
+  iterations: number;
+  /** Absent on accounts created before Argon2id, which use PBKDF2 with `iterations`. */
+  kdf?: KDF;
   failedAttempts: number; lockedUntil?: number;
   keySalt?: string; wrappedKey?: string;
 }
+
+/** The KDF behind an account's login hash and the key that wraps its data key. */
+export const passwordKDF = (r: AccountRecord): KDF => parseKDF(r.kdf) ?? { kind: "pbkdf2", iterations: r.iterations };
 
 export class AuthError extends Error {
   constructor(message: string, readonly lockedUntil?: number) { super(message); }
@@ -89,7 +96,8 @@ export const initials = (a: AccountRecord) => a.displayName.split(" ").slice(0, 
 
 export class AccountDirectory {
   accounts: AccountRecord[] = [];
-  constructor(accounts: AccountRecord[] = [], readonly iterations = ITERATIONS) { this.accounts = accounts; }
+  /** `kdf` is what new and upgraded accounts use (tests pass cheap settings). */
+  constructor(accounts: AccountRecord[] = [], readonly kdf: KDF = STANDARD) { this.accounts = accounts; }
 
   async register(name: string, email: string, password: string, confirm: string, now = Date.now()): Promise<AccountRecord> {
     const n = name.trim();
@@ -102,7 +110,8 @@ export class AccountDirectory {
     if (password !== confirm) throw new AuthError("Passwords don't match");
     const salt = randomBytes(16);
     const r: AccountRecord = { id: globalThis.crypto.randomUUID(), email: e, displayName: n, created: now, salt: b64(salt),
-      hash: b64(await pbkdf2(password, salt, this.iterations)), iterations: this.iterations, failedAttempts: 0 };
+      hash: b64(await derive(this.kdf, password, salt)), iterations: this.kdf.kind === "pbkdf2" ? this.kdf.iterations : 0,
+      ...(this.kdf.kind === "argon2id" ? { kdf: this.kdf } : {}), failedAttempts: 0 };
     this.accounts.push(r);
     return r;
   }
@@ -110,9 +119,9 @@ export class AccountDirectory {
   /** After five failures the account locks for 30 s, doubling per failure up to an hour. Unknown emails cost the same work. */
   async signIn(email: string, password: string, now = Date.now()): Promise<AccountRecord> {
     const r = this.accounts.find((a) => a.email === normalize(email));
-    if (!r) { await pbkdf2(password, new Uint8Array(16), this.accounts[0]?.iterations ?? this.iterations); throw new AuthError("Email or password is incorrect"); }
+    if (!r) { await derive(this.accounts[0] ? passwordKDF(this.accounts[0]) : this.kdf, password, new Uint8Array(16)); throw new AuthError("Email or password is incorrect"); }
     if (r.lockedUntil && r.lockedUntil > now) throw new AuthError(lockMessage(r.lockedUntil, now), r.lockedUntil);
-    if (!constantTimeEqual(await pbkdf2(password, unb64(r.salt), r.iterations), unb64(r.hash))) {
+    if (!constantTimeEqual(await derive(passwordKDF(r), password, unb64(r.salt)), unb64(r.hash))) {
       r.failedAttempts += 1;
       const over = r.failedAttempts - MAX_ATTEMPTS;
       if (over >= 0) { r.lockedUntil = now + Math.min(30_000 * 2 ** over, 3_600_000); throw new AuthError(lockMessage(r.lockedUntil, now), r.lockedUntil); }
@@ -122,17 +131,27 @@ export class AccountDirectory {
     return r;
   }
 
-  /** The account's data key (raw bytes) for a verified password; creates and wraps one the first time. */
+  /** The account's data key (raw bytes) for a verified password; creates and wraps one the first time.
+   *  A PBKDF2 account is upgraded here to Argon2id: new salts, and the login hash and wrapped key re-derived. */
   async unlockDataKey(id: string, password: string): Promise<Bytes> {
     const r = this.accounts.find((a) => a.id === id);
     if (!r) throw new AuthError("Email or password is incorrect");
+    const current = passwordKDF(r), upgrade = current.kind === "pbkdf2" && this.kdf.kind === "argon2id";
+    const kdf = upgrade ? this.kdf : current;
+    let key: Bytes;
     if (r.wrappedKey && r.keySalt) {
-      const kek = await importDataKey(await pbkdf2(password, unb64(r.keySalt), r.iterations));
-      try { return await open(unb64(r.wrappedKey), kek); } catch { throw new AuthError("Email or password is incorrect"); }
+      const kek = await importDataKey(await derive(current, password, unb64(r.keySalt)) as Bytes);
+      try { key = await open(unb64(r.wrappedKey), kek); } catch { throw new AuthError("Email or password is incorrect"); }
+      if (!upgrade) return key;
+    } else key = randomBytes(32);
+    // (Re)wrap under `kdf`. Unwrapping above (or signIn/register) proved the password, so re-hashing is safe.
+    const keySalt = randomBytes(16);
+    const wrapped = await seal(key, await importDataKey(await derive(kdf, password, keySalt) as Bytes));
+    if (upgrade) {
+      const loginSalt = randomBytes(16);
+      r.salt = b64(loginSalt); r.hash = b64(await derive(kdf, password, loginSalt)); r.iterations = 0; r.kdf = kdf;
     }
-    const salt = randomBytes(16), key = randomBytes(32);
-    const kek = await importDataKey(await pbkdf2(password, salt, r.iterations));
-    r.keySalt = b64(salt); r.wrappedKey = b64(await seal(key, kek));
+    r.keySalt = b64(keySalt); r.wrappedKey = b64(wrapped);
     return key;
   }
 

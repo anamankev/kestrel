@@ -15,7 +15,7 @@ npm run preview     # serve dist on :4173 with those headers
 npm run guide   # regenerate the guide's knowledge from KestrelCore/Guide.swift
 ```
 
-**Accounts and data.** Accounts live in the browser: passwords are hashed with PBKDF2 (600k rounds), and each
+**Accounts and data.** Accounts live in the browser: passwords are hashed with Argon2id (64 MiB, 3 passes; older PBKDF2 accounts upgrade at sign-in), and each
 account's watchlists, workspace, paper book and alerts are sealed with AES-256-GCM under a key the password unlocks.
 The session key is a non-extractable WebCrypto key in IndexedDB. There is no Kestrel server or account database.
 
