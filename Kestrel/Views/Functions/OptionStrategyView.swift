@@ -176,6 +176,7 @@ struct OptionStrategyView: View {
     private func step(_ icon: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) { Image(systemName: icon).font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.accent).frame(width: 18, height: 18) }
             .buttonStyle(.plain)
+            .accessibilityLabel(["minus": "Fewer contracts", "plus": "More contracts", "chevron.left": "Lower strike", "chevron.right": "Higher strike"][icon] ?? icon)
     }
 
     private func shift(_ n: Int, by d: Int, in rows: [StrikeRow]) {

@@ -46,7 +46,7 @@ export function Guide() {
             <span className="spacer" />
             <button onClick={reset} aria-label="Start over" title="Start over">↺</button>
           </header>
-          <div className="guide-list" ref={list}>
+          <div className="guide-list" ref={list} role="log" aria-live="polite" aria-label="Guide conversation">
             {messages.map((m) => (
               <div key={m.id} className={`gm ${m.role === "user" ? "me" : "bot"}`}>
                 <div className="bubble">{m.text}</div>

@@ -20,6 +20,33 @@ extension Color {
         didSet { UserDefaults.standard.set(colorBlindSafe, forKey: "cvd") }
     }
 
+    /// Text size chosen in PREF (0.9 to 1.5). Every `Font.mono`/`Font.ui` size is multiplied by it, and by the
+    /// system text size (Dynamic Type on iPad), capped at 1.5 in total so the dense terminal stays usable.
+    static let textScales: [Double] = [0.9, 1.0, 1.15, 1.3, 1.5]
+    var textScale: Double = Theme.storedTextScale() {
+        didSet { UserDefaults.standard.set(textScale, forKey: "textScale") }
+    }
+    private static func storedTextScale() -> Double {
+        let v = UserDefaults.standard.double(forKey: "textScale")
+        return textScales.contains(v) ? v : 1
+    }
+
+    /// The factor fonts use right now; set by `ScaledRoot` before the view tree is (re)built.
+    nonisolated(unsafe) static var fontScale: CGFloat = 1
+
+    static func dynamicTypeFactor(_ size: DynamicTypeSize) -> Double {
+        switch size {
+        case .xSmall: 0.82
+        case .small: 0.88
+        case .medium: 0.94
+        case .large: 1
+        case .xLarge: 1.12
+        case .xxLarge: 1.24
+        case .xxxLarge: 1.35
+        default: 1.5            // accessibility sizes
+        }
+    }
+
     static let canvas = Color(hex: 0x05070A)
     static let panel = Color(hex: 0x0A0E13)
     static let header = Color(hex: 0x0F151C)
@@ -27,8 +54,8 @@ extension Color {
     static let rowAlt = Color(hex: 0x0D1218)
     static let selection = Color(hex: 0x12324A)
     static let text = Color(hex: 0xE4EAF0)
-    static let dim = Color(hex: 0x7C8896)
-    static let faint = Color(hex: 0x46515E)
+    static let dim = Color(hex: 0x95A1AF)      // WCAG AA: ≥ 5:1 on every surface, highlighted rows included
+    static let faint = Color(hex: 0x7A8694)    // WCAG AA: ≥ 4.9:1 on every text surface
     static let accent = Color(hex: 0x3CD6FF)
     static let accentDim = Color(hex: 0x1E6F88)
     static let label = Color(hex: 0x8FB7C9)
@@ -47,10 +74,24 @@ extension Color {
 
 extension Font {
     static func mono(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .monospaced)
+        .system(size: size * Theme.fontScale, weight: weight, design: .monospaced)
     }
     static func ui(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .default)
+        .system(size: size * Theme.fontScale, weight: weight, design: .default)
+    }
+}
+
+/// Applies the text size (PREF setting × system Dynamic Type, capped at 1.5) and rebuilds the tree when it changes,
+/// because the font helpers read a static factor.
+struct ScaledRoot<Content: View>: View {
+    @Environment(Theme.self) private var theme
+    @Environment(\.dynamicTypeSize) private var dynamicType
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        let scale = min(theme.textScale * Theme.dynamicTypeFactor(dynamicType), 1.5)
+        let _ = { Theme.fontScale = scale }()
+        content.id(scale)
     }
 }
 

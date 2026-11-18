@@ -110,8 +110,10 @@ struct BacktestView: View {
         HStack(spacing: 6) {
             Text(label).font(.mono(9, .bold)).foregroundStyle(Theme.label)
             Button { value.wrappedValue = max(range.lowerBound, value.wrappedValue - (value.wrappedValue > 20 ? 5 : 1)) } label: { Image(systemName: "minus") }
+                .accessibilityLabel("Decrease \(label)")
             Text("\(value.wrappedValue)").font(.mono(12, .semibold)).monospacedDigit().foregroundStyle(Theme.text).frame(minWidth: 28)
             Button { value.wrappedValue = min(range.upperBound, value.wrappedValue + (value.wrappedValue >= 20 ? 5 : 1)) } label: { Image(systemName: "plus") }
+                .accessibilityLabel("Increase \(label)")
         }
         .buttonStyle(.plain).font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.accent)
     }

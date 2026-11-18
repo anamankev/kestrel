@@ -88,7 +88,7 @@ export function OptionMonitor({ i, panel }: { i: Instrument; panel: number }) {
         <div style={{ background: "var(--panel)", padding: 6 }}><div className="label mono" style={{ fontSize: 9, fontWeight: 700 }}>ATM TERM STRUCTURE</div>
           {term.length > 1 ? <LineChart x={term.map((p) => p.d)} series={[{ name: "ATM IV %", values: term.map((p) => p.v), color: "var(--warn)", width: 2 }]} xFormat={(d) => `${d}D`} h={150} /> : <Empty title="One expiry" />}</div>
       </div>
-      <table className="t" style={{ fontSize: 11 }}>
+      <table className="t" style={{ fontSize: 11 }} tabIndex={0} aria-label={`Option chain, ${expiryLabel(e)}. Click a contract to trade it, or type its name and BUY on the command line.`}>
         <thead>
           <tr><th colSpan={6} className="accent" style={{ textAlign: "center" }}>CALLS</th><th /><th colSpan={6} className="accent" style={{ textAlign: "center" }}>PUTS</th></tr>
           <tr>{["OI", "IV", "Δ", "VEGA", "BID", "ASK"].map((h) => <th key={h}>{h}</th>)}<th style={{ textAlign: "center" }}>STRIKE</th>{["BID", "ASK", "VEGA", "Δ", "IV", "OI"].map((h) => <th key={"p" + h}>{h}</th>)}</tr>

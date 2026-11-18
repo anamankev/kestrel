@@ -18,7 +18,7 @@ struct KestrelApp: App {
 
     var body: some Scene {
         WindowGroup(id: "terminal") {
-            SizeIsolated { AuthGate() }
+            SizeIsolated { ScaledRoot { AuthGate() } }
                 .environment(market)
                 .environment(news)
                 .environment(auth)

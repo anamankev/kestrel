@@ -56,6 +56,16 @@ struct SettingsView: View {
                         Text("Colour-vision-safe up/down colours (blue/orange)").font(.ui(12)).foregroundStyle(Theme.text)
                     }
                     .tint(Theme.accent)
+                    HStack {
+                        Text("Text size").font(.ui(12)).foregroundStyle(Theme.text)
+                        Spacer()
+                        Picker("Text size", selection: $theme.textScale) {
+                            ForEach(Theme.textScales, id: \.self) { s in Text("\(Int((s * 100).rounded()))%").tag(s) }
+                        }
+                        .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320)
+                    }
+                    Text("Also follows your iPad's text size (Settings → Display & Brightness), up to 150% in total.")
+                        .font(.ui(10)).foregroundStyle(Theme.dim)
                 }
 
                 section("DATA") {
@@ -165,7 +175,7 @@ struct SettingsView: View {
                                 catch { deleteError = error.errorDescription; deletePassword = "" }
                             }
                         } label: {
-                            Text(auth.busy ? "Deleting…" : "Delete forever").font(.mono(11, .bold)).foregroundStyle(.white)
+                            Text(auth.busy ? "Deleting…" : "Delete forever").font(.mono(11, .bold)).foregroundStyle(Theme.canvas)
                                 .padding(.horizontal, 12).frame(height: 30).background(Theme.cancel, in: .rect(cornerRadius: 3))
                         }
                         .buttonStyle(.plain).disabled(deletePassword.isEmpty || auth.busy)

@@ -120,7 +120,7 @@ struct AlertsView: View {
             Text("LAST \(Fmt.price(q?.last))").font(.mono(11)).foregroundStyle(Theme.text)
             Text(distance).font(.mono(11)).foregroundStyle(Theme.dim).frame(width: 70, alignment: .trailing)
             Button { user.cancelAlert(a.id) } label: {
-                Text("CXL").font(.mono(9, .heavy)).foregroundStyle(.white)
+                Text("CXL").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas)
                     .padding(.horizontal, 6).frame(height: 18).background(Theme.cancel, in: .rect(cornerRadius: 2))
             }
             .buttonStyle(.plain)

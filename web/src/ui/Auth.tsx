@@ -50,10 +50,14 @@ export function AuthView() {
         <form onSubmit={submit}>
           {mode === "create" && <label>Name<input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="Ada Lovelace" maxLength={60} /></label>}
           <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@firm.com" maxLength={254} /></label>
-          <label><span style={{ display: "flex", justifyContent: "space-between" }}>Password<button type="button" className="dim" onClick={() => setShow(!show)}>{show ? "Hide" : "Show"}</button></span>
-            <input type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} maxLength={128} /></label>
+          {/* The Show button sits outside the label, so the field is announced as "Password", not "Password Show". */}
+          <div className="pw">
+            <span><label htmlFor="auth-password">Password</label>
+              <button type="button" className="dim" aria-pressed={show} aria-controls="auth-password" aria-label={show ? "Hide password" : "Show password"} onClick={() => setShow(!show)}>{show ? "Hide" : "Show"}</button></span>
+            <input id="auth-password" type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} maxLength={128} aria-describedby={mode === "create" ? "auth-hint" : undefined} />
+          </div>
           {mode === "create" && <label>Confirm password<input type={show ? "text" : "password"} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" maxLength={128} /></label>}
-          {mode === "create" && <div className={`hint ${password && !problem ? "ok" : ""}`}>{!password ? "At least 10 characters. A phrase works well." : problem ?? (confirm && confirm !== password ? "Passwords don't match" : "Strong enough")}</div>}
+          {mode === "create" && <div id="auth-hint" aria-live="polite" className={`hint ${password && !problem ? "ok" : ""}`}>{!password ? "At least 10 characters. A phrase works well." : problem ?? (confirm && confirm !== password ? "Passwords don't match" : "Strong enough")}</div>}
           {error && <div className="error" role="alert">{error}</div>}
           <button className="primary" disabled={!can}>{auth.busy ? (mode === "signin" ? "Signing in…" : "Creating account…") : mode === "signin" ? "Sign in" : "Create account"}</button>
         </form>

@@ -51,7 +51,7 @@ export function Economy() {
             <tbody>{MACRO.filter((m) => m.group === g).map((m) => {
               const s = series(m.id), last = s[s.length - 1], prior = s[s.length - 2], chg = last && prior ? last.value - prior.value : null;
               return [
-                <tr key={m.id} className="click" onClick={() => setOpen(open === m.id ? null : m.id)}>
+                <tr key={m.id} className="click" tabIndex={0} onClick={() => setOpen(open === m.id ? null : m.id)}>
                   <td style={{ textAlign: "left", fontFamily: "var(--ui)" }}>{m.name}</td><td><b>{fmt(m.unit, last?.value)}</b></td><td className="dim">{fmt(m.unit, prior?.value)}</td>
                   <td className={tint(m.id === "LNS14000000" && chg != null ? -chg : chg)}>{chg == null ? "—" : `${chg > 0 ? "+" : ""}${chg.toFixed(m.unit === "K" ? 0 : 1)}${m.unit === "K" ? "K" : " pt"}`}</td>
                   <td className="dim">{last ? month(last.date) : "—"}</td><td style={{ textAlign: "center" }}><Sparkline values={s.slice(-24).map((p) => p.value)} /></td></tr>,
@@ -119,7 +119,7 @@ export function WorldEconomy({ query }: { query?: string }) {
         {profile.loading ? <Empty title="Loading 11 World Bank indicators…" detail="The first load downloads each series for every country; switching countries is then instant." /> :
           <table className="t"><thead><tr><th style={{ textAlign: "left" }}>INDICATOR</th><th>LATEST</th><th>YEAR</th><th>PRIOR</th><th>15Y</th></tr></thead>
             <tbody>{WB_INDICATORS.map((w, k) => { const s = (profile.data?.[k]?.get(country.id) ?? []).filter((p) => year(p.date) >= new Date().getUTCFullYear() - 16), l = s[s.length - 1], p = s[s.length - 2];
-              return <tr key={w.id} className="click" onClick={() => { setIndicator(w.id); setMode("RANK COUNTRIES"); }}>
+              return <tr key={w.id} className="click" tabIndex={0} onClick={() => { setIndicator(w.id); setMode("RANK COUNTRIES"); }}>
                 <td style={{ textAlign: "left", fontFamily: "var(--ui)" }}>{w.name}</td><td><b>{profile.data?.[k] == null ? "unavailable" : unitFmt(w.unit, l?.value)}</b></td><td className="dim">{l ? year(l.date) : "—"}</td>
                 <td className="dim">{unitFmt(w.unit, p?.value)}</td><td style={{ textAlign: "center" }}><Sparkline values={s.map((x) => x.value)} /></td></tr>; })}</tbody></table>}
         <p className="faint" style={{ fontSize: 10, padding: "4px 8px" }}>Click an indicator to rank every country on it.</p>
@@ -127,8 +127,8 @@ export function WorldEconomy({ query }: { query?: string }) {
       {mode === "RANK COUNTRIES" && <>
         <Section title={`${info.short} · LATEST AVAILABLE YEAR`} right={rank.loading ? "LOADING…" : rank.error ? "WORLD BANK DIDN'T RESPOND" : `${rows.length} COUNTRIES`} />
         {rank.loading ? <Empty title="Loading…" /> : rank.error ? <Empty title="The World Bank didn't respond for this indicator" detail={rank.error} /> :
-          <table className="t"><thead><tr><th>#</th><th style={{ textAlign: "left" }}>COUNTRY</th><th style={{ textAlign: "left" }}>REGION</th><th style={{ cursor: "pointer" }} className="accent" onClick={() => setAsc(!asc)}>VALUE {asc ? "▲" : "▼"}</th><th>YEAR</th></tr></thead>
-            <tbody>{rows.map((r, n) => <tr key={r.c.id} className="click" onClick={() => { setPicked(r.c.id); setMode("COUNTRY PROFILE"); }}>
+          <table className="t"><thead><tr><th>#</th><th style={{ textAlign: "left" }}>COUNTRY</th><th style={{ textAlign: "left" }}>REGION</th><th style={{ cursor: "pointer" }} className="accent" tabIndex={0} data-click aria-sort={asc ? "ascending" : "descending"} onClick={() => setAsc(!asc)}>VALUE {asc ? "▲" : "▼"}</th><th>YEAR</th></tr></thead>
+            <tbody>{rows.map((r, n) => <tr key={r.c.id} className="click" tabIndex={0} onClick={() => { setPicked(r.c.id); setMode("COUNTRY PROFILE"); }}>
               <td className="faint">{n + 1}</td><td style={{ textAlign: "left", fontFamily: "var(--ui)" }}>{r.c.name}</td><td style={{ textAlign: "left", fontFamily: "var(--ui)" }} className="dim">{r.c.region}</td>
               <td><b>{unitFmt(info.unit, r.p.value)}</b></td><td className="dim">{year(r.p.date)}</td></tr>)}</tbody></table>}
       </>}

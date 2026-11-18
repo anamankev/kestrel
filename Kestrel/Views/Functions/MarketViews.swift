@@ -322,10 +322,14 @@ struct HeatmapView: View {
                         Text(i.ticker).font(.mono(12, .bold))
                         Text(Fmt.pct(pct)).font(.mono(11, .medium)).monospacedDigit()
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.text)
                     .frame(maxWidth: .infinity, minHeight: 50)
                     .background(color(pct), in: .rect(cornerRadius: 2))
                     .onTapGesture { ws.link(i, from: panelID) }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(i.ticker), \(pct.map { Fmt.pct($0) } ?? "no data")")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction { ws.link(i, from: panelID) }
                 }
             }
         }
@@ -335,7 +339,8 @@ struct HeatmapView: View {
     private func color(_ pct: Double?) -> Color {
         guard let pct else { return Theme.rule }
         let t = min(abs(pct) / 3, 1)
-        return (pct >= 0 ? theme.up : theme.down).opacity(0.18 + 0.72 * t)
+        // Capped at 50% so the light text keeps at least 5:1 contrast on every tile (WCAG AA).
+        return (pct >= 0 ? theme.up : theme.down).opacity(0.15 + 0.35 * t)
     }
 }
 

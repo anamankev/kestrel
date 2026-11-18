@@ -119,7 +119,7 @@ struct TicketView: View {
                              ? "CONFIRM \(side.rawValue) \(qtyText) \(instrument.ticker) \(confirmTerms)"
                              : "\(side.rawValue) \(qtyText.isEmpty ? "" : qtyText + " ")\(instrument.ticker) \(shortKind)")
                             .font(.mono(14, .heavy))
-                            .foregroundStyle(confirming ? Theme.canvas : .white)
+                            .foregroundStyle(Theme.canvas)   // dark text: white on green/red fails contrast
                             .frame(maxWidth: .infinity).frame(height: 40)
                             .background(confirming ? Theme.warn : (side == .buy ? theme.up : theme.down), in: .rect(cornerRadius: 3))
                             .opacity(qty == nil ? 0.4 : 1)
@@ -128,7 +128,7 @@ struct TicketView: View {
                     .disabled(qty == nil)
                     if confirming {
                         Button { confirming = false } label: {
-                            Text("CXL").font(.mono(12, .heavy)).foregroundStyle(.white)
+                            Text("CXL").font(.mono(12, .heavy)).foregroundStyle(Theme.canvas)
                                 .frame(width: 56, height: 40).background(Theme.cancel, in: .rect(cornerRadius: 3))
                         }
                         .buttonStyle(.plain)
@@ -217,7 +217,7 @@ struct TicketView: View {
                 Text(s.rawValue).font(.mono(10, .heavy))
                 Text(Fmt.price(price, instrument.assetClass)).font(.mono(17, .bold)).monospacedDigit()
             }
-            .foregroundStyle(side == s ? .white : color)
+            .foregroundStyle(side == s ? Theme.canvas : color)
             .frame(maxWidth: .infinity).frame(height: 54)
             .background(side == s ? color : color.opacity(0.08), in: .rect(cornerRadius: 3))
             .overlay(RoundedRectangle(cornerRadius: 3).stroke(color.opacity(0.6)))
@@ -273,7 +273,7 @@ struct OrderRow: View {
             Text(o.status == .working && o.triggered == true ? "TRIGGERED" : o.status.rawValue).foregroundStyle(statusColor(o.status)).bold()
             if o.status == .working {
                 Button { broker.cancel(o.id) } label: {
-                    Text("CXL").font(.mono(9, .heavy)).foregroundStyle(.white)
+                    Text("CXL").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas)
                         .padding(.horizontal, 6).frame(height: 18).background(Theme.cancel, in: .rect(cornerRadius: 2))
                 }.buttonStyle(.plain)
             }

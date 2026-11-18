@@ -90,7 +90,7 @@ function CommandBar({ text, setText, inputRef }: { text: string; setText: (s: st
       <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value.slice(0, 64))} onKeyDown={onKey}
         onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 150)}
         placeholder="AAPL GP · BTC DEPTH · WEI · HELP" aria-label="Command line" spellCheck={false} autoCapitalize="characters" autoComplete="off" />
-      <button className="go" onClick={() => submit()} aria-label="Run command">GO</button>
+      <button className="go" onClick={() => submit()} aria-label="GO: run command">GO</button>
       {focused && list.length > 0 && (
         <div className="dropdown" role="listbox">
           {list.map((s, i) => (
@@ -138,7 +138,7 @@ function PanelView({ id }: { id: number }) {
   const f = fn(p.cmd.fn);
   const i = p.cmd.instrument;
   return (
-    <section className={`panel ${workspace.focused === id ? "focused" : ""}`} onMouseDown={() => workspace.focus(id)} aria-label={`Panel ${id + 1}: ${f.title}`}>
+    <section className={`panel ${workspace.focused === id ? "focused" : ""}`} onMouseDown={() => workspace.focus(id)} onFocus={() => workspace.focus(id)} aria-label={`Panel ${id + 1}: ${f.title}`}>
       <div className="ph">
         <span className="n">{id + 1}</span>
         {p.history.length > 0 && <button className="icon" onClick={() => workspace.back(id)} aria-label="Back">‹</button>}
@@ -148,7 +148,7 @@ function PanelView({ id }: { id: number }) {
         <span className="spacer" />
         <button className="icon" onClick={() => workspace.toggleMaximize(id)} aria-label={workspace.maximized === id ? "Restore panel" : "Maximize panel"}>{workspace.maximized === id ? "⤡" : "⤢"}</button>
       </div>
-      <div className="pb"><PanelBoundary resetKey={`${p.cmd.fn}|${i?.symbol ?? ""}|${p.cmd.query ?? ""}`}><FunctionView panel={id} cmd={p.cmd} /></PanelBoundary></div>
+      <div className="pb" tabIndex={0} aria-label={`Panel ${id + 1}: ${fn(p.cmd.fn).title}${i ? `, ${i.ticker}` : ""}`}><PanelBoundary resetKey={`${p.cmd.fn}|${i?.symbol ?? ""}|${p.cmd.query ?? ""}`}><FunctionView panel={id} cmd={p.cmd} /></PanelBoundary></div>
     </section>
   );
 }
@@ -211,7 +211,7 @@ function AccountChip() {
   if (!me) return null;
   return (
     <div style={{ position: "relative" }}>
-      <button className="chip" onClick={() => setOpen(!open)} aria-label={`Account: ${me.displayName}`} aria-expanded={open}>{initials(me)}</button>
+      <button className="chip" onClick={() => setOpen(!open)} aria-label={`${initials(me)}: account menu for ${me.displayName}`} aria-expanded={open}>{initials(me)}</button>
       {open && (
         <div className="menu" role="menu">
           <div style={{ padding: "8px 10px" }}><div style={{ fontWeight: 600 }}>{me.displayName}</div><div className="dim" style={{ fontSize: 11 }}>{me.email}</div></div>

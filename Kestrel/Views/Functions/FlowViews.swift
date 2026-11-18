@@ -228,7 +228,7 @@ struct NewsView: View {
                     .focused($searching)
                     .onChange(of: text) { if text.count > NewsQuery.maxLength { text = String(text.prefix(NewsQuery.maxLength)) } }
                 if !text.isEmpty {
-                    Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.dim) }.buttonStyle(.plain)
+                    Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.dim) }.buttonStyle(.plain).accessibilityLabel("Clear search")
                 }
                 Text("\(shown) OF \(total)").font(.mono(9, .bold)).foregroundStyle(Theme.dim).fixedSize()
             }

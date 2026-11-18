@@ -21,7 +21,7 @@ export function Monitor({ panel }: { panel: number }) {
   const rows = (items: Instrument[], offset: number) => items.map((i, n) => {
     const q = market.quotes.get(i.symbol);
     return (
-      <tr key={i.symbol} className="click" onClick={() => workspace.link(i, panel)} title="Load into linked panels">
+      <tr key={i.symbol} className="click" tabIndex={0} onClick={() => workspace.link(i, panel)} title="Load into linked panels">
         <td><span className="faint" style={{ marginRight: 6 }}>{offset + n + 1}</span><b>{i.ticker}</b> <span className="dim" style={{ fontFamily: "var(--ui)", fontSize: 11 }}>{market.displayName(i).slice(0, 18)}</span></td>
         <td>{price(q?.last, i.assetClass)}</td>
         <td><Change value={change(q)} like={q?.last} cls={i.assetClass} /></td>

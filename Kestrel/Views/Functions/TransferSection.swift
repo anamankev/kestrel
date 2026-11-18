@@ -102,7 +102,7 @@ struct TransferSection: View {
 
     private func button(_ title: String, enabled: Bool, destructive: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.mono(11, .bold)).foregroundStyle(destructive ? .white : Theme.text)
+            Text(title).font(.mono(11, .bold)).foregroundStyle(destructive ? Theme.canvas : Theme.text)
                 .padding(.horizontal, 12).frame(height: 30)
                 .background(destructive ? Theme.cancel : Theme.header, in: .rect(cornerRadius: 3))
                 .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.rule))

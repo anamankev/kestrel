@@ -113,7 +113,7 @@ export function EarningsCalendar({ panel }: { panel: number }) {
       <Section title={`EARNINGS · ${userData.active.name.toUpperCase()}`} right={`${rows.length} OF ${list.length} COMPANIES · SEC EDGAR`} />
       <table className="t"><thead><tr><th>COMPANY</th><th>NEXT (EST.)</th><th>±</th><th>IN</th><th>LAST RELEASE</th></tr></thead>
         <tbody>{rows.map(({ i, est }) => (
-          <tr key={i.symbol} className="click" onClick={() => workspace.load({ fn: "EVST", instrument: i }, panel)}>
+          <tr key={i.symbol} className="click" tabIndex={0} onClick={() => workspace.load({ fn: "EVST", instrument: i }, panel)}>
             <td><b>{i.ticker}</b> <span className="dim" style={{ fontFamily: "var(--ui)", fontSize: 11 }}>{market.displayName(i)}</span></td>
             <td>{niceDay(est!.next)}</td><td className="dim">{est!.spreadDays != null ? `${Math.round(est!.spreadDays)}d` : "—"}</td>
             <td>{Math.max(0, Math.round((est!.next - Date.now()) / 86_400_000))}d</td><td className="dim">{niceDay(est!.last)}</td>

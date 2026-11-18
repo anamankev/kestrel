@@ -404,7 +404,7 @@ struct ChartCanvas: View {
                 let style = StrokeStyle(lineWidth: 0.7, dash: [3, 3])
                 ctx.stroke(Path { $0.move(to: .init(x: cx, y: 0)); $0.addLine(to: .init(x: cx, y: size.height - timeAxis)) }, with: .color(Theme.text.opacity(0.5)), style: style)
                 ctx.stroke(Path { $0.move(to: .init(x: 0, y: cy)); $0.addLine(to: .init(x: plotW, y: cy)) }, with: .color(Theme.text.opacity(0.5)), style: style)
-                tag(&ctx, label(c.close), at: .init(x: plotW + 2, y: cy), bg: Theme.accentDim)
+                tag(&ctx, label(c.close), at: .init(x: plotW + 2, y: cy), bg: Theme.accentDim, fg: .white)
                 ctx.fill(Path(ellipseIn: CGRect(x: cx - 3, y: cy - 3, width: 6, height: 6)), with: .color(Theme.accent))
             }
         }
@@ -422,10 +422,11 @@ struct ChartCanvas: View {
         ctx.stroke(p, with: .color(color), style: .init(lineWidth: width, dash: dash))
     }
 
-    private func tag(_ ctx: inout GraphicsContext, _ s: String, at p: CGPoint, bg: Color) {
+    /// Price tag on the axis. Dark text on the bright up/down/warn fills, white on the dark accent (all ≥ 5:1).
+    private func tag(_ ctx: inout GraphicsContext, _ s: String, at p: CGPoint, bg: Color, fg: Color = Theme.canvas) {
         let r = CGRect(x: p.x, y: p.y - 8, width: Self.axisWidth - 4, height: 16)
         ctx.fill(Path(roundedRect: r, cornerRadius: 2), with: .color(bg))
-        ctx.draw(Text(s).font(.mono(9, .bold)).foregroundStyle(.white), at: .init(x: r.minX + 4, y: p.y), anchor: .leading)
+        ctx.draw(Text(s).font(.mono(9, .bold)).foregroundStyle(fg), at: .init(x: r.minX + 4, y: p.y), anchor: .leading)
     }
 
     /// "Nice" axis ticks (1, 2, 2.5, 5 × 10ⁿ).

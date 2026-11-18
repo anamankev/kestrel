@@ -176,7 +176,7 @@ export function EventStudyView({ i, panel }: { i: Instrument; panel: number }) {
         <table className="t"><thead><tr><th>EARNINGS (DAY 0)</th><th>CAR [−1,+1]</th><th>DAY 0</th><th>DRIFT [+2,+{w}]</th><th>β (EST.)</th></tr></thead>
           <tbody>{[...st.pending.slice().reverse(), ...st.events.slice().reverse()].map((e) => { const L = lastDay(st, e);
             const a = L >= 1 ? car(st, e, -1, 1) : null, z = L >= 0 ? car(st, e, 0, 0) : null, dr = L >= w ? car(st, e, 2, w) : null;
-            return <tr key={e.day0} className="click" onClick={() => workspace.load({ fn: "GP", instrument: i }, panel)}>
+            return <tr key={e.day0} className="click" tabIndex={0} onClick={() => workspace.load({ fn: "GP", instrument: i }, panel)}>
               <td>{utc(e.day0)} {L < w && <span className="badge" style={{ background: "var(--warn)", color: "var(--canvas)" }}>IN PROGRESS {L >= 0 ? "+" : ""}{L}/+{w}</span>}</td>
               <td className={tint(a)}>{pc(a, 2)}</td><td className={tint(z)}>{pc(z, 2)}</td><td className={tint(dr)}>{dr != null ? pc(dr, 2) : L >= 2 ? `~${pc(car(st, e, 2, L), 2)}` : "—"}</td><td className="dim">{e.beta.toFixed(2)}</td></tr>; })}</tbody></table>
         <p className="faint" style={{ fontSize: 10, padding: 8 }}>Day 0 is the first session on or after the earnings 8-K filing date (it can trail the announcement by a day or two); releases after the close move the stock on day +1. Market model fitted on up to 250 earlier sessions, excluding other earnings windows. Total returns; cross-sectional t-stats.</p>
@@ -244,7 +244,7 @@ export function Compare({ panel }: { panel: number }) {
         <div style={{ padding: 8 }}><LineChart x={al.dates} series={kept.map((i, k) => ({ name: i.ticker, values: rebased(al.closes[i.symbol]), color: seriesColor(k) }))} zero={100} xFormat={shortDate} yLabel="Rebased total return" h={240} /></div>
         <table className="t"><thead><tr><th>SECURITY</th><th>TOTAL</th><th>ANN. RETURN</th><th>ANN. VOL</th><th>SHARPE</th><th>MAX DD</th></tr></thead>
           <tbody>{kept.map((i, k) => { const p = performance(al.closes[i.symbol], ppy, rf); return (
-            <tr key={i.symbol} className="click" onClick={() => workspace.link(i, panel)}>
+            <tr key={i.symbol} className="click" tabIndex={0} onClick={() => workspace.link(i, panel)}>
               <td><span style={{ display: "inline-block", width: 10, height: 3, background: seriesColor(k), marginRight: 6, verticalAlign: "middle" }} /><b>{i.ticker}</b></td>
               <td className={tint(p?.totalReturn)}>{pc(p?.totalReturn)}</td><td className={tint(p?.annualizedReturn)}>{pc(p?.annualizedReturn)}</td>
               <td>{pc(p?.annualizedVol, 1, false)}</td><td>{p?.sharpe?.toFixed(2) ?? "—"}</td><td className="down">{pc(p?.maxDrawdown)}</td></tr>); })}</tbody></table>
@@ -283,7 +283,7 @@ export function Optimizer({ panel }: { panel: number }) {
         <div style={{ padding: 8 }}><Scatter x={[...o.frontier.map((p) => p.volatility * 100), ...o.vol.map((v) => v * 100)]} y={[...o.frontier.map((p) => p.expectedReturn * 100), ...o.mu.map((v) => v * 100)]} xLabel="ANNUAL VOLATILITY %" yLabel="ANNUAL RETURN % (FRONTIER AND ASSETS)" h={220} /></div>
         <table className="t"><thead><tr><th>ASSET</th><th>ANN. RET</th><th>ANN. VOL</th><th>MIN VAR</th><th>MAX SHARPE</th></tr></thead>
           <tbody>{o.kept.map((a, k) => (
-            <tr key={a.symbol} className="click" onClick={() => workspace.link(a, panel)}><td><b>{a.ticker}</b></td><td>{pc(o.mu[k])}</td><td>{pc(o.vol[k], 1, false)}</td>
+            <tr key={a.symbol} className="click" tabIndex={0} onClick={() => workspace.link(a, panel)}><td><b>{a.ticker}</b></td><td>{pc(o.mu[k])}</td><td>{pc(o.vol[k], 1, false)}</td>
               <td className={o.minVariance.weights[k] < 0.0005 ? "faint" : "warn"}>{o.minVariance.weights[k] < 0.0005 ? "—" : pc(o.minVariance.weights[k], 1, false)}</td>
               <td className={o.maxSharpe.weights[k] < 0.0005 ? "faint" : "accent"}>{o.maxSharpe.weights[k] < 0.0005 ? "—" : pc(o.maxSharpe.weights[k], 1, false)}</td></tr>))}</tbody></table>
         <p className="faint" style={{ fontSize: 10, padding: 8 }}>Inputs are historical means and covariances, which are noisy estimates of the future. Treat the weights as a study of risk and diversification, not advice.</p>
@@ -305,7 +305,9 @@ export function Correlation({ panel }: { panel: number }) {
     const kept = list.filter((i) => h[i.symbol]), r = alignedReturns(h);
     return { kept, m: correlationMatrix(r, kept.map((i) => i.symbol)), days: r[kept[0]?.symbol]?.length ?? 0 };
   }, [which, win, list.map((i) => i.symbol).join()]);
-  const color = (v: number | null, diag: boolean) => (v == null || diag ? "var(--panel)" : `color-mix(in srgb, ${v >= 0 ? "var(--accent)" : "var(--warn)"} ${Math.round(Math.abs(v) < 0.05 ? 6 : 12 + 78 * Math.min(Math.abs(v), 1))}%, var(--panel))`);
+  // Light text on cells up to 45% tint, dark text on 62%+ (|r| ≥ 0.5): every cell keeps ≥ 5:1 contrast (WCAG AA).
+  const strong = (v: number | null) => v != null && Math.abs(v) >= 0.5;
+  const color = (v: number | null, diag: boolean) => (v == null || diag ? "var(--panel)" : `color-mix(in srgb, ${v >= 0 ? "var(--accent)" : "var(--warn)"} ${Math.round(strong(v) ? 62 + 28 * Math.min((Math.abs(v) - 0.5) / 0.5, 1) : 6 + 39 * (Math.abs(v) / 0.5))}%, var(--panel))`);
   return (
     <div>
       <div className="toolbar"><Seg label="Basket" value={which} options={["CROSS-ASSET", "WATCHLIST"] as const} onChange={setWhich} /><Seg label="Window" value={win} options={["3mo", "1y", "2y"]} onChange={setWin} /></div>
@@ -313,8 +315,8 @@ export function Correlation({ panel }: { panel: number }) {
       {s.loading ? <Empty title="Computing…" /> : !s.data || s.data.kept.length < 2 ? <Empty title="Need at least two securities with history" /> :
         <div style={{ padding: 8, overflow: "auto" }}><table className="mono" style={{ borderCollapse: "separate", borderSpacing: 1, fontSize: 11 }}>
           <thead><tr><th />{s.data.kept.map((i) => <th key={i.symbol} className="label" style={{ fontSize: 9, padding: "2px 4px" }}>{i.ticker}</th>)}</tr></thead>
-          <tbody>{s.data.kept.map((a, r) => <tr key={a.symbol}><th className="label" style={{ textAlign: "left", fontSize: 10, paddingRight: 6, cursor: "pointer" }} onClick={() => workspace.link(a, panel)}>{a.ticker}</th>
-            {s.data!.m[r].map((v, c) => <td key={c} title={`${a.ticker} × ${s.data!.kept[c].ticker}: ${v?.toFixed(2) ?? "—"}`} style={{ background: color(v, r === c), width: 46, height: 30, textAlign: "center", color: r === c ? "var(--faint)" : "var(--text)" }}>{v == null ? "—" : v.toFixed(2).replace("0.", ".")}</td>)}</tr>)}</tbody>
+          <tbody>{s.data.kept.map((a, r) => <tr key={a.symbol}><th className="label" scope="row" tabIndex={0} data-click style={{ textAlign: "left", fontSize: 10, paddingRight: 6, cursor: "pointer" }} onClick={() => workspace.link(a, panel)}>{a.ticker}</th>
+            {s.data!.m[r].map((v, c) => <td key={c} title={`${a.ticker} × ${s.data!.kept[c].ticker}: ${v?.toFixed(2) ?? "—"}`} style={{ background: color(v, r === c), width: 46, height: 30, textAlign: "center", color: r === c ? "var(--faint)" : strong(v) ? "var(--canvas)" : "var(--text)" }}>{v == null ? "—" : v.toFixed(2).replace("0.", ".")}</td>)}</tr>)}</tbody>
         </table></div>}
     </div>
   );
@@ -355,11 +357,11 @@ export function Screener({ panel }: { panel: number }) {
       </div>
       <Section title={`EQUITY SCREEN · FY${s.data!.year} 10-K DATA · SEC XBRL`} right={`${rows.length} OF ${s.data!.rows.length} COMPANIES${rows.length > 250 ? " · TOP 250 SHOWN" : ""}`} />
       <table className="t"><thead><tr>
-        <th style={{ cursor: "pointer" }} onClick={() => { if (sort === "size") setDesc(!desc); else { setSort("size"); setDesc(true); } }}>COMPANY{sort === "size" ? (desc ? " ▼" : " ▲") : ""}</th>
-        {COLS.map(([k, t]) => <th key={k} style={{ cursor: "pointer" }} className={sort === k ? "accent" : ""} onClick={() => { if (sort === k) setDesc(!desc); else { setSort(k); setDesc(true); } }}>{t}{sort === k ? (desc ? " ▼" : " ▲") : ""}</th>)}
+        <th style={{ cursor: "pointer" }} tabIndex={0} data-click aria-sort={sort === "size" ? (desc ? "descending" : "ascending") : "none"} onClick={() => { if (sort === "size") setDesc(!desc); else { setSort("size"); setDesc(true); } }}>COMPANY{sort === "size" ? (desc ? " ▼" : " ▲") : ""}</th>
+        {COLS.map(([k, t]) => <th key={k} style={{ cursor: "pointer" }} tabIndex={0} data-click aria-sort={sort === k ? (desc ? "descending" : "ascending") : "none"} className={sort === k ? "accent" : ""} onClick={() => { if (sort === k) setDesc(!desc); else { setSort(k); setDesc(true); } }}>{t}{sort === k ? (desc ? " ▼" : " ▲") : ""}</th>)}
       </tr></thead>
         <tbody>{rows.slice(0, 250).map((r) => (
-          <tr key={r.cik} className="click" onClick={() => { const i = resolve(r.ticker, "EQUITY"); if (i) workspace.load({ fn: "FA", instrument: i }, panel); }}>
+          <tr key={r.cik} className="click" tabIndex={0} onClick={() => { const i = resolve(r.ticker, "EQUITY"); if (i) workspace.load({ fn: "FA", instrument: i }, panel); }}>
             <td><b className="accent">{r.ticker}</b> <span style={{ fontFamily: "var(--ui)", fontSize: 11 }}>{r.name.slice(0, 32)}</span></td>
             {COLS.map(([k, , f]) => { const v = f(r); return <td key={k} className={v == null ? "faint" : k === "lev" || k === "revenue" ? "" : tint(v)}>{fmt(k, v)}</td>; })}
           </tr>))}</tbody></table>

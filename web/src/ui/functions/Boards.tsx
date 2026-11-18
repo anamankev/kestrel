@@ -26,7 +26,7 @@ export function QuoteBoard({ panel, groups, yields }: { panel: number; groups: [
                 const q = market.quotes.get(i.symbol);
                 n++;
                 return (
-                  <tr key={i.symbol} className="click" onClick={() => workspace.link(i, panel)}>
+                  <tr key={i.symbol} className="click" tabIndex={0} onClick={() => workspace.link(i, panel)}>
                     <td><span className="faint" style={{ marginRight: 6 }}>{n}</span><b>{i.ticker}</b> <span className="dim" style={{ fontFamily: "var(--ui)", fontSize: 11 }}>{i.name}</span></td>
                     <td>{price(q?.last, i.assetClass)}{yields ? "%" : ""}</td>
                     <td><Change value={change(q)} like={q?.last} cls={i.assetClass} /></td>
@@ -52,7 +52,7 @@ export function Movers({ panel }: { panel: number }) {
   const gainers = [...pool].sort((a, b) => b.p - a.p).slice(0, 8), losers = [...pool].sort((a, b) => a.p - b.p).slice(0, 8);
   const block = (title: string, l: typeof pool) => (
     <><Section title={title} /><table className="t"><tbody>{l.map(({ i, p }) => (
-      <tr key={i.symbol} className="click" onClick={() => workspace.link(i, panel)}><td><b>{i.ticker}</b> <span className="dim" style={{ fontFamily: "var(--ui)", fontSize: 11 }}>{i.name}</span></td><td>{price(market.quotes.get(i.symbol)?.last, i.assetClass)}</td><td><Change value={p} percent /></td></tr>
+      <tr key={i.symbol} className="click" tabIndex={0} onClick={() => workspace.link(i, panel)}><td><b>{i.ticker}</b> <span className="dim" style={{ fontFamily: "var(--ui)", fontSize: 11 }}>{i.name}</span></td><td>{price(market.quotes.get(i.symbol)?.last, i.assetClass)}</td><td><Change value={p} percent /></td></tr>
     ))}</tbody></table></>
   );
   return <div>{block("TOP GAINERS", gainers)}{block("TOP LOSERS", losers)}</div>;
@@ -63,7 +63,7 @@ export function Heatmap({ panel }: { panel: number }) {
   const tile = (i: Instrument) => {
     const p = changePercent(market.quotes.get(i.symbol));
     const a = p === undefined ? 0 : Math.min(Math.abs(p) / 4, 1);
-    const bg = p === undefined ? "var(--header)" : `color-mix(in srgb, ${p >= 0 ? "var(--up)" : "var(--down)"} ${Math.round(12 + a * 60)}%, var(--panel))`;
+    const bg = p === undefined ? "var(--header)" : `color-mix(in srgb, ${p >= 0 ? "var(--up)" : "var(--down)"} ${Math.round(12 + a * 38)}%, var(--panel))`; // capped at 50% so text keeps ≥ 5:1 contrast
     return (
       <button key={i.symbol} onClick={() => workspace.link(i, panel)} style={{ background: bg, padding: 8, textAlign: "left", minHeight: 58 }} aria-label={`${i.ticker} ${p?.toFixed(2) ?? "no data"}%`}>
         <div className="mono" style={{ fontWeight: 700, fontSize: 12 }}>{i.ticker}</div>

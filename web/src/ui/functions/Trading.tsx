@@ -131,8 +131,8 @@ export function Portfolio({ panel }: { panel: number }) {
       {a.openPositions.length === 0 ? <Empty title="No positions" detail="Try BTC BUY or AAPL TRADE. Every account starts with $1,000,000 of paper money." /> :
         <table className="t"><thead><tr><th style={{ textAlign: "left" }}>SECURITY</th><th>QTY</th><th>AVG COST</th><th>MARK</th><th>MKT VALUE</th><th>UNRL P&L</th><th>%</th></tr></thead>
           <tbody>{a.openPositions.map((p) => { const m = mark(p.symbol, p.averageCost), u = p.quantity * (m - p.averageCost), basis = Math.abs(p.quantity) * p.averageCost, inst = instrument(p.symbol) ?? resolve(p.symbol);
-            return <tr key={p.symbol} className="click" onClick={() => inst && workspace.link(inst, panel)}>
-              <td style={{ textAlign: "left" }}><b>{inst?.assetClass === "OPTION" ? inst.name : tickerOf(p.symbol)}</b>{p.quantity < 0 && <span className="badge" style={{ marginLeft: 6, background: "var(--down)", color: "#fff" }}>SHORT</span>}</td>
+            return <tr key={p.symbol} className="click" tabIndex={0} onClick={() => inst && workspace.link(inst, panel)}>
+              <td style={{ textAlign: "left" }}><b>{inst?.assetClass === "OPTION" ? inst.name : tickerOf(p.symbol)}</b>{p.quantity < 0 && <span className="badge" style={{ marginLeft: 6, background: "var(--down)", color: "var(--canvas)" }}>SHORT</span>}</td>
               <td>{qty(p.quantity)}</td><td>{price(p.averageCost)}</td><td>{price(m)}</td><td>{money(p.quantity * m)}</td><td className={tint(u)}>{signedMoney(u)}</td><td className={tint(u)}>{basis ? pct((u / basis) * 100) : "—"}</td></tr>; })}</tbody></table>}
       <div style={{ display: "flex", justifyContent: "flex-end", padding: 8, gap: 8 }}>
         {confirm ? <><span className="mono warn" style={{ fontSize: 10, alignSelf: "center" }}>Reset to $1,000,000 and erase all orders?</span><button className="textbtn danger" onClick={() => { broker.reset(); setConfirm(false); }}>RESET</button><button className="textbtn" onClick={() => setConfirm(false)}>KEEP</button></>
@@ -193,7 +193,7 @@ export function Alerts({ i, panel }: { i?: Instrument; panel: number }) {
       {b.active.length === 0 ? <p className="dim mono" style={{ fontSize: 11, padding: 8 }}>No active alerts.</p> :
         <table className="t"><tbody>{b.active.map((a) => { const aq = market.quotes.get(a.symbol), c = a.condition;
           const dist = !aq?.last ? "—" : c.kind === "move" ? pct(changePercent(aq)) : pct((c.level / aq.last - 1) * 100);
-          return <tr key={a.id} className="click" onClick={() => { const x = instrument(a.symbol) ?? resolve(a.symbol); if (x) workspace.link(x, panel); }}>
+          return <tr key={a.id} className="click" tabIndex={0} onClick={() => { const x = instrument(a.symbol) ?? resolve(a.symbol); if (x) workspace.link(x, panel); }}>
             <td style={{ textAlign: "left" }}><span className="warn">●</span> <b>{tickerOf(a.symbol)}</b></td><td className="label">{conditionLabel(c)}</td><td>LAST {price(aq?.last)}</td><td className="dim">{dist}</td>
             <td><button className="cxl-sm" onClick={(e) => { e.stopPropagation(); alerts.cancel(a.id); }} aria-label="Cancel alert">CXL</button></td></tr>; })}</tbody></table>}
       <Section title="TRIGGERED" right={b.history.length ? String(b.history.length) : undefined} />

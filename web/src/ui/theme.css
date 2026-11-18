@@ -1,7 +1,7 @@
 /* Kestrel tokens (from the app's Theme.swift). */
 :root {
   --canvas: #05070A; --panel: #0A0E13; --header: #0F151C; --rule: #1A232E; --row-alt: #0D1218; --selection: #12324A;
-  --text: #E4EAF0; --dim: #7C8896; --faint: #46515E; --accent: #3CD6FF; --accent-dim: #1E6F88; --label: #8FB7C9;
+  --text: #E4EAF0; --dim: #95A1AF; --faint: #7A8694; /* WCAG AA: dim ≥ 5:1 on every surface, faint ≥ 4.9:1 on all text surfaces */ --accent: #3CD6FF; --accent-dim: #1E6F88; --label: #8FB7C9;
   --warn: #FFC24A; --go: #1FCB6E; --cancel: #E5484D; --up: #22D27A; --down: #FF4D5E;
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --ui: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -63,7 +63,7 @@ a { color: var(--accent); }
 
 .keys { display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: var(--header); border-top: 1px solid var(--rule); overflow-x: auto; }
 .key { height: 26px; padding: 0 10px; font: 700 11px var(--mono); border-radius: 3px; background: #2A3A4A; white-space: nowrap; }
-.key.help { background: var(--rule); } .key.cancel { background: var(--cancel); color: #fff; } .key.go { background: var(--go); color: var(--canvas); }
+.key.help { background: var(--rule); } .key.cancel { background: var(--cancel); color: var(--canvas); } .key.go { background: var(--go); color: var(--canvas); }
 .key.fn { background: transparent; border: 1px solid var(--rule); color: var(--label); }
 .key.fn:hover { border-color: var(--accent-dim); color: var(--text); }
 .layouts { display: flex; gap: 2px; padding: 2px; background: var(--canvas); border-radius: 6px; }
@@ -80,11 +80,14 @@ table.t th { font: 700 9px var(--mono); color: var(--label); text-align: right; 
 table.t th:first-child, table.t td:first-child { text-align: left; }
 table.t td { padding: 5px 8px; text-align: right; white-space: nowrap; }
 table.t tr:nth-child(even) td { background: var(--row-alt); }
-table.t tr.click { cursor: pointer; } table.t tr.click:hover td { background: var(--selection); }
+table.t tr.click { cursor: pointer; } table.t tr.click:hover td, table.t tr.click:focus-visible td { background: var(--selection); }
+table.t tr.click:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+table.t tr.click:hover .faint, table.t tr.click:focus-visible .faint { color: var(--dim); } /* faint text keeps 4.5:1 on the highlight */
+[data-click]:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1px; background: var(--rule); }
 .tile { background: var(--panel); padding: 8px; } .tile .k { font: 700 8px var(--mono); color: var(--label); } .tile .v { font: 600 16px var(--mono); margin-top: 3px; } .tile .s { font: 8px var(--mono); color: var(--faint); margin-top: 2px; }
 .seg { display: inline-flex; background: var(--canvas); border: 1px solid var(--rule); border-radius: 6px; padding: 2px; gap: 2px; }
-.seg button { padding: 3px 9px; border-radius: 4px; font: 600 11px var(--mono); color: var(--dim); }
+.seg button { padding: 3px 9px; min-height: 24px; border-radius: 4px; /* WCAG 2.2 target size */ font: 600 11px var(--mono); color: var(--dim); }
 .seg button.on { background: var(--rule); color: var(--accent); }
 .toolbar { display: flex; gap: 10px; align-items: center; padding: 8px; flex-wrap: wrap; }
 .hotspot { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 4px; border: 1px solid var(--rule); background: var(--header); font: 600 11px var(--mono); }
@@ -149,6 +152,7 @@ table.t tr.click { cursor: pointer; } table.t tr.click:hover td { background: va
 .auth-form h2 { font: 600 26px var(--ui); margin: 6px 0; }
 .auth-form form { display: grid; gap: 12px; }
 .auth-form label { display: grid; gap: 6px; font: 600 12px var(--ui); color: var(--label); }
+.auth-form .pw { display: grid; gap: 6px; } .auth-form .pw > span { display: flex; justify-content: space-between; } .auth-form .pw label { display: inline; }
 .auth-form input { height: 40px; padding: 0 12px; background: var(--panel); border: 1px solid var(--rule); color: var(--text); font: 15px var(--ui); outline: 0; border-radius: 3px; }
 .auth-form input:focus { border-color: var(--accent); }
 .hint { font-size: 12px; color: var(--dim); } .hint.ok { color: var(--go); }
@@ -179,16 +183,16 @@ table.t tr.click { cursor: pointer; } table.t tr.click:hover td { background: va
 .side b { font: 700 17px var(--mono); font-variant-numeric: tabular-nums; }
 .side.buy { color: var(--up); border-color: color-mix(in srgb, var(--up) 60%, transparent); background: color-mix(in srgb, var(--up) 8%, transparent); }
 .side.sell { color: var(--down); border-color: color-mix(in srgb, var(--down) 60%, transparent); background: color-mix(in srgb, var(--down) 8%, transparent); }
-.side.buy.on { background: var(--up); color: #fff; } .side.sell.on { background: var(--down); color: #fff; }
+.side.buy.on { background: var(--up); color: var(--canvas); } .side.sell.on { background: var(--down); color: var(--canvas); }
 .tfield { display: flex; flex-direction: column; gap: 4px; } .tfield span { font: 700 9px var(--mono); color: var(--label); }
 .tfield input { height: 34px; border: 1px solid var(--rule); background: var(--canvas); color: var(--text); padding: 0 8px; font: 600 16px var(--mono); outline: 0; }
 .tfield input:focus { border-color: var(--accent-dim); }
 .presets { display: flex; gap: 6px; } .presets button { flex: 1; height: 22px; background: var(--header); color: var(--label); font: 700 10px var(--mono); border-radius: 2px; }
 .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; } .kv div span { display: block; font: 700 8px var(--mono); color: var(--label); } .kv div b { font: 500 12px var(--mono); }
-.send { display: flex; gap: 6px; } .send button { height: 40px; border-radius: 3px; font: 800 14px var(--mono); color: #fff; }
+.send { display: flex; gap: 6px; } .send button { height: 40px; border-radius: 3px; font: 800 14px var(--mono); color: var(--canvas); } /* dark text: white on green/red fails contrast */
 .send .go-buy { flex: 1; background: var(--up); } .send .go-sell { flex: 1; background: var(--down); } .send .arm { flex: 1; background: var(--warn); color: var(--canvas); } .send .cxl { width: 56px; background: var(--cancel); font-size: 12px; }
 .send button:disabled { opacity: .4; cursor: default; }
-.cxl-sm { background: var(--cancel); color: #fff; font: 800 9px var(--mono); padding: 0 6px; height: 18px; border-radius: 2px; }
+.cxl-sm { background: var(--cancel); color: var(--canvas); font: 800 9px var(--mono); padding: 0 6px; height: 18px; border-radius: 2px; }
 .toast { position: fixed; right: 16px; top: 76px; z-index: 50; background: var(--header); border: 1px solid color-mix(in srgb, var(--warn) 70%, transparent); border-radius: 4px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0,0,0,.5); max-width: min(360px, calc(100vw - 32px)); }
 .toast .k { font: 700 9px var(--mono); color: var(--label); } .toast .v { font: 600 12px var(--mono); margin-top: 2px; }
 .textbtn { font: 700 10px var(--mono); color: var(--dim); background: none; padding: 4px 8px; } .textbtn.danger { color: var(--cancel); }

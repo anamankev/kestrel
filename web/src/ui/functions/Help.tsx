@@ -11,7 +11,7 @@ export function Help({ panel }: { panel: number }) {
   const row = (f: (typeof functions)[number], on: boolean) => {
     const ex = EXAMPLES[f.code] ?? f.code;
     return (
-      <tr key={f.code} className="click" onClick={() => { workspace.focus(panel); workspace.run(ex); }}>
+      <tr key={f.code} className="click" tabIndex={0} onClick={() => { workspace.focus(panel); workspace.run(ex); }}>
         <td className={on ? "accent" : "faint"}><b>{f.code}</b></td>
         <td style={{ textAlign: "left", fontFamily: "var(--ui)" }} className={on ? "" : "dim"}>{f.title}</td>
         <td className="dim">{ex} &lt;GO&gt;</td>

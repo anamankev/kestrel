@@ -437,6 +437,7 @@ struct PanelView: View {
             .buttonStyle(.plain)
             .help("Maximize (⌘↩)")
             .accessibilityLabel(ws.maximized == panel.id ? "Restore panel" : "Maximize panel")
+            .accessibilityLabel(ws.maximized == panel.id ? "Restore panel" : "Maximize panel")
         }
         .padding(.horizontal, 8)
         .frame(height: 28)
@@ -534,7 +535,7 @@ struct FunctionKeyBar: View {
         HStack(spacing: 6) {
             key("MENU", Color(hex: 0x2A3A4A), Theme.text) { ws.back() }
             key("HELP", Color(hex: 0x2A3A4A), Theme.text) { ws.run("HELP") }
-            key("CANCEL", Theme.cancel, .white) { commandText = ""; ws.error = nil; ws.maximized = nil }
+            key("CANCEL", Theme.cancel, Theme.canvas) { commandText = ""; ws.error = nil; ws.maximized = nil }
             key("GO", Theme.go, Theme.canvas) {
                 if ws.run(commandText) { commandText = "" }
                 commandFocused.wrappedValue = true

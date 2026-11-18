@@ -33,7 +33,7 @@ export function SecurityFinder({ panel, initial }: { panel: number; initial?: st
         <table className="t">
           <thead><tr><th>TICKER</th><th style={{ textAlign: "left" }}>NAME</th><th style={{ textAlign: "left" }}>TYPE</th><th style={{ textAlign: "left" }}>EXCHANGE</th><th /></tr></thead>
           <tbody>{shown.map((h) => (
-            <tr key={h.instrument.symbol} className="click" onClick={() => workspace.load({ fn: "DES", instrument: h.instrument }, panel)}>
+            <tr key={h.instrument.symbol} className="click" tabIndex={0} onClick={() => workspace.load({ fn: "DES", instrument: h.instrument }, panel)}>
               <td className="accent"><b>{h.token}</b></td>
               <td style={{ textAlign: "left", fontFamily: "var(--ui)" }}>{h.instrument.name}</td>
               <td style={{ textAlign: "left" }} className="dim">{h.kind.toUpperCase()}</td>
