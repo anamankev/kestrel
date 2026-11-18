@@ -57,20 +57,13 @@ struct GuidePanel: View {
     @State private var draft = ""
     @FocusState private var focused: Bool
 
-    private let starters = ["What can I do here?", "Show Apple's dividends", "Compare my watchlist", "What is beta?", "Find a Japanese stock"]
-
     var body: some View {
         VStack(spacing: 0) {
             header
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
-                        ForEach(guide.messages) { m in bubble(m).id(m.id) }
-                        if guide.busy {
-                            HStack(spacing: 6) { ProgressView().controlSize(.small).tint(Theme.accent); Text("Thinking…").font(.ui(11)).foregroundStyle(Theme.dim) }
-                                .id("busy")
-                        }
-                        if guide.messages.count == 1 { starterChips }
+                        ForEach(guide.messages) { m in bubble(m, latest: m.id == guide.messages.last?.id).id(m.id) }
                     }
                     .padding(12)
                 }
@@ -92,11 +85,11 @@ struct GuidePanel: View {
         HStack(spacing: 8) {
             KestrelMark().frame(width: 18, height: 15)
             Text("Kestrel Guide").font(.ui(14, .semibold)).foregroundStyle(Theme.text)
-            Text(guide.usesOnDeviceModel ? "ON-DEVICE AI" : "OFFLINE")
+            Text("ON DEVICE")
                 .font(.mono(8, .bold)).foregroundStyle(Theme.canvas)
                 .padding(.horizontal, 5).frame(height: 15)
-                .background(guide.usesOnDeviceModel ? Theme.go : Theme.dim, in: .rect(cornerRadius: 2))
-                .help(guide.usesOnDeviceModel ? "Answers come from Apple's on-device model; nothing leaves this device." : "Answers come from Kestrel's built-in guide. Turn on Apple Intelligence for conversational answers.")
+                .background(Theme.dim, in: .rect(cornerRadius: 2))
+                .help("The guide runs entirely on this device; your questions never leave it.")
             Spacer()
             Button { guide.reset() } label: { Image(systemName: "arrow.counterclockwise").font(.system(size: 12, weight: .semibold)) }
                 .buttonStyle(.plain).foregroundStyle(Theme.dim).accessibilityLabel("Start over")
@@ -105,7 +98,7 @@ struct GuidePanel: View {
         .background(Theme.header)
     }
 
-    private func bubble(_ m: GuideService.Message) -> some View {
+    private func bubble(_ m: GuideService.Message, latest: Bool) -> some View {
         VStack(alignment: m.role == .user ? .trailing : .leading, spacing: 6) {
             Text(m.text)
                 .font(.ui(13)).foregroundStyle(m.role == .user ? Theme.canvas : Theme.text)
@@ -116,23 +109,22 @@ struct GuidePanel: View {
             if !m.commands.isEmpty {
                 FlowChips(items: m.commands) { cmd in _ = guide.run(cmd) }
             }
-        }
-        .frame(maxWidth: .infinity, alignment: m.role == .user ? .trailing : .leading)
-    }
-
-    private var starterChips: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("TRY ASKING").font(.mono(9, .bold)).foregroundStyle(Theme.label)
-            ForEach(starters, id: \.self) { s in
-                Button { Task { await guide.ask(s) } } label: {
-                    Text(s).font(.ui(12)).foregroundStyle(Theme.accent)
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.accentDim))
+            // Suggested next questions, on the latest answer only.
+            if latest, !m.followUps.isEmpty {
+                VStack(alignment: .leading, spacing: 5) {
+                    ForEach(m.followUps, id: \.self) { f in
+                        Button { guide.ask(f) } label: {
+                            Text(f).font(.ui(12)).foregroundStyle(Theme.accent)
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .overlay(RoundedRectangle(cornerRadius: 13).stroke(Theme.accentDim))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(.plain)
+                .padding(.top, 2)
             }
         }
-        .padding(.top, 4)
+        .frame(maxWidth: .infinity, alignment: m.role == .user ? .trailing : .leading)
     }
 
     private var input: some View {
@@ -144,9 +136,9 @@ struct GuidePanel: View {
                 .onSubmit(send)
             Button(action: send) {
                 Image(systemName: "arrow.up").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.canvas)
-                    .frame(width: 28, height: 28).background(draft.isEmpty || guide.busy ? Theme.faint : Theme.accent, in: .circle)
+                    .frame(width: 28, height: 28).background(draft.isEmpty ? Theme.faint : Theme.accent, in: .circle)
             }
-            .buttonStyle(.plain).disabled(draft.isEmpty || guide.busy)
+            .buttonStyle(.plain).disabled(draft.isEmpty)
             .accessibilityLabel("Send")
         }
         .padding(10)
@@ -157,7 +149,7 @@ struct GuidePanel: View {
     private func send() {
         let q = draft
         draft = ""
-        Task { await guide.ask(q) }
+        guide.ask(q)
     }
 }
 

@@ -87,10 +87,10 @@ enum SnapshotTour {
             try? await Task.sleep(for: .seconds(1.5))
             capture("70-guide-open")
             for (n, q) in qs.enumerated() {
-                await g.ask(q)
+                g.ask(q)
                 try? await Task.sleep(for: .seconds(1))
                 capture(String(format: "7%d-guide", n + 1))
-                log("GUIDE Q: \(q) -> \(g.messages.last?.text ?? "") \(g.messages.last?.commands ?? []) model=\(g.usesOnDeviceModel) error=\(g.lastModelError ?? "none")")
+                log("GUIDE Q: \(q) -> \(g.messages.last?.text ?? "") \(g.messages.last?.commands ?? [])")
             }
             if let cmd = g.messages.last?.commands.first { _ = g.run(cmd); try? await Task.sleep(for: .seconds(4)); capture("79-guide-ran") }
         }

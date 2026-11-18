@@ -1346,3 +1346,66 @@ struct GuideTests {
         #expect(KestrelGuide.securityMentioned(in: "price of 7203.T")?.symbol == "7203.T")
     }
 }
+
+struct GuideConversationTests {
+    @Test func everyFunctionHasSteps() {
+        #expect(KestrelGuide.topics.allSatisfy { !$0.steps.isEmpty })
+        for h in KestrelGuide.howTos { for c in h.commands { #expect((try? CommandParser.parse(c, current: nil)) != nil, "\(h.title): \(c)") } }
+        for (_, c) in KestrelGuide.glossary.keys.compactMap({ k in KestrelGuide.answer("what is \(k)").commands.first.map { (k, $0) } }) {
+            #expect((try? CommandParser.parse(c, current: nil)) != nil, "\(c)")
+        }
+    }
+
+    @Test func explainsTrading() {
+        let r = KestrelGuide.answer("how do I trade?")
+        #expect(r.text.contains("CONFIRM") && r.text.contains("1. ") && r.commands.first == "AAPL BUY")
+        #expect(KestrelGuide.answer("how do I buy apple stock").commands.first == "AAPL BUY")
+        #expect(KestrelGuide.answer("what's the difference between limit and stop?").text.contains("STOP LMT"))
+        let short = KestrelGuide.answer("can I short tesla?")
+        #expect(short.text.contains("150%") && short.commands.first == "TSLA SELL")
+        #expect(KestrelGuide.answer("how do I cancel an order").commands == ["BLOT"])
+        #expect(KestrelGuide.answer("how do panels work?").text.contains("focused panel"))
+        #expect(KestrelGuide.answer("is the data live?").text.contains("15 minutes"))
+        #expect(KestrelGuide.answer("what can kestrel do").text.contains("EQS"))
+    }
+
+    @Test func remembersTheConversation() {
+        var c = KestrelGuide.Context()
+        let first = KestrelGuide.answer("show me Apple's dividends", context: &c)
+        #expect(first.commands.first == "AAPL DVD" && first.text.hasPrefix("DVD for AAPL"))     // "show" isn't "how"
+        let more = KestrelGuide.answer("how do I use it?", context: &c)
+        #expect(more.text.hasPrefix("How to use DVD") && more.commands.first == "AAPL DVD")
+        #expect(KestrelGuide.answer("and for Microsoft?", context: &c).commands.first == "MSFT DVD")
+        #expect(KestrelGuide.answer("what about NVDA", context: &c).commands.first == "NVDA DVD")
+        #expect(KestrelGuide.answer("thanks!", context: &c).text.hasPrefix("You're welcome"))
+    }
+}
+
+struct GuideSafetyTests {
+    @Test func neverRecommendsTrades() {
+        for q in ["is apple a good buy?", "should I invest in nvidia", "will bitcoin go up", "what stock should I buy", "give me a tip"] {
+            let r = KestrelGuide.answer(q)
+            #expect(r.text.contains("can't tell you what to buy"), "\(q)")
+            #expect(!r.commands.contains { $0.hasSuffix(" BUY") || $0.hasSuffix(" SELL") }, "\(q)")
+        }
+    }
+
+    @Test func routesEverydayQuestions() {
+        func top(_ q: String) -> String? { KestrelGuide.answer(q).commands.first }
+        #expect(top("what's my profit") == "PORT")
+        #expect(top("how much cash do I have") == "PORT")
+        #expect(top("tesla news") == "TSLA CN")
+        #expect(top("japan economy") == "ECST JAPAN")
+        #expect(top("which countries have the highest inflation") != nil && KestrelGuide.answer("which countries have the highest inflation").commands.contains { $0.hasPrefix("ECST") })
+        #expect(top("compare apple and microsoft") == "AAPL GP")
+        #expect(KestrelGuide.answer("how do I make the chart bigger").text.contains("full screen"))
+        #expect(KestrelGuide.answer("how do I go back").text.contains("MENU"))
+        #expect(KestrelGuide.answer("does it work offline").text.contains("internet"))
+        #expect(top("how do I change colours") == "PREF")
+        #expect(KestrelGuide.answer("the app is confusing").text.contains("GO"))
+        #expect(top("bitcoin options") == "BTC OMON")
+        #expect(top("germany gdp") == "ECST GERMANY")
+        #expect(top("what is the market doing today") == "WEI")
+        #expect(KestrelGuide.answer("how does the guide work").text.contains("on your device"))
+    }
+}
