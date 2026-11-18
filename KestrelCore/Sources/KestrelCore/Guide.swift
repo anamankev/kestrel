@@ -181,7 +181,7 @@ public enum KestrelGuide {
               commands: ["AAPL BUY", "AAPL SELL", "BLOT"],
               followUps: ["How do I place a trade?", "Can I short sell?"]),
         HowTo(title: "Short selling",
-              keywords: ["short sell", "short selling", "go short", "shorting", "sell short", "bet against", "can i short"],
+              keywords: ["short sell", "short selling", "go short", "shorting", "sell short", "bet against", "can i short", "how do i short", "how to short", "how can i short"],
               intro: "Yes. Selling more than you own opens a short position in your paper account.",
               steps: ["Open a SELL ticket, e.g. TSLA SELL, and enter a quantity above what you hold.",
                       "The ticket warns that it opens a short; 150% of its value is held as margin from your buying power.",

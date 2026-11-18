@@ -1,20 +1,37 @@
 # Kestrel for the web
 
 The same terminal in the browser: React + TypeScript + Vite, with the iPad/Mac app's core logic ported
-(symbol resolution, command parser, decoders, indicators) and its tests ported alongside.
+(command parser, decoders, indicators, quant and research models, the paper-trading engine, alerts, Black-76 options
+and the guide) and its tests ported alongside. All 38 functions work on the web.
 
 ```
 npm install
 npm run relay   # Cloudflare Worker relay on :8787 (needs worker/.dev.vars with SEC_CONTACT=you@example.com)
 npm run dev     # app on :5173
-npm test        # core + relay tests
+npm test        # core, guide, paper engine, options and relay tests
+npm run build   # type-check, bundle, and write dist/_headers (CSP and hardening headers)
+npm run preview # serve dist on :4173 with those headers, to check the production build locally
+npm run guide   # regenerate the guide's knowledge from KestrelCore/Guide.swift
 ```
 
-**Relay (`worker/`).** Browsers can't call Yahoo, SEC's ticker list or the French Data Library directly (no CORS;
-the SEC also requires a contact User-Agent). The relay forwards only an allowlisted set of read-only routes, validates
-every path and query value, answers only Kestrel's own origins, rate-limits per visitor and caches responses. It is not
-an open proxy. The SEC contact is a Cloudflare secret (`wrangler secret put SEC_CONTACT`), never committed.
+**Accounts and data.** Accounts live in the browser: passwords are hashed with PBKDF2 (600k rounds), and each
+account's watchlists, workspace, paper book and alerts are sealed with AES-256-GCM under a key the password unlocks.
+The session key is a non-extractable WebCrypto key in IndexedDB. There is no Kestrel server or account database.
 
-**Phases.** 1: terminal, panels, quotes, charts, watchlists, news, security search, live crypto depth and tape (done).
-2: sign-in and subscribe page, then research tools (FA, EVTS, HP, BT, BETA, FACT, EVST, DVD, EQS, COMP, MVO, CORR, ECO, ECST).
-3: paper trading, alerts, the guide. Payments are decided later.
+**Relay (`worker/`).** Browsers can't call Yahoo, the SEC, BLS's POST API, the French Data Library or the World Bank's
+bulk files directly (no CORS; the SEC also requires a contact User-Agent). The relay forwards only an allowlisted set of
+read-only routes, validates every path and query value, answers only Kestrel's own origins, rate-limits per visitor and
+caches responses. It is not an open proxy. The SEC contact is a Cloudflare secret, never committed. Coinbase, Deribit,
+the New York Fed and the World Bank's country list are called directly from the browser.
+
+## Deploy (Cloudflare free tier)
+
+1. Sign in once: `npx wrangler login`.
+2. Store the SEC contact as a secret: `npx wrangler secret put SEC_CONTACT --config worker/wrangler.toml`.
+3. In `worker/wrangler.toml`, set `ALLOWED_ORIGINS` to the site's origin (e.g. `https://kestrel-web.pages.dev`),
+   then `npm run deploy:relay`. Note the relay URL it prints (`https://kestrel-relay.<account>.workers.dev`).
+4. Write `.env.production` with `VITE_RELAY_URL=<that URL>`, then `npm run build`. The build refuses a non-https relay.
+5. Publish: `npx wrangler pages deploy dist --project-name kestrel-web`.
+
+Payments: the subscribe page shows the plans; web checkout isn't wired yet, so a "Continue to the web preview" link lets
+signed-in users in. Build with `VITE_WEB_PREVIEW=0` to remove it.

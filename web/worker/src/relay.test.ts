@@ -23,6 +23,9 @@ describe("relay routes", () => {
     expect(route(new URL("https://r/yahoo/spark?symbols=AAPL,%5EGSPC,EURUSD%3DX"))?.upstream).toContain("symbols=AAPL%2C%5EGSPC%2CEURUSD%3DX");
     expect(route(new URL(`https://r/yahoo/spark?symbols=${Array(21).fill("A").join(",")}`))).toBeNull();
     expect(route(new URL("https://r/yahoo/spark?symbols=AAPL,<x>"))).toBeNull();
+    expect(route(new URL("https://r/wb/bulk/SP.POP.TOTL"))?.upstream).toContain("downloadformat=csv");
+    expect(route(new URL("https://r/wb/bulk/ANY.THING"))).toBeNull();
+    expect(route(new URL("https://r/bls"))?.post).toContain("CUSR0000SA0");
     expect(route(new URL("https://r/rss/cnbc"))?.upstream).toContain("cnbc.com");
     expect(route(new URL("https://r/rss/company?s=TSLA"))?.upstream).toContain("s=TSLA");
     expect(route(new URL("https://r/rss/evilfeed"))).toBeNull();

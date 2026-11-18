@@ -1,5 +1,6 @@
 import type { AssetClass, Instrument, Region } from "./instrument";
 import { equities, crypto, indices, currencies, commodities, rates } from "./instruments.generated";
+import { optionInstrument } from "./options";
 
 export { equities, crypto, indices, currencies, commodities, rates };
 export const all: Instrument[] = [...equities, ...crypto, ...indices, ...currencies, ...commodities, ...rates];
@@ -41,6 +42,8 @@ export function token(i: Instrument): string {
 /** Resolves a typed token (AAPL, BTC, SPX, 7203.T, GBPJPY, ES=F, ^STI) into an instrument. */
 export function resolve(raw: string, hint?: AssetClass): Instrument | undefined {
   const upper = raw.toUpperCase();
+  const option = upper.length <= 32 ? optionInstrument(upper) : undefined;
+  if (option) return option;
   const tok = upper.replaceAll("/", "-").replaceAll(".", "-");
   if (hint === "CRYPTO") {
     const c = bySymbol.get(tok.endsWith("-USD") ? tok : `${tok}-USD`);

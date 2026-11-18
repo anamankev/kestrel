@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { suggestions as localSuggestions, functionFrom, fn, type Suggestion } from "../core/command";
 import { clock } from "../core/format";
+import { broker } from "../data/broker";
+import { alerts } from "../data/alerts";
+import { startOptionMarks } from "../data/options";
+import { Toasts } from "./functions/Trading";
+import { Guide } from "./Guide";
 import { changePercent } from "../core/market";
 import { indices, crypto, commodities, currencies, rates, equities } from "../core/universe";
 import { market } from "../data/market";
@@ -16,10 +21,12 @@ export function Terminal() {
   useStore(workspace);
   const [text, setText] = useState("");
   const input = useRef<HTMLInputElement>(null);
-  useEffect(() => { market.start(); input.current?.focus(); }, []);
+  useEffect(() => { market.start(); broker.start(); alerts.start(); startOptionMarks(); input.current?.focus(); }, []);
   useEffect(() => { market.focus = new Set(workspace.symbolsOnScreen); for (const p of workspace.visible) if (p.cmd.instrument) market.touch(p.cmd.instrument); });
   return (
     <div className="terminal">
+      <Toasts />
+      <Guide />
       <header className="topbar">
         <div className="wordmark"><KestrelMark /> KESTREL</div>
         <CommandBar text={text} setText={setText} inputRef={input} />
@@ -174,6 +181,7 @@ function AccountChip() {
       {open && (
         <div className="menu" role="menu">
           <div style={{ padding: "8px 10px" }}><div style={{ fontWeight: 600 }}>{me.displayName}</div><div className="dim" style={{ fontSize: 11 }}>{me.email}</div></div>
+          <button role="menuitem" onClick={() => { setOpen(false); workspace.run("PREF"); }}>Settings</button>
           <button role="menuitem" onClick={() => void auth.signOut()}>Sign out</button>
         </div>
       )}

@@ -18,6 +18,8 @@ export class MarketStore extends Store {
   messagesPerSecond = 0;
   /** Symbols on screen: refreshed often. Everything in the universe refreshes slowly. */
   focus = new Set<string>();
+  /** Symbols the paper book or alerts depend on: refreshed like on-screen ones. */
+  held: (() => Iterable<string>)[] = [];
   private count = 0;
   private timers: number[] = [];
 
@@ -32,7 +34,7 @@ export class MarketStore extends Store {
   }
 
   private focused(): Instrument[] {
-    return [...this.focus].map((s) => instrument(s) ?? resolve(s)).filter((i): i is Instrument => !!i && !isStreaming(i) && i.assetClass !== "OPTION");
+    return [...new Set([...this.focus, ...this.held.flatMap((f) => [...f()])])].map((s) => instrument(s) ?? resolve(s)).filter((i): i is Instrument => !!i && !isStreaming(i) && i.assetClass !== "OPTION");
   }
 
   private connect() {

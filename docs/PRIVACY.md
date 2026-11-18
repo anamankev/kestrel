@@ -21,6 +21,15 @@ cannot see, recover or delete your data; deleting your account in the app remove
   active; it never sees your payment details.
 - A transfer file you export is encrypted with a passphrase you choose and goes wherever you send it.
 
+**Kestrel on the web.** The web version keeps your account in your browser instead of on a device: your password
+is never stored (only a salted PBKDF2 hash), and your watchlists, workspace, paper book and alerts are encrypted in the
+browser's storage with a key your password unlocks. Clearing the site's data deletes them. Some public data requests
+(Yahoo Finance, the SEC, BLS, the World Bank's bulk files, the French Data Library and some news feeds) pass through
+Kestrel's relay on Cloudflare, which browsers need for those sources; it receives the symbols you view and your IP
+address (used only for rate limiting), never your account or data, and keeps no logs of its own. Coinbase, Deribit,
+the New York Fed and the World Bank's country list are called directly. The guide runs in your browser. If you allow
+browser notifications, alerts use them; nothing else is sent.
+
 **What we don't do.** No analytics, advertising, tracking, data sale, or third-party SDKs.
 
 **Children.** Kestrel is not directed to children under 13.

@@ -12,12 +12,17 @@ export interface Env {
 
 type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
-interface Route { upstream: string; ttl: number; ua: "browser" | "sec" }
+interface Route { upstream: string; ttl: number; ua: "browser" | "sec"; post?: string }
 
 const RANGES = new Set(["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]);
 const INTERVALS = new Set(["1m", "2m", "5m", "15m", "30m", "60m", "1h", "1d", "1wk", "1mo"]);
 const FRENCH = new Set(["F-F_Research_Data_Factors_daily_CSV.zip", "F-F_Research_Data_5_Factors_2x3_daily_CSV.zip", "F-F_Momentum_Factor_daily_CSV.zip"]);
 const SYMBOL = /^[A-Z0-9^=.&-]{1,24}$/;
+/** World Bank indicators shown in ECST (bulk ZIP downloads). */
+const WB = new Set(["NY.GDP.MKTP.KD.ZG", "NY.GDP.MKTP.CD", "NY.GDP.PCAP.CD", "FP.CPI.TOTL.ZG", "SL.UEM.TOTL.ZS", "BN.CAB.XOKA.GD.ZS", "GC.DOD.TOTL.GD.ZS", "NE.EXP.GNFS.ZS", "BX.KLT.DINV.WD.GD.ZS", "FR.INR.RINR", "SP.POP.TOTL"]);
+/** BLS series shown in ECO, fetched in one request. BLS allows ~25 unregistered requests a day per IP,
+ * and every visitor shares the relay's IP, so this is cached for 12 hours. */
+const BLS_SERIES = ["CUSR0000SA0", "CUSR0000SA0L1E", "WPSFD4", "LNS14000000", "CES0000000001", "CES0500000003", "LNS11300000"];
 /** Market news feeds (the same sources as the app). */
 const FEEDS: Record<string, string> = {
   cnbc: "https://www.cnbc.com/id/100003114/device/rss/rss.html",
@@ -68,6 +73,12 @@ export function route(url: URL): Route | null {
       return { upstream: `https://data.sec.gov/api/xbrl/frames/us-gaap/${p[2]}/USD/${p[3]}.json`, ttl: 86400, ua: "sec" };
     }
     return null;
+  }
+  if (p[0] === "wb" && p[1] === "bulk" && p.length === 3 && WB.has(p[2])) {
+    return { upstream: `https://api.worldbank.org/v2/en/indicator/${p[2]}?downloadformat=csv`, ttl: 86400, ua: "browser" };
+  }
+  if (p[0] === "bls" && p.length === 1) {
+    return { upstream: "https://api.bls.gov/publicAPI/v1/timeseries/data/", ttl: 43200, ua: "browser", post: JSON.stringify({ seriesid: BLS_SERIES }) };
   }
   if (p[0] === "rss" && p.length === 2) {
     if (p[1] === "company") {
@@ -120,14 +131,16 @@ export async function handle(req: Request, env: Env, upstreamFetch: Fetcher, cac
   if (!r) return json(404, { error: "unknown or invalid request" }, cors);
   if (r.ua === "sec" && !env.SEC_CONTACT) return json(503, { error: "SEC contact not configured" }, cors);
 
-  const key = new Request(r.upstream);
+  const key = new Request(r.post ? `${r.upstream}#${r.post}` : r.upstream);
   const hit = await cache?.match(key);
   if (hit) return withHeaders(hit, cors, "HIT");
 
   const ua = r.ua === "sec" ? `Kestrel/1.0 (${env.SEC_CONTACT})` : "Mozilla/5.0 (compatible; Kestrel relay)";
   let up: Response;
   try {
-    up = await upstreamFetch(r.upstream, { headers: { "User-Agent": ua, "Accept": "*/*" } });
+    up = await upstreamFetch(r.upstream, r.post
+      ? { method: "POST", body: r.post, headers: { "User-Agent": ua, "Accept": "*/*", "Content-Type": "application/json" } }
+      : { headers: { "User-Agent": ua, "Accept": "*/*" } });
   } catch {
     return json(502, { error: "upstream unreachable" }, cors);
   }
