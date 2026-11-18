@@ -29,6 +29,14 @@ enum SnapshotTour {
         "ALRT", "BLOT", "SOL BUY", "PREF", "PRO", "HELP",
     ]
 
+    /// `-guide "q1|q2"`: open the guide, ask each question, capture the panel.
+    static var guideQuestions: [String]? {
+        let a = ProcessInfo.processInfo.arguments
+        guard let i = a.firstIndex(of: "-guide"), i + 1 < a.count else { return nil }
+        return a[i + 1].split(separator: "|").map(String.init)
+    }
+    static weak var guide: GuideService?
+
     static var grids: [[String]] {
         let a = ProcessInfo.processInfo.arguments
         guard let i = a.firstIndex(of: "-grids"), i + 1 < a.count else { return [] }
@@ -38,7 +46,7 @@ enum SnapshotTour {
     /// `-screens "SECF TOYOTA,7203.T DES"` captures just those commands.
     static var chosen: [String] {
         let a = ProcessInfo.processInfo.arguments
-        if a.contains("-grids"), !a.contains("-screens") { return [] }
+        if a.contains("-grids") || a.contains("-guide"), !a.contains("-screens") { return [] }
         guard let i = a.firstIndex(of: "-screens"), i + 1 < a.count else { return screens }
         return a[i + 1].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
     }
@@ -74,6 +82,18 @@ enum SnapshotTour {
             try? await Task.sleep(for: .seconds(cmd.contains("OMON") || cmd.contains("OSA") || cmd.contains("BT") || cmd == "CORR" || cmd.hasPrefix("ECST") || cmd == "EQS" || cmd.contains("EVST") ? 7 : 4))
             capture(String(format: "%02d-%@", n + 1, cmd.replacingOccurrences(of: " ", with: "-")))
         }
+        if let qs = guideQuestions, let g = guide {
+            g.isOpen = true
+            try? await Task.sleep(for: .seconds(1.5))
+            capture("70-guide-open")
+            for (n, q) in qs.enumerated() {
+                await g.ask(q)
+                try? await Task.sleep(for: .seconds(1))
+                capture(String(format: "7%d-guide", n + 1))
+                log("GUIDE Q: \(q) -> \(g.messages.last?.text ?? "") \(g.messages.last?.commands ?? []) model=\(g.usesOnDeviceModel) error=\(g.lastModelError ?? "none")")
+            }
+            if let cmd = g.messages.last?.commands.first { _ = g.run(cmd); try? await Task.sleep(for: .seconds(4)); capture("79-guide-ran") }
+        }
         // `-grids "A,B,C,D;E,F,G,H,I,J"`: each group fills a 4- or 6-panel layout and is captured.
         for (g, group) in grids.enumerated() {
             ws.layout = group.count > 4 ? .six : group.count > 2 ? .four : .two
@@ -81,7 +101,7 @@ enum SnapshotTour {
             try? await Task.sleep(for: .seconds(10))
             capture(String(format: "8%d-grid-%d", g, group.count))
         }
-        guard grids.isEmpty else { log("SNAPSHOT TOUR DONE \(folder.path)"); return }
+        guard grids.isEmpty, guideQuestions == nil else { log("SNAPSHOT TOUR DONE \(folder.path)"); return }
         ws.layout = .four
         for (i, c) in ["TOP", "W", "BTC DEPTH", "TOP"].enumerated() { ws.focused = i; _ = ws.run(c) }
         try? await Task.sleep(for: .seconds(6))

@@ -1318,3 +1318,31 @@ struct EventStudyTests {
         #expect(d.first.map { SECFacts.day.string(from: $0) } == "2026-07-31")
     }
 }
+
+struct GuideTests {
+    @Test func everyFunctionIsDocumented() {
+        let covered = Set(KestrelGuide.topics.map(\.function))
+        #expect(TerminalFunction.allCases.allSatisfy { covered.contains($0) })
+        for t in KestrelGuide.topics { #expect((try? CommandParser.parse(t.example, current: nil))?.function == t.function, "\(t.example)") }
+    }
+
+    @Test func answersPlainQuestions() {
+        func top(_ q: String) -> String? { KestrelGuide.answer(q).commands.first }
+        #expect(top("how do I see Apple's dividends?") == "AAPL DVD")
+        #expect(top("show me a chart of bitcoin") == "BTC GP")
+        #expect(top("I want to buy some NVDA") == "NVDA BUY")
+        #expect(top("compare my watchlist performance") == "COMP")
+        #expect(top("compare my watchlist") == "COMP")
+        #expect(top("add a stock to my watchlist") == "W")
+        #expect(top("find the ticker for toyota") == "SECF TOYOTA")
+        #expect(top("what's inflation doing in the us") == "ECO")
+        #expect(top("gdp of japan") == "ECST JAPAN")
+        #expect(top("how did aapl react to earnings") == "AAPL EVST")
+        #expect(top("advanced chart please") == "NVDA GP")                // "advanced" isn't AMD
+        #expect(KestrelGuide.answer("hello").commands.contains("HELP"))
+        #expect(KestrelGuide.answer("what is beta?").text.hasPrefix("Beta measures"))
+        #expect(KestrelGuide.answer("qwerty zxcv").commands.contains("SECF"))
+        #expect(KestrelGuide.securityMentioned(in: "is the bank open") == nil)
+        #expect(KestrelGuide.securityMentioned(in: "price of 7203.T")?.symbol == "7203.T")
+    }
+}

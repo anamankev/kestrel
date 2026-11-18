@@ -31,9 +31,12 @@ Sign in or create an account on the first screen. Accounts stay on the device (s
 
 ## Run
 Open `Kestrel.xcodeproj` in Xcode 26+, pick an **iPad simulator** or **My Mac**, then press ⌘R.
-Tests: `cd KestrelCore && swift test` (130 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
+Tests: `cd KestrelCore && swift test` (132 core tests) and `xcodebuild test -scheme Kestrel -destination 'platform=macOS'`
 (20 app tests on Mac, 19+ on iPad: accounts, sessions, encryption at rest, StoreKit purchases, workspace routing, hotspots, pages, persistence regressions, formatting). CI runs both plus an iPad build
 (`.github/workflows/ci.yml`).
+
+## Kestrel Guide
+A floating guide (bottom right, ⌘/) answers questions in plain words, such as "show Apple's dividends", "what is beta?" or "I want to buy some bitcoin", and offers tap-to-run commands. With Apple Intelligence on, answers come from Apple's on-device model, which can also open functions itself; nothing leaves the device and there's no cost. Without it, a built-in offline guide answers from the function directory and a glossary. It never gives personalized investment advice.
 
 ## Functions
 | Security | Markets | Trading |

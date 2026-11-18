@@ -8,6 +8,7 @@ struct TerminalView: View {
     @Environment(PaperBroker.self) private var broker
     @State private var commandText = ""
     @FocusState private var commandFocused: Bool
+    @State private var guide = GuideService()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,13 +25,22 @@ struct TerminalView: View {
         .overlay(alignment: .topTrailing) {
             VStack(alignment: .trailing, spacing: 8) { FillToast(); AlertToast() }.padding(.top, 92).padding(.trailing, 12)
         }
+        .overlay(alignment: .bottomTrailing) {
+            if !DemoTour.isEnabled && (!SnapshotTour.isEnabled || SnapshotTour.guideQuestions != nil) { GuideOverlay(guide: guide) }
+        }
         // A lapsed subscription keeps the terminal usable: clamp a saved Pro layout to two panels.
         .onChange(of: store.isPro, initial: true) { if !store.isPro, ws.layout.count > ProFeature.freePanels { ws.layout = .two } }
         .onChange(of: ws.symbolsOnScreen, initial: true) { _, symbols in
             market.focusSymbols = symbols
             for s in symbols { if let i = Universe.instrument(symbol: s) ?? Universe.resolve(s) { market.touch(i) } }
         }
-        .onAppear { if !DemoTour.isEnabled && !SnapshotTour.isEnabled { commandFocused = true } }
+        .onAppear {
+            if !DemoTour.isEnabled && !SnapshotTour.isEnabled { commandFocused = true }
+            guide.run = { [ws] in ws.run($0) }
+            #if DEBUG
+            SnapshotTour.guide = guide
+            #endif
+        }
         #if DEBUG
         .task { if SnapshotTour.isEnabled { await SnapshotTour.run(ws) } }
         #endif
