@@ -987,6 +987,23 @@ private func Fmt(_ v: Double?) -> String { v.map { String(format: "%.1fB", $0 / 
         #expect(throws: TransferBundle.Failure.notATransferFile) { try TransferBundle.open(file, passphrase: "move my desk please") }
     }
 
+    /// A file exported by the web app (web/src/core/transfer.ts) must open here unchanged.
+    @Test func opensFilesExportedByTheWebApp() throws {
+        let web = Data(base64Encoded: "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")!
+        let b = try TransferBundle.open(web, passphrase: "move my desk please")
+        #expect(b.watchlists.map(\.name) == ["CORE", "TECH"] && b.watchlists[0].symbols.contains("EURUSD=X"))
+        #expect(b.watchlists.contains { $0.id == b.activeID })
+        #expect(b.alerts.active.count == 2 && b.alerts.active.contains { $0.condition == .movePercent(5) })
+        #expect(b.account.positions["AAPL"]?.quantity == 10 && b.account.positions["TSLA"]?.quantity == -3)
+        #expect(b.account.workingOrders.contains { $0.type == .stopLimit(stop: 180, limit: 179) })
+        #expect(b.account.workingOrders.contains { $0.type == .limit(60_000) })
+        #expect(b.exported == Date(timeIntervalSince1970: 1_800_000_000))
+        // The reverse direction: write an app-made file for the web test suite to open.
+        if let out = ProcessInfo.processInfo.environment["KESTREL_FIXTURE_OUT"] {
+            try bundle().seal(passphrase: "move my desk please", iterations: 1_000).base64EncodedString().write(toFile: out, atomically: true, encoding: .utf8)
+        }
+    }
+
     @Test func validatesContentsLikeTypedInput() {
         var b = bundle()
         b.activeID = UUID()
