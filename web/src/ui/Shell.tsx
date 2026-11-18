@@ -162,6 +162,7 @@ function FunctionKeys({ setText, focusInput }: { setText: (s: string) => void; f
       <span style={{ width: 8 }} />
       {KEYS.map((k) => <button key={k} className="key fn" title={fn(k).title} onClick={() => workspace.run(k)}>{k}</button>)}
       <span className="spacer" />
+      <PagesMenu />
       <div className="layouts" role="radiogroup" aria-label="Panel layout">
         {([1, 2, 4, 6] as Layout[]).map((l) => <button key={l} role="radio" aria-checked={workspace.layout === l} className={workspace.layout === l && workspace.maximized === null ? "on" : ""} onClick={() => workspace.setLayout(l)}>{l}</button>)}
       </div>
@@ -169,6 +170,37 @@ function FunctionKeys({ setText, focusInput }: { setText: (s: string) => void; f
   );
 }
 
+
+/** PAGES: save the layout and every panel under a name, reopen or delete it (stored in the account). */
+function PagesMenu() {
+  useStore(workspace);
+  const [open, setOpen] = useState<DOMRect | null>(null), [name, setName] = useState("");
+  const save = () => { if (name.trim()) { workspace.savePage(name); setName(""); setOpen(null); } };
+  const setOpenFalse = () => setOpen(null);
+  return (
+    <div style={{ marginRight: 8 }}>
+      <button className="key fn" onClick={(e) => setOpen(open ? null : e.currentTarget.getBoundingClientRect())} aria-expanded={!!open} title="Saved layouts">PAGES</button>
+      {open && (
+        // Fixed to the window: the function-key bar scrolls horizontally and would clip it.
+        <div className="menu" role="menu" style={{ position: "fixed", top: "auto", right: Math.max(window.innerWidth - open.right, 8), bottom: window.innerHeight - open.top + 4, width: 280 }}>
+          {workspace.pages.length === 0 && <div className="dim" style={{ padding: "8px 10px", fontSize: 12 }}>No saved pages yet.</div>}
+          {workspace.pages.map((p) => (
+            <div key={p.name} style={{ display: "flex", borderTop: "1px solid var(--rule)" }}>
+              <button role="menuitem" style={{ borderTop: 0, flex: 1 }} onClick={() => { workspace.openPage(p); setOpenFalse(); }}>
+                <b className="mono">{p.name}</b> <span className="dim" style={{ fontSize: 11 }}>{p.layout} panel{p.layout > 1 ? "s" : ""}</span>
+              </button>
+              <button style={{ borderTop: 0, width: 36, textAlign: "center", color: "var(--cancel)" }} onClick={() => workspace.deletePage(p.name)} aria-label={`Delete page ${p.name}`} title="Delete">✕</button>
+            </div>
+          ))}
+          <form style={{ display: "flex", gap: 6, padding: 8, borderTop: "1px solid var(--rule)" }} onSubmit={(e) => { e.preventDefault(); save(); }}>
+            <input className="field" style={{ flex: 1, minWidth: 0 }} maxLength={20} placeholder="Save current as… (e.g. MORNING)" value={name} onChange={(e) => setName(e.target.value)} aria-label="Page name" autoFocus />
+            <button className="key go" type="submit" disabled={!name.trim()} style={{ width: "auto", flex: "none", padding: "0 12px", border: 0 }}>SAVE</button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AccountChip() {
   useStore(auth);

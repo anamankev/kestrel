@@ -317,3 +317,33 @@ export function csvField(s: string): string {
 }
 export const csv = (header: string[], rows: string[][]) => [header, ...rows].map((r) => r.map(csvField).join(",")).join("\r\n") + "\r\n";
 export const csvNum = (v: number | null | undefined, digits = 6) => (v == null || !Number.isFinite(v) ? "" : v.toFixed(digits));
+
+// MARK: Portfolio risk (KestrelCore Risk)
+
+/** OLS beta of date-aligned asset returns on market returns (cov / var); null under 20 observations. */
+export function betaOf(asset: number[], market: number[]): number | null {
+  const n = Math.min(asset.length, market.length);
+  if (n < 20) return null;
+  const a = asset.slice(-n), m = market.slice(-n), ma = a.reduce((s, v) => s + v, 0) / n, mm = m.reduce((s, v) => s + v, 0) / n;
+  let cov = 0, vm = 0;
+  for (let i = 0; i < n; i++) { cov += (a[i] - ma) * (m[i] - mm); vm += (m[i] - mm) ** 2; }
+  return vm > 0 ? cov / vm : null;
+}
+/** One-day historical-simulation VaR as a positive loss (0 if the tail shows no loss). */
+export function historicalVaR(pnl: number[], confidence = 0.95): number | null {
+  if (pnl.length < 20 || confidence < 0.5 || confidence >= 1) return null;
+  const s = [...pnl].sort((a, b) => a - b);
+  return Math.max(-s[Math.min(Math.floor(s.length * (1 - confidence)), s.length - 1)], 0);
+}
+/** Expected shortfall: mean loss on the days beyond VaR. */
+export function expectedShortfall(pnl: number[], confidence = 0.95): number | null {
+  if (pnl.length < 20) return null;
+  const s = [...pnl].sort((a, b) => a - b), k = Math.max(Math.floor(s.length * (1 - confidence)), 1);
+  return Math.max(-s.slice(0, k).reduce((a, b) => a + b, 0) / k, 0);
+}
+/** Daily P&L history of a portfolio holding `exposure` (signed market value per symbol). */
+export function pnlSeries(exposure: Record<string, number>, rets: Record<string, number[]>): number[] {
+  const lens = Object.keys(exposure).map((k) => rets[k]?.length).filter((v): v is number => v != null);
+  const n = lens.length ? Math.min(...lens) : 0;
+  return Array.from({ length: n }, (_, t) => Object.entries(exposure).reduce((a, [k, v]) => { const r = rets[k]; return a + (r ? v * r[r.length - n + t] : 0); }, 0));
+}

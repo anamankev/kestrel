@@ -23,7 +23,7 @@ export class Workspace extends Store {
   /** Called after every change; the signed-in account encrypts and stores the snapshot. */
   persist: () => void = () => {};
 
-  snapshot() { return { layout: this.layout, panels: this.panels.map((p) => text(p.cmd)) }; }
+  snapshot() { return { layout: this.layout, panels: this.panels.map((p) => text(p.cmd)), pages: this.pages }; }
 
   /** Restores a saved workspace (commands are re-parsed, so stored data can only ever be a command). */
   restore(raw: any) {
@@ -33,6 +33,7 @@ export class Workspace extends Store {
       return { id, cmd, history: [] };
     });
     this.layout = [1, 2, 4, 6].includes(raw?.layout) ? raw.layout : 4;
+    this.pages = validPages(raw?.pages);
     this.focused = 0; this.maximized = null; this.error = null;
     this.emit();
   }
@@ -101,7 +102,31 @@ export class Workspace extends Store {
 
   /** Symbols on screen, for faster quote refresh. */
   get symbolsOnScreen(): string[] { return this.visible.map((p) => p.cmd.instrument?.symbol).filter((s): s is string => !!s); }
+
+  // MARK: Pages (named layouts, as in the app; up to 12, stored as command text)
+
+  pages: Page[] = [];
+  savePage(raw: string) {
+    const name = raw.trim().toUpperCase().slice(0, 20);
+    if (!name) return;
+    this.pages = [...this.pages.filter((p) => p.name !== name), { name, layout: this.layout, panels: this.panels.map((p) => text(p.cmd)) }].slice(-12);
+    this.save(); this.emit();
+  }
+  openPage(page: Page) {
+    page.panels.forEach((t, i) => {
+      const p = this.panels[i];
+      if (!p) return;
+      try { const cmd = parse(t); if (text(cmd) !== text(p.cmd)) { p.history = [...p.history.slice(-49), p.cmd]; p.cmd = cmd; } } catch { /* a stale command keeps the panel as it is */ }
+    });
+    this.layout = page.layout; this.maximized = null; this.focused = 0;
+    this.save(); this.emit();
+  }
+  deletePage(name: string) { this.pages = this.pages.filter((p) => p.name !== name); this.save(); this.emit(); }
 }
+
+export interface Page { name: string; layout: Layout; panels: string[] }
+const validPages = (raw: any): Page[] => (Array.isArray(raw) ? raw : []).slice(-12).flatMap((p: any) =>
+  typeof p?.name === "string" && Array.isArray(p.panels) ? [{ name: p.name.toUpperCase().slice(0, 20), layout: ([1, 2, 4, 6].includes(p.layout) ? p.layout : 4) as Layout, panels: p.panels.slice(0, 6).map((t: unknown) => String(t).slice(0, 80)) }] : []);
 
 export interface Watchlist { id: string; name: string; symbols: string[] }
 export const MAX_SYMBOLS = 100;

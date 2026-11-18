@@ -21,7 +21,11 @@ export function optionChain(currency: string): Promise<OptionChain> {
 }
 
 /** Publishes a contract's USD book as a quote, so tickets, the paper book and alerts can price it. */
+/** Latest contract data by Deribit name, for greeks (PORT net delta). */
+export const contracts = new Map<string, OptionContract>();
+
 export function ingest(c: OptionContract) {
+  contracts.set(c.name, c);
   const last = c.mark ?? (c.bid != null && c.ask != null ? (c.bid + c.ask) / 2 : undefined);
   if (last == null) return;
   market.quotes.set(c.name, { last, bid: c.bid, ask: c.ask, time: Date.now() });

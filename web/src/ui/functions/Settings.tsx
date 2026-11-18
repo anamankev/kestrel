@@ -1,14 +1,59 @@
 import { useState, type CSSProperties } from "react";
 import { INCLUDED, PLANS, perMonth, reference, saving } from "../../core/plans";
+import { money } from "../../core/format";
 import { auth } from "../../data/auth";
 import { prefs } from "../../data/prefs";
 import { broker } from "../../data/broker";
 import { useStore } from "../../data/store";
 import { workspace } from "../../data/workspace";
 import { Section } from "../components";
+import { applyBundle, exportFile, fileName, readFile } from "../../data/transfer";
+import { TransferError, type Bundle } from "../../core/transfer";
 
 const usd = (v: number) => `$${v.toFixed(2)}`;
 const row: CSSProperties = { display: "flex", alignItems: "center", gap: 12, padding: "8px 10px", fontSize: 12 };
+
+/** Encrypted transfer file, interchangeable with the iPad/Mac app. */
+function Transfer() {
+  const [pass, setPass] = useState(""), [busy, setBusy] = useState(false), [msg, setMsg] = useState<[string, boolean] | null>(null);
+  const [file, setFile] = useState<File | null>(null), [opened, setOpened] = useState<Bundle | null>(null);
+  const fail = (e: unknown) => setMsg([e instanceof TransferError ? e.message : "Something went wrong. Try again.", false]);
+  const doExport = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const blob = await exportFile(pass), a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = fileName(); a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+      setMsg([`Saved ${a.download}. Open it in Kestrel on your other device with the same passphrase.`, true]); setPass("");
+    } catch (e) { fail(e); } finally { setBusy(false); }
+  };
+  const doOpen = async () => {
+    if (!file) return;
+    setBusy(true); setMsg(null);
+    try { setOpened(await readFile(file, pass)); } catch (e) { fail(e); } finally { setBusy(false); }
+  };
+  const when = (t: number) => new Date(t).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+  return (
+    <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
+      <span className="dim">Move this account's watchlists, alerts and paper book between the web and the Kestrel app for iPad and Mac. The file is encrypted with the passphrase below; type the same passphrase when importing.</span>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <input className="field" type="password" autoComplete="new-password" placeholder="Passphrase (10+ characters)" value={pass} onChange={(e) => { setPass(e.target.value); setOpened(null); }} aria-label="Transfer passphrase" style={{ minWidth: 220 }} />
+        <button className="textbtn" disabled={busy || [...pass].length < 10} onClick={() => void doExport()}>EXPORT FILE</button>
+        <label className="textbtn" style={{ cursor: "pointer" }}>CHOOSE FILE…<input type="file" accept=".kestrel,application/octet-stream" style={{ display: "none" }} onChange={(e) => { setFile(e.target.files?.[0] ?? null); setOpened(null); setMsg(null); e.target.value = ""; }} /></label>
+        {file && <button className="textbtn" disabled={busy || !pass} onClick={() => void doOpen()}>OPEN {file.name.slice(0, 32).toUpperCase()}</button>}
+        {busy && <span className="dim mono" style={{ fontSize: 10 }}>WORKING…</span>}
+      </div>
+      {opened && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <span className="warn">Import {opened.watchlists.length} watchlist{opened.watchlists.length === 1 ? "" : "s"}, {opened.alerts.active.length} alert{opened.alerts.active.length === 1 ? "" : "s"} and a paper book with {money(opened.account.cash)} cash, exported {when(opened.exported)}. This replaces the data in this account.</span>
+          <button className="textbtn danger" onClick={() => { applyBundle(opened); setOpened(null); setFile(null); setPass(""); setMsg(["Imported.", true]); }}>REPLACE</button>
+          <button className="textbtn" onClick={() => setOpened(null)}>CANCEL</button>
+        </div>
+      )}
+      {msg && <span role="status" style={{ color: msg[1] ? "var(--up)" : "var(--cancel)" }}>{msg[0]}</span>}
+    </div>
+  );
+}
 
 /** PREF: display, data, subscription, paper account and account settings. */
 export function Settings() {
@@ -37,6 +82,8 @@ export function Settings() {
           ? <><span className="warn mono" style={{ fontSize: 10 }}>Erase all paper orders and reset to $1,000,000?</span><button className="textbtn danger" onClick={() => { broker.reset(); setReset(false); }}>RESET</button><button className="textbtn" onClick={() => setReset(false)}>KEEP</button></>
           : <button className="textbtn danger" onClick={() => setReset(true)}>Reset paper account</button>}
       </div>
+      <Section title="TRANSFER BETWEEN WEB, IPAD AND MAC" />
+      <Transfer />
       <Section title="ACCOUNT" />
       {me && <div style={row}><span><b>{me.displayName}</b><br /><span className="dim">{me.email}</span></span><span className="spacer" /><button className="textbtn" onClick={() => void auth.signOut()}>Sign out</button></div>}
       <div style={{ ...row, flexWrap: "wrap" }}>

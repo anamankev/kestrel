@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import type { Instrument } from "../../core/instrument";
 import type { TradeSide } from "../../core/command";
-import { money, price, pct } from "../../core/format";
+import { compact, money, price, pct } from "../../core/format";
+import { alignedReturns, betaOf, expectedShortfall, historicalVaR, pnlSeries } from "../../core/quant";
+import { contractGreeks, parseOption } from "../../core/options";
+import { contracts } from "../../data/options";
+import { history } from "../../data/research";
+import { useAsync } from "../useAsync";
 import { changePercent } from "../../core/market";
 import { isPendingStop, OrderReject, PaperAccount, type Order, type OrderType } from "../../core/paper";
 import { AlertError, conditionLabel, type AlertCondition } from "../../core/alerts";
@@ -119,6 +124,8 @@ export function Portfolio({ panel }: { panel: number }) {
         <Tile k="UNREALIZED" v={signedMoney(broker.unrealized)} className={tint(broker.unrealized)} /><Tile k="REALIZED" v={signedMoney(a.realizedPnL)} className={tint(a.realizedPnL)} />
         <Tile k="CASH" v={money(a.cash)} /><Tile k="BUYING POWER" v={money(a.buyingPower)} s={a.shortMarginHeld ? `${money(a.shortMarginHeld)} SHORT MARGIN` : undefined} />
       </div>
+      <RiskPanel />
+      {broker.curve.length > 1 && <Section title="EQUITY CURVE" right={`${broker.curve.length} SNAPSHOTS`} />}
       {broker.curve.length > 1 && <div style={{ padding: 8 }}><LineChart x={broker.curve.map((p) => p.t)} series={[{ name: "Account value", values: broker.curve.map((p) => p.v), width: 2 }]} zero={PaperAccount.startingCash} xFormat={(t) => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" })} yLabel="Account value ($)" h={150} /></div>}
       <Section title="POSITIONS" right={`${a.openPositions.length} OPEN`} />
       {a.openPositions.length === 0 ? <Empty title="No positions" detail="Try BTC BUY or AAPL TRADE. Every account starts with $1,000,000 of paper money." /> :
@@ -206,5 +213,67 @@ export function Toasts() {
   useEffect(() => { if (f) setShown({ id: `f${f.id}`, k: `FILLED · ${tickerOf(f.symbol)}`, v: `${f.side} ${qty(f.quantity)} @ ${price(f.price)}` }); }, [f]);
   useEffect(() => { if (!shown) return; const t = setTimeout(() => setShown(null), 6000); return () => clearTimeout(t); }, [shown]);
   return shown ? <div className="toast" role="status"><div className="k">{shown.k}</div><div className="v">{shown.v}</div></div> : null;
+}
+
+/** PORT risk: exposures, equity-weighted beta to the S&P 500, 1-day historical VaR and expected shortfall, net crypto delta. */
+function RiskPanel() {
+  useStore(broker); useStore(market);
+  const a = broker.account;
+  const exposures = a.openPositions.flatMap((p) => {
+    const i = instrument(p.symbol) ?? resolve(p.symbol);
+    return i ? [{ i, value: p.quantity * (market.quotes.get(p.symbol)?.last ?? broker.marks[p.symbol] ?? p.averageCost) }] : [];
+  });
+  const key = a.openPositions.map((p) => `${p.symbol}:${p.quantity}`).join(",");
+  const risk = useAsync(async () => {
+    const held = exposures.filter((e) => e.i.assetClass !== "OPTION");
+    if (!held.length) return null;
+    const spx = resolve("SPX")!;
+    const hist = Object.fromEntries((await Promise.all([...held.map((e) => e.i), spx].map(async (i) => [i.symbol, await history(i, "1y").catch(() => [])] as const))).filter(([, c]) => c.length > 20));
+    if (!hist[spx.symbol]) return null;
+    const r = alignedReturns(hist), eq = Math.max(broker.equity, 1);
+    const exp: Record<string, number> = {};
+    for (const e of held) if (r[e.i.symbol]) exp[e.i.symbol] = (exp[e.i.symbol] ?? 0) + e.value;
+    const pnl = pnlSeries(exp, r);
+    const beta = Object.entries(exp).reduce((s, [k, v]) => s + (v / eq) * (betaOf(r[k] ?? [], r[spx.symbol] ?? []) ?? 0), 0);
+    return { beta, var95: historicalVaR(pnl), es95: expectedShortfall(pnl), days: pnl.length };
+  }, [key]);
+  if (!exposures.length) return null;
+  const eq = Math.max(broker.equity, 1);
+  const long = exposures.filter((e) => e.value > 0).reduce((s, e) => s + e.value, 0);
+  const short = exposures.filter((e) => e.value < 0).reduce((s, e) => s + e.value, 0);
+  const gross = long - short;
+  const deltas = new Map<string, number>();
+  for (const p of a.openPositions) {
+    const o = parseOption(p.symbol);
+    if (o) { const c = contracts.get(p.symbol), g = c && contractGreeks(c); if (g) deltas.set(o.underlying, (deltas.get(o.underlying) ?? 0) + p.quantity * g.delta); }
+    else if (/^(BTC|ETH)-USD$/.test(p.symbol)) { const u = p.symbol.slice(0, 3); deltas.set(u, (deltas.get(u) ?? 0) + p.quantity); }
+  }
+  const byClass = new Map<string, number>();
+  for (const e of exposures) byClass.set(e.i.assetClass, (byClass.get(e.i.assetClass) ?? 0) + Math.abs(e.value));
+  const loss = (v?: number | null) => (v == null ? "—" : `-$${compact(v)}`);
+  const r = risk.data;
+  return (
+    <>
+      <Section title="RISK" right={r ? `${r.days} DAYS · HISTORICAL` : risk.loading ? "COMPUTING…" : undefined} />
+      <div className="tiles">
+        <Tile k="GROSS EXPOSURE" v={`$${compact(gross)}`} s={`${((gross / eq) * 100).toFixed(0)}% OF EQUITY`} />
+        <Tile k="NET EXPOSURE" v={`${long + short < 0 ? "-" : ""}$${compact(Math.abs(long + short))}`} s={`${(((long + short) / eq) * 100).toFixed(0)}% OF EQUITY`} />
+        <Tile k="LONG / SHORT" v={`$${compact(long)} / $${compact(Math.abs(short))}`} s={`${exposures.filter((e) => e.value < 0).length} SHORT`} />
+        <Tile k="BETA (S&P 500)" v={r ? r.beta.toFixed(2) : "—"} s="EQUITY-WEIGHTED" />
+        <Tile k="1-DAY VaR 95%" v={loss(r?.var95)} s="HISTORICAL SIMULATION" className="warn" />
+        <Tile k="EXP. SHORTFALL 95%" v={loss(r?.es95)} s="AVG LOSS BEYOND VaR" className="down" />
+        {deltas.size > 0 && <Tile k="NET DELTA" v={[...deltas].map(([u, d]) => `${u} ${d >= 0 ? "+" : ""}${d.toFixed(3)}`).join("  ")} s="SPOT + OPTIONS, IN COINS" className="accent" />}
+      </div>
+      <div style={{ padding: "6px 8px", display: "flex", flexDirection: "column", gap: 3 }}>
+        {[...byClass].sort((x, y) => y[1] - x[1]).map(([cls, v]) => (
+          <div key={cls} className="mono" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 9 }}>
+            <b className="label" style={{ width: 60 }}>{cls}</b>
+            <div style={{ flex: 1, height: 8 }}><div style={{ width: `${gross ? (v / gross) * 100 : 0}%`, height: "100%", background: "var(--accent)", opacity: 0.7 }} /></div>
+            <span className="dim" style={{ width: 40, textAlign: "right" }}>{gross ? ((v / gross) * 100).toFixed(0) : 0}%</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
 }
 

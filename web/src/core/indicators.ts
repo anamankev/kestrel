@@ -46,3 +46,22 @@ export function vwap(c: Candle[]): (number | null)[] {
   let pv = 0, vol = 0;
   return c.map((k) => { pv += ((k.high + k.low + k.close) / 3) * k.volume; vol += k.volume; return vol > 0 ? pv / vol : null; });
 }
+
+/** Rebases a chart and a comparison series to % change from their first shared bar (KestrelCore `Indicators.rebase`).
+ *  The comparison takes, at each main bar, its last close at or before that time. */
+export function rebase(main: Candle[], other: Candle[]): { main: Candle[]; other: (number | null)[] } {
+  const base = main[0]?.close;
+  if (!(base > 0)) return { main, other: [] };
+  const pct = (v: number) => (v / base - 1) * 100;
+  const m = main.map((k) => ({ ...k, open: pct(k.open), high: pct(k.high), low: pct(k.low), close: pct(k.close) }));
+  const sorted = [...other].sort((a, b) => a.time - b.time);
+  const closeAt = (t: number) => {
+    let lo = 0, hi = sorted.length - 1, best = -1;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (sorted[mid].time <= t) { best = mid; lo = mid + 1; } else hi = mid - 1; }
+    return best >= 0 ? sorted[best].close : null;
+  };
+  const raw = main.map((k) => closeAt(k.time));
+  const cBase = raw.find((v): v is number => v != null);
+  if (!(cBase && cBase > 0)) return { main: m, other: [] };
+  return { main: m, other: raw.map((v) => (v == null ? null : (v / cBase - 1) * 100)) };
+}

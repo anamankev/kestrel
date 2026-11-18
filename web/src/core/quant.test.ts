@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ols, adjustedBeta, performance, rebased, projectToSimplex, frontier, optimize, linearFit, dividendSummary, eventStudy, carSummary, car, lastDay, backtest, csvField, csv, correlation, alignedCloses, returnStats } from "./quant";
+import { ols, adjustedBeta, performance, rebased, projectToSimplex, frontier, optimize, linearFit, dividendSummary, eventStudy, carSummary, car, lastDay, backtest, csvField, csv, correlation, alignedCloses, returnStats, betaOf, historicalVaR, expectedShortfall, pnlSeries } from "./quant";
 import type { Candle } from "./market";
 
 describe("regression and performance", () => {
@@ -106,5 +106,17 @@ describe("backtest, history, csv", () => {
     expect(csvField("-0.25")).toBe("-0.25");
     expect(csv(["a", "b"], [["1", "x,y"]])).toBe('a,b\r\n1,"x,y"\r\n');
     expect(alignedCloses({ a: bars([1, 2]), b: bars([3]) }).dates.length).toBe(1);
+  });
+});
+
+describe("portfolio risk (ported from KestrelCore)", () => {
+  test("matches the app's VaR, shortfall, beta and P&L", () => {
+    const pnl = Array.from({ length: 100 }, (_, i) => i + 1 - 50);
+    expect(historicalVaR(pnl)).toBe(44); expect(expectedShortfall(pnl)).toBe(47);
+    expect(historicalVaR(Array(30).fill(1))).toBe(0);
+    const m = Array.from({ length: 40 }, (_, i) => Math.sin(i) / 100);
+    expect(Math.abs(betaOf(m.map((v) => v * 1.5), m)! - 1.5)).toBeLessThan(1e-9);
+    expect(betaOf([0.01], [0.02])).toBeNull();
+    expect(pnlSeries({ A: 1000, B: -500 }, { A: [0.21], B: [0.1] })[0]).toBeCloseTo(160);
   });
 });

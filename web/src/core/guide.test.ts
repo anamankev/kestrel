@@ -27,7 +27,7 @@ describe("guide (ported from KestrelGuide tests)", () => {
     const cmds = [...howTos.flatMap((h) => h.commands), ...Object.keys(glossary).flatMap((k) => answer(`what is ${k}`).commands.slice(0, 1))];
     for (const c of cmds) expect(() => parse(c), c).not.toThrow();
     const text = JSON.stringify([topics, howTos]);
-    for (const app of ["long-press", "AirDrop", "Apple ID", "menu bar", "SEC contact email in PREF", "PAGES"]) expect(text, app).not.toContain(app);
+    for (const app of ["long-press", "AirDrop", "Apple ID", "menu bar", "SEC contact email in PREF", "coming to the web"]) expect(text, app).not.toContain(app);
   });
   it("explains trading", () => {
     const r = answer("how do I trade?");

@@ -18,8 +18,8 @@ const WEB: Record<string, string> = {
   "Tap a row to load it into the other panels; long-press for more functions or Set alert…": "Click a row to load it into the other panels.",
   "Type a ticker then ALRT, e.g. NVDA ALRT (or long-press any row and choose Set alert…).": "Type a ticker then ALRT, e.g. NVDA ALRT.",
   "Alerts fire once; on iPad they're checked in the background, on Mac from the menu bar.": "Alerts fire once, while Kestrel is open in a browser tab; allow notifications to see them from other tabs.",
-  "settings: SEC contact email, colour-vision-safe colours, refresh speed, subscription, iPad ↔ Mac transfer, account": "settings: colour-vision-safe colours, subscription, paper account and your account (sign out or delete)",
-  "Sections: SEC EDGAR contact, display, data refresh, subscription, transfer between iPad and Mac, reset, account (sign out).": "Sections: display, subscription, paper account reset, and account (sign out or delete).",
+  "settings: SEC contact email, colour-vision-safe colours, refresh speed, subscription, iPad ↔ Mac transfer, account": "settings: colour-vision-safe colours, subscription, paper account, transfer between web, iPad and Mac, and your account (sign out or delete)",
+  "Sections: SEC EDGAR contact, display, data refresh, subscription, transfer between iPad and Mac, reset, account (sign out).": "Sections: display, data, subscription, paper account reset, transfer between web, iPad and Mac, and account (sign out or delete).",
   "See your plan and renewal date; Manage subscription opens Apple's subscription settings.": "See the plans and everything that's included.",
   "Restore purchases brings back a subscription bought on this Apple ID.": "Web checkout opens soon; subscriptions are available now in the Kestrel app for iPad and Mac.",
   "Type a ticker then ALRT, e.g. NVDA ALRT, or long-press a watchlist row and choose Set alert….": "Type a ticker then ALRT, e.g. NVDA ALRT.",
@@ -29,9 +29,6 @@ const WEB: Record<string, string> = {
   "PREF sets how often delayed quotes refresh.": "Delayed quotes refresh about every 45 seconds, and every 15 seconds for securities on screen.",
   "Kestrel Pro is $9.99 a month, $49.99 for 6 months or $99.99 a year, through your Apple ID:": "Kestrel Pro is $9.99 a month, $49.99 for 6 months or $99.99 a year:",
   "Manage subscription opens Apple's settings to change or cancel.": "",
-  "Tap PAGES at the bottom, then Save current as…, and name it.": "On the web your layout and every panel are saved in your account automatically.",
-  "Open it later from PAGES; delete pages from the same menu.": "Named pages are coming to the web; they work in the app for iPad and Mac.",
-  "A page saves the current layout and every panel's function:": "Your workspace saves itself:",
   "Green is up and red down (blue/orange in colour-vision-safe mode, the eye icon at the bottom right).": "Green is up and red down (blue/orange in colour-vision-safe mode, in PREF).",
   "Green is up, red is down (blue/orange with colour-vision-safe mode); tap a tile to load it.": "Green is up, red is down (blue/orange with colour-vision-safe mode in PREF); click a tile to load it.",
   "Kestrel has no API keys and no servers; it reads public market data directly.": "Market data comes from public sources, some through Kestrel's data relay, which sees the symbols you view, not who you are.",
@@ -44,7 +41,7 @@ const WEB: Record<string, string> = {
 };
 const OVERRIDE: Record<string, Partial<HowTo>> = {
   "SEC contact email": { intro: "On the web there's nothing to set up: Kestrel's data relay identifies itself to the SEC for you.", steps: ["FA, EVTS, EQS, ERN and EVST load directly.", "If one fails, the SEC may be busy: reopen the function to retry."], commands: ["MSFT FA", "EQS"] },
-  "Moving data between iPad and Mac": { intro: "Your web account lives in this browser, encrypted. It doesn't sync with the iPad or Mac app yet:", steps: ["Use the same browser to keep your watchlists, paper trades and alerts.", "Clearing this site's data in your browser deletes the account, so don't clear it if you want to keep them."], followUps: ["Is my data private?"] },
+  "Moving data between iPad and Mac": { intro: "Your web account lives in this browser, encrypted. Move it to or from the iPad or Mac app with an encrypted file:", steps: ["Open PREF → TRANSFER BETWEEN WEB, IPAD AND MAC.", "Type a passphrase (10+ characters) and click EXPORT FILE, or CHOOSE FILE… to open one exported elsewhere with the same passphrase.", "Importing replaces this account's watchlists, alerts and paper book. Clearing this site's data in your browser deletes the account, so export first."], followUps: ["Is my data private?"] },
 };
 const web = (s: string) => (s in WEB ? WEB[s] : s);
 const fix = (steps: string[]) => steps.map(web).filter(Boolean);
