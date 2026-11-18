@@ -1,0 +1,9 @@
+name = "kestrel-relay"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[vars]
+# The deployed site's origin is added here at deploy time.
+ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+
+# SEC_CONTACT is a secret: `wrangler secret put SEC_CONTACT` (production) or .dev.vars (local, gitignored).

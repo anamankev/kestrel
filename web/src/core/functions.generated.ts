@@ -1,0 +1,46 @@
+// Generated from KestrelCore/Sources/KestrelCore/Command.swift. Do not edit by hand.
+export interface FunctionInfo { code: string; title: string; needsSecurity: boolean }
+
+export const functions: FunctionInfo[] = [
+  { code: "DES", title: "Security Description", needsSecurity: true },
+  { code: "FA", title: "Financial Analysis", needsSecurity: true },
+  { code: "EVTS", title: "Corporate Events & Filings", needsSecurity: true },
+  { code: "GP", title: "Price Chart", needsSecurity: true },
+  { code: "HP", title: "Historical Prices", needsSecurity: true },
+  { code: "DEPTH", title: "Market Depth", needsSecurity: true },
+  { code: "TAS", title: "Time & Sales", needsSecurity: true },
+  { code: "CN", title: "Company News", needsSecurity: true },
+  { code: "OMON", title: "Option Monitor", needsSecurity: true },
+  { code: "W", title: "Monitor", needsSecurity: false },
+  { code: "HMAP", title: "Heat Map", needsSecurity: false },
+  { code: "WEI", title: "World Equity Indices", needsSecurity: false },
+  { code: "MOST", title: "Most Active / Movers", needsSecurity: false },
+  { code: "FX", title: "Currency Monitor", needsSecurity: false },
+  { code: "COMD", title: "Commodities", needsSecurity: false },
+  { code: "RATES", title: "US Treasury Yields", needsSecurity: false },
+  { code: "TOP", title: "Top News", needsSecurity: false },
+  { code: "ECO", title: "US Economy", needsSecurity: false },
+  { code: "CORR", title: "Correlation Matrix", needsSecurity: false },
+  { code: "BT", title: "Strategy Backtest", needsSecurity: true },
+  { code: "OSA", title: "Option Strategy Builder", needsSecurity: true },
+  { code: "ERN", title: "Earnings Calendar", needsSecurity: false },
+  { code: "SECF", title: "Security Finder", needsSecurity: false },
+  { code: "BETA", title: "Beta & Regression", needsSecurity: true },
+  { code: "COMP", title: "Comparative Returns", needsSecurity: false },
+  { code: "MVO", title: "Portfolio Optimizer", needsSecurity: false },
+  { code: "EQS", title: "Equity Screener", needsSecurity: false },
+  { code: "FACT", title: "Factor Regression", needsSecurity: true },
+  { code: "DVD", title: "Dividends", needsSecurity: true },
+  { code: "ECST", title: "World Economic Statistics", needsSecurity: false },
+  { code: "EVST", title: "Earnings Event Study", needsSecurity: true },
+  { code: "PRO", title: "Kestrel Pro", needsSecurity: false },
+  { code: "ALRT", title: "Price Alerts", needsSecurity: false },
+  { code: "PREF", title: "Settings", needsSecurity: false },
+  { code: "TRADE", title: "Order Ticket", needsSecurity: true },
+  { code: "PORT", title: "Portfolio & P&L", needsSecurity: false },
+  { code: "BLOT", title: "Order Blotter", needsSecurity: false },
+  { code: "HELP", title: "Function Directory", needsSecurity: false },
+];
+
+/** Alternate mnemonics accepted on the command line. */
+export const aliases: Record<string, string> = { "G": "GP", "GIP": "GP", "GPO": "GP", "CHART": "GP", "Q": "DES", "BOOK": "DEPTH", "L2": "DEPTH", "T&S": "TAS", "TS": "TAS", "N": "TOP", "NEWS": "TOP", "MON": "W", "WATCH": "W", "IMAP": "HMAP", "MOV": "MOST", "FXC": "FX", "GLCO": "COMD", "GOV": "RATES", "BUY": "TRADE", "SELL": "TRADE", "OMS": "TRADE", "ALERT": "ALRT", "SETTINGS": "PREF", "PDF": "PREF", "FIN": "FA", "EVT": "EVTS", "HIST": "HP", "HISTORY": "HP", "EARN": "ERN", "EARNINGS": "ERN", "SUBSCRIBE": "PRO", "SUBS": "PRO", "UPGRADE": "PRO", "FILINGS": "EVTS", "ECON": "ECO", "MACRO": "ECO", "FINANCIALS": "FA", "ALERTS": "ALRT", "OPT": "OMON", "OPTIONS": "OMON", "OV": "OMON", "SMILE": "OMON", "TKT": "TRADE", "PNL": "PORT", "PRT": "PORT", "ORD": "BLOT", "?": "HELP", "CORREL": "CORR", "COR": "CORR", "BTST": "BT", "BACKTEST": "BT", "STRAT": "OSA", "PAYOFF": "OSA", "NSE": "TOP", "SEARCH": "TOP", "FIND": "SECF", "LOOKUP": "SECF", "SECFIND": "SECF", "SYMBOL": "SECF", "REGRESS": "BETA", "REGRESSION": "BETA", "COMPARE": "COMP", "PERF": "COMP", "OPTIMIZE": "MVO", "FRONTIER": "MVO", "PORTOPT": "MVO", "SCREEN": "EQS", "SCREENER": "EQS", "EQSCREEN": "EQS", "FF": "FACT", "FAMA": "FACT", "FACTOR": "FACT", "FACTORS": "FACT", "CARHART": "FACT", "DIV": "DVD", "DIVIDEND": "DVD", "DIVIDENDS": "DVD", "DVDH": "DVD", "COUNTRY": "ECST", "WDI": "ECST", "GLOBAL": "ECST", "EVENT": "EVST", "EVENTSTUDY": "EVST" };
