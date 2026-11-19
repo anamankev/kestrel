@@ -32,7 +32,7 @@ struct AlertsView: View {
                 ForEach(Array(user.alerts.history.prefix(50).enumerated()), id: \.element.id) { n, a in historyRow(a).rowBackground(n) }
                 if !user.alerts.history.isEmpty {
                     Button("Clear history") { user.clearAlertHistory() }
-                        .font(.mono(10, .bold)).foregroundStyle(Theme.dim).buttonStyle(.plain).padding(.horizontal, 8)
+                        .font(.mono(10, .bold)).foregroundStyle(Theme.dim).buttonStyle(.terminal).padding(.horizontal, 8)
                 }
             }
             .padding(.vertical, 8)
@@ -70,7 +70,7 @@ struct AlertsView: View {
                     Text("SET").font(.mono(12, .heavy)).foregroundStyle(Theme.canvas)
                         .frame(width: 64.pt, height: 34.pt).background(Theme.accent, in: .rect(cornerRadius: 3))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.terminal)
             }
             if let (text, ok) = message {
                 Text(text).font(.mono(11, .medium)).foregroundStyle(ok ? theme.up : Theme.cancel)
@@ -124,7 +124,7 @@ struct AlertsView: View {
                 Text("CXL").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas)
                     .padding(.horizontal, 6).frame(height: 18.pt).background(Theme.cancel, in: .rect(cornerRadius: 2))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.terminal)
         }
         .monospacedDigit()
         .padding(.horizontal, 8).frame(height: 28.pt)

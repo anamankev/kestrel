@@ -42,7 +42,7 @@ struct HistoryView: View {
                         Text(s.rawValue).font(.mono(10, .bold)).foregroundStyle(span == s ? Theme.canvas : Theme.dim)
                             .padding(.horizontal, 8).frame(height: 20.pt)
                             .background(span == s ? Theme.accent : Theme.header, in: .rect(cornerRadius: 2))
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(.terminal)
                 }
                 Text(weekly ? "WEEKLY BARS" : "DAILY BARS").font(.mono(9)).foregroundStyle(Theme.faint).padding(.leading, 6)
                 Spacer()
@@ -54,7 +54,7 @@ struct HistoryView: View {
                             .foregroundStyle(Theme.canvas).padding(.horizontal, 8).frame(height: 22.pt)
                             .background(Theme.accent, in: .rect(cornerRadius: 2))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.terminal)
                 }
             }
             .padding(6)

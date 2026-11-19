@@ -46,7 +46,7 @@ struct GuideButton: View {
             .offset(y: bob && !open ? -3 : 0)
             .contentShape(.circle)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.terminal)
         .accessibilityLabel(open ? "Close the guide" : "Ask the Kestrel guide")
         .keyboardShortcut("/", modifiers: .command)
         .onAppear {
@@ -97,7 +97,7 @@ struct GuidePanel: View {
                 .help("The guide runs entirely on this device; your questions never leave it.")
             Spacer()
             Button { guide.reset() } label: { Image(systemName: "arrow.counterclockwise").font(.system(size: 12, weight: .semibold)) }
-                .buttonStyle(.plain).foregroundStyle(Theme.dim).accessibilityLabel("Start over")
+                .buttonStyle(.terminal).foregroundStyle(Theme.dim).accessibilityLabel("Start over")
         }
         .padding(.horizontal, 12).frame(height: 40.pt)
         .background(Theme.header)
@@ -123,7 +123,7 @@ struct GuidePanel: View {
                                 .padding(.horizontal, 10).padding(.vertical, 5)
                                 .overlay(RoundedRectangle(cornerRadius: 13).stroke(Theme.accentDim))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.terminal)
                     }
                 }
                 .padding(.top, 2)
@@ -143,7 +143,7 @@ struct GuidePanel: View {
                 Image(systemName: "arrow.up").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.canvas)
                     .frame(width: 28.pt, height: 28.pt).background(draft.isEmpty ? Theme.faint : Theme.accent, in: .circle)
             }
-            .buttonStyle(.plain).disabled(draft.isEmpty)
+            .buttonStyle(.terminal).disabled(draft.isEmpty)
             .accessibilityLabel("Send")
         }
         .padding(10)
@@ -175,7 +175,7 @@ struct FlowChips: View {
                     .padding(.horizontal, 8).padding(.vertical, 5)
                     .background(Theme.selection, in: .rect(cornerRadius: 4))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.terminal)
                 .accessibilityLabel("Run \(c)")
             }
         }

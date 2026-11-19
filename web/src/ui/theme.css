@@ -220,3 +220,17 @@ table.t tr.click:hover .faint, table.t tr.click:focus-visible .faint { color: va
 .guide-input { display: flex; gap: 8px; padding: 10px; background: var(--canvas); border-top: 1px solid var(--rule); align-items: flex-end; }
 .guide-input textarea { flex: 1; resize: none; background: none; border: 0; outline: 0; color: var(--text); font: 13px var(--ui); max-height: 80px; }
 .guide-input button { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--canvas); font: 800 14px var(--ui); } .guide-input button:disabled { background: var(--faint); }
+
+/* Touch screens (phones, tablets): 44px targets, Apple's and WCAG 2.2 AAA's size for fingers.
+   Mouse and trackpad users keep the dense terminal sizes (which already meet WCAG 2.2 AA's 24px). */
+@media (pointer: coarse) {
+  .key, .seg button, .layouts button, .chip, .tape-pause, .ph .icon, .textbtn, .presets button, .follow button, .cmdchip, .hotspot { min-height: 44px; }
+  .ph .icon, .tape-pause, .layouts button, .cxl-sm { min-width: 44px; }
+  .cxl-sm { min-height: 32px; }
+  .cmd { height: 46px; } .cmd .go { width: 56px; } /* 44px inside its 1px border */
+  .ph { height: 44px; }
+  .tape { height: 44px; } .tape .track { padding: 14px 0; }
+  .field { min-height: 44px; }
+  table.t tr.click td { padding-top: 12px; padding-bottom: 12px; }
+  .auth-form .tabs button, .auth-form .pw button { min-height: 44px; }
+}

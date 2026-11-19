@@ -63,7 +63,7 @@ struct OptionStrategyView: View {
                                     .padding(.horizontal, 9).frame(height: 24.pt)
                                     .background(template == t ? Theme.accent : Theme.header, in: .rect(cornerRadius: 2))
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.terminal)
                         }
                         Divider().frame(height: 18.pt).padding(.horizontal, 6)
                         Menu {
@@ -149,7 +149,7 @@ struct OptionStrategyView: View {
                         Text(leg.quantity > 0 ? "LONG" : "SHORT").font(.mono(10, .heavy))
                             .foregroundStyle(leg.quantity > 0 ? theme.up : theme.down)
                     }
-                    .buttonStyle(.plain).frame(width: 64.pt, alignment: .leading)
+                    .buttonStyle(.terminal).frame(width: 64.pt, alignment: .leading)
                     HStack(spacing: 6) {
                         step("minus") { let q = abs(legs[n].quantity); if q > 1 { legs[n].quantity = (q - 1) * (legs[n].quantity > 0 ? 1 : -1) } }
                         Text(Fmt.qty(Decimal(abs(leg.quantity)))).frame(minWidth: 22.pt)
@@ -175,7 +175,7 @@ struct OptionStrategyView: View {
 
     private func step(_ icon: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) { Image(systemName: icon).font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.accent).frame(width: 18.pt, height: 18.pt) }
-            .buttonStyle(.plain)
+            .buttonStyle(.terminal)
             .accessibilityLabel(["minus": "Fewer contracts", "plus": "More contracts", "chevron.left": "Lower strike", "chevron.right": "Higher strike"][icon] ?? icon)
     }
 

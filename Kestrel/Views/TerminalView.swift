@@ -173,7 +173,7 @@ struct CommandBar: View {
                 Text("GO").font(.mono(11, .heavy)).foregroundStyle(Theme.canvas)
                     .frame(width: 38.pt, height: 28.pt).background(Theme.go)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.terminal)
         }
         .frame(maxWidth: 520.pt)
         .background(Theme.canvas)
@@ -236,7 +236,7 @@ struct SuggestionList: View {
                     .background(i == selection ? Theme.selection : Theme.header)
                     .contentShape(.rect)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.terminal)
             }
         }
         .frame(width: 420.pt)
@@ -297,13 +297,13 @@ struct AccountChip: View {
                     .font(.mono(10, .medium)).foregroundStyle(theme.tint(broker.totalPnL.double))
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.terminal)
         if let me = auth.current {
             Button { ws.run("PREF") } label: {
                 Text(me.initials).font(.mono(10, .heavy)).foregroundStyle(Theme.canvas)
                     .frame(width: 24.pt, height: 24.pt).background(Theme.accent, in: .circle)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.terminal)
             .help("\(me.displayName) · \(me.email)")
         }
         }
@@ -332,7 +332,7 @@ struct TickerTape: View {
         // The marquee lives in an overlay so its (very wide) ideal size never reaches the window:
         // on macOS a window sizes itself to its content's ideal width.
         Color.clear
-            .frame(maxWidth: .infinity, minHeight: 24.pt, maxHeight: 24.pt)
+            .frame(maxWidth: .infinity, minHeight: barHeight(24.pt), maxHeight: barHeight(24.pt))
             .overlay(alignment: .leading) {
                 if still {
                     // Still: scroll it by hand instead.
@@ -352,7 +352,7 @@ struct TickerTape: View {
                         Image(systemName: paused ? "play.fill" : "pause.fill").font(.system(size: 9, weight: .bold))
                             .foregroundStyle(Theme.dim).frame(width: 24.pt, height: 24.pt).background(Theme.canvas)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.terminal)
                     .accessibilityLabel(paused ? "Resume ticker tape" : "Pause ticker tape")
                 }
             }
@@ -372,7 +372,7 @@ struct TickerTape: View {
                             .foregroundStyle(theme.tint(q?.changePercent))
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.terminal)
             }
         }
         .padding(.trailing, 22)
@@ -445,7 +445,7 @@ struct PanelView: View {
             if panel.canGoBack {
                 Button { ws.back(panel.id) } label: {
                     Image(systemName: "chevron.left").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.dim)
-                }.buttonStyle(.plain).help("Back (⌘[)").accessibilityLabel("Back")
+                }.buttonStyle(.terminal).help("Back (⌘[)").accessibilityLabel("Back")
             }
             Text(c.function.rawValue).font(.mono(11, .heavy)).foregroundStyle(Theme.accent)
             if let i = c.instrument {
@@ -465,13 +465,12 @@ struct PanelView: View {
                 Image(systemName: ws.maximized == panel.id ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                     .font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.dim)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.terminal)
             .help("Maximize (⌘↩)")
-            .accessibilityLabel(ws.maximized == panel.id ? "Restore panel" : "Maximize panel")
             .accessibilityLabel(ws.maximized == panel.id ? "Restore panel" : "Maximize panel")
         }
         .padding(.horizontal, 8)
-        .frame(height: 28.pt)
+        .frame(height: barHeight(28.pt))
         .background(Theme.header)
         .overlay(alignment: .bottom) { Theme.rule.frame(height: 1.pt) }
     }
@@ -581,7 +580,7 @@ struct FunctionKeyBar: View {
                                 .background(Theme.panel, in: .rect(cornerRadius: 2))
                                 .overlay(RoundedRectangle(cornerRadius: 2).stroke(Theme.rule))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.terminal)
                         .help(f.title)
                     }
                 }
@@ -621,7 +620,7 @@ struct FunctionKeyBar: View {
                 .padding(.horizontal, 10).frame(height: 22.pt)
                 .background(bg, in: .rect(cornerRadius: 3))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.terminal)
     }
 }
 
@@ -685,7 +684,7 @@ struct PagesMenu: View {
                 .background(Theme.panel, in: .rect(cornerRadius: 2))
                 .overlay(RoundedRectangle(cornerRadius: 2).stroke(Theme.rule))
         }
-        .menuStyle(.button).buttonStyle(.plain).fixedSize()
+        .menuStyle(.button).buttonStyle(.terminal).fixedSize()
         .onAppear { pages = Workspace.pages }
         .alert("Save page", isPresented: $naming) {
             TextField("Name (e.g. MORNING)", text: $name)

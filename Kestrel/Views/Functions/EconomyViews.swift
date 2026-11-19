@@ -208,7 +208,7 @@ struct EventsView: View {
                         }
                         .padding(.horizontal, 8).frame(height: 26.pt).contentShape(.rect)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.terminal)
                     .rowBackground(n)
                 }
             }

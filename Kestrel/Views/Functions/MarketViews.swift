@@ -87,7 +87,7 @@ struct MonitorView: View {
                 .padding(.horizontal, 8).frame(height: 24.pt)
                 .background(Theme.header, in: .rect(cornerRadius: 3))
             }
-            .menuStyle(.button).buttonStyle(.plain).fixedSize()
+            .menuStyle(.button).buttonStyle(.terminal).fixedSize()
 
             HStack(spacing: 0) {
                 Text("ADD").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas).padding(.horizontal, 6).frame(height: 24.pt).background(Theme.accent)

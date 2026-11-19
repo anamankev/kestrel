@@ -91,7 +91,7 @@ struct CorrelationView: View {
                         Text(m.symbols[r].ticker).font(.mono(10, .bold)).foregroundStyle(Theme.label)
                             .lineLimit(1).minimumScaleFactor(0.6).frame(width: label, height: cell, alignment: .leading)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.terminal)
                     ForEach(0..<n, id: \.self) { c in
                         let v = m.values[r][c]
                         Text(cell > 34 ? fmt(v, short: true) : "")

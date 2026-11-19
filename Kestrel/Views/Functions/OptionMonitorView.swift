@@ -87,7 +87,7 @@ struct OptionMonitorView: View {
                         .padding(.horizontal, 7).frame(height: 30.pt)
                         .background(e == selected ? Theme.accent : Theme.header, in: .rect(cornerRadius: 2))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.terminal)
                 }
             }
             .padding(.horizontal, 6).padding(.vertical, 4)

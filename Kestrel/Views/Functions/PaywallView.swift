@@ -78,7 +78,7 @@ struct PaywallView: View {
                 .background(Theme.accent, in: .rect(cornerRadius: 3))
                 .opacity(store.product(selected) == nil || store.purchasing != nil ? 0.5 : 1)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.terminal)
             .disabled(store.product(selected) == nil || store.purchasing != nil)
             if let m = store.message { Text(m).font(.ui(12, .medium)).foregroundStyle(store.isPro ? theme.up : Theme.warn) }
         }
@@ -117,7 +117,7 @@ struct PaywallView: View {
             .overlay(RoundedRectangle(cornerRadius: 3).stroke(on ? Theme.accent : Theme.rule, lineWidth: on ? 1.5 : 1))
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.terminal)
     }
 
     private var status: some View {
@@ -136,7 +136,7 @@ struct PaywallView: View {
                 openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
                 #endif
             }
-            .font(.ui(12, .bold)).foregroundStyle(Theme.accent).buttonStyle(.plain)
+            .font(.ui(12, .bold)).foregroundStyle(Theme.accent).buttonStyle(.terminal)
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(Theme.panel)
     }
@@ -159,7 +159,7 @@ struct PaywallView: View {
                 Link("Terms of Use", destination: Self.terms)
                 Link("Privacy Policy", destination: Self.privacy)
             }
-            .font(.ui(11, .semibold)).foregroundStyle(Theme.accent).buttonStyle(.plain)
+            .font(.ui(11, .semibold)).foregroundStyle(Theme.accent).buttonStyle(.terminal)
         }
     }
 }
@@ -179,7 +179,7 @@ struct SubscribeGate: View {
                     Spacer()
                     if auth.current != nil {
                         Button("Sign out") { auth.signOut() }
-                            .font(.ui(12, .semibold)).foregroundStyle(Theme.dim).buttonStyle(.plain)
+                            .font(.ui(12, .semibold)).foregroundStyle(Theme.dim).buttonStyle(.terminal)
                     }
                 }
                 .padding(.horizontal, 24).padding(.top, 20)

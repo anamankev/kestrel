@@ -182,7 +182,7 @@ struct ChartView: View {
                     .padding(.horizontal, 7).frame(height: 20.pt)
                     .background(compare == nil ? Theme.header : Theme.warn, in: .rect(cornerRadius: 2))
             }
-            .menuStyle(.button).buttonStyle(.plain).fixedSize()
+            .menuStyle(.button).buttonStyle(.terminal).fixedSize()
             if panOffset > 0 { chip("⇥ LIVE", on: false) { panOffset = 0; panStart = 0 } }
             Spacer(minLength: 0)
         }
@@ -223,7 +223,7 @@ struct ChartView: View {
                 .padding(.horizontal, 7).frame(height: 20.pt)
                 .background(on ? Theme.accent : Theme.header, in: .rect(cornerRadius: 2))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.terminal)
     }
 }
 

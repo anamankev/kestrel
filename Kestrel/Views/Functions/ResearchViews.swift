@@ -88,7 +88,7 @@ struct BetaView: View {
                           preview: SharePreview("Regression data")) {
                     Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                 }
-                .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                .buttonStyle(.terminal).foregroundStyle(Theme.accent)
             }
         }
     }
@@ -182,7 +182,7 @@ struct ComparisonView: View {
                     ShareLink(item: CSVFile(name: "comparison-\(window.rawValue).csv", text: csv), preview: SharePreview("Comparison")) {
                         Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                     }
-                    .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                    .buttonStyle(.terminal).foregroundStyle(Theme.accent)
                 }
             }
             SectionBar(title: "TOTAL RETURN · REBASED TO 100 · \(user.active.name.uppercased())",
@@ -242,7 +242,7 @@ struct ComparisonView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.terminal)
                     let cells: [(String, Color)] = [
                         (percent(p?.totalReturn), theme.tint(p?.totalReturn)),
                         (percent(p?.annualizedReturn), theme.tint(p?.annualizedReturn)),
@@ -318,7 +318,7 @@ struct OptimizerView: View {
                     ShareLink(item: CSVFile(name: "optimizer-\(window.rawValue).csv", text: csv(o)), preview: SharePreview("Weights")) {
                         Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                     }
-                    .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                    .buttonStyle(.terminal).foregroundStyle(Theme.accent)
                 }
             }
             SectionBar(title: "EFFICIENT FRONTIER · LONG ONLY · \(user.active.name.uppercased())",
@@ -388,7 +388,7 @@ struct OptimizerView: View {
                     Button { ws.link(a, from: panelID) } label: {
                         Text(a.ticker).font(.mono(11, .bold)).foregroundStyle(Theme.text).frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.terminal)
                     Group {
                         Text(percent(o.mu[n])).foregroundStyle(Theme.text)
                         Text(String(format: "%.1f%%", o.vol[n] * 100)).foregroundStyle(Theme.text)
@@ -472,7 +472,7 @@ struct FactorView: View {
                               preview: SharePreview("Factor loadings")) {
                         Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                     }
-                    .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                    .buttonStyle(.terminal).foregroundStyle(Theme.accent)
                 }
             }
             SectionBar(title: "\(instrument.ticker) · \(model.rawValue) · DAILY EXCESS TOTAL RETURNS",
@@ -615,7 +615,7 @@ struct DividendView: View {
                             ShareLink(item: CSVFile(name: "\(instrument.ticker)-dividends.csv", text: csv), preview: SharePreview("Dividends")) {
                                 Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                             }
-                            .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                            .buttonStyle(.terminal).foregroundStyle(Theme.accent)
                         }
                         .padding(.horizontal, 8).padding(.top, 6)
                         tiles(s)
@@ -744,7 +744,7 @@ struct EventStudyView: View {
                     ShareLink(item: CSVFile(name: "\(instrument.ticker)-earnings-event-study.csv", text: csv(s)), preview: SharePreview("Event study")) {
                         Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                     }
-                    .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                    .buttonStyle(.terminal).foregroundStyle(Theme.accent)
                 }
             }
             SectionBar(title: "\(instrument.ticker) · EARNINGS EVENT STUDY · MARKET MODEL VS \(benchmark)",

@@ -121,14 +121,14 @@ struct SecurityFinderView: View {
                 }
                 .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.terminal)
             Button {
                 note = user.add(h.token) ?? "ADDED \(h.token) TO \(user.active.name.uppercased())"
             } label: {
                 Image(systemName: user.active.symbols.contains(h.instrument.symbol) ? "checkmark" : "plus")
                     .font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.accent).frame(width: 28.pt, height: 22.pt)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.terminal)
             .accessibilityLabel("Add \(h.token) to watchlist")
         }
         .padding(.horizontal, 8).padding(.vertical, 6)

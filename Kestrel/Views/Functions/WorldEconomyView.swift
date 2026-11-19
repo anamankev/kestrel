@@ -46,7 +46,7 @@ struct WorldEconomyView: View {
                 ShareLink(item: CSVFile(name: csvName, text: csv), preview: SharePreview("World Bank data")) {
                     Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                 }
-                .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                .buttonStyle(.terminal).foregroundStyle(Theme.accent)
             }
             if let e = macro.worldError, macro.countries.isEmpty {
                 EmptyNote(title: "World Bank unavailable", detail: e, icon: "globe.europe.africa")
@@ -113,7 +113,7 @@ struct WorldEconomyView: View {
                                 }
                                 .padding(.horizontal, 8).padding(.vertical, 6).contentShape(.rect)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.terminal)
                             .rowBackground(n)
                         }
                         Text("Tap an indicator to rank every country on it.").font(.ui(10)).foregroundStyle(Theme.faint)
@@ -149,7 +149,7 @@ struct WorldEconomyView: View {
                 Button { ascending.toggle() } label: {
                     Text("VALUE " + (ascending ? "▲" : "▼")).foregroundStyle(Theme.accent)
                 }
-                .buttonStyle(.plain).frame(width: 110.pt, alignment: .trailing)
+                .buttonStyle(.terminal).frame(width: 110.pt, alignment: .trailing)
                 Text("YEAR").frame(width: 50.pt, alignment: .trailing)
             }
             .font(.mono(9, .bold)).foregroundStyle(Theme.label).padding(.horizontal, 8).padding(.vertical, 5)
@@ -172,7 +172,7 @@ struct WorldEconomyView: View {
                                 }
                                 .font(.mono(11)).monospacedDigit().padding(.horizontal, 8).padding(.vertical, 5).contentShape(.rect)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.terminal)
                             .rowBackground(n)
                         }
                     }

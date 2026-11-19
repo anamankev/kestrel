@@ -122,7 +122,7 @@ struct AuthView: View {
                         }
                         .fixedSize()
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.terminal)
                 }
                 Spacer()
             }
@@ -163,7 +163,7 @@ struct AuthView: View {
                 .background(Theme.accent, in: .rect(cornerRadius: 3))
                 .opacity(canSubmit || auth.busy ? 1 : 0.45)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.terminal)
             .disabled(!canSubmit)
             .keyboardShortcut(.defaultAction)
 
@@ -214,7 +214,7 @@ struct AuthView: View {
                 Spacer()
                 if field == .password {
                     Button(reveal ? "Hide" : "Show") { reveal.toggle() }
-                        .font(.ui(11, .bold)).foregroundStyle(Theme.dim).buttonStyle(.plain)
+                        .font(.ui(11, .bold)).foregroundStyle(Theme.dim).buttonStyle(.terminal)
                 }
             }
             Group {

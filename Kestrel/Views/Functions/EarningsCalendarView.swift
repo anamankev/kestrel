@@ -116,7 +116,7 @@ struct EarningsCalendarView: View {
             .font(.mono(11)).monospacedDigit()
             .padding(.horizontal, 8).frame(height: 26.pt).contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.terminal)
         .help("Open \(i.ticker) filings")
     }
 }

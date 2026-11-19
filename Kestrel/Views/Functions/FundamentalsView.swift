@@ -81,7 +81,7 @@ struct FundamentalsView: View {
                     Button { openURL(SECFacts.filingURL(cik: f.cik)) } label: {
                         Text("SEC 10-K FILINGS ↗").font(.mono(9, .bold)).foregroundStyle(Theme.accent)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.terminal)
                 }
                 .padding(.horizontal, 8)
 

@@ -40,7 +40,7 @@ struct SettingsView: View {
                             .background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule))
                             .onSubmit(saveContact)
                         Button("SAVE", action: saveContact).font(.mono(11, .heavy)).foregroundStyle(Theme.canvas)
-                            .frame(width: 64.pt, height: 32.pt).background(Theme.accent, in: .rect(cornerRadius: 3)).buttonStyle(.plain)
+                            .frame(width: 64.pt, height: 32.pt).background(Theme.accent, in: .rect(cornerRadius: 3)).buttonStyle(.terminal)
                             .disabled(!SECFacts.isValidContact(contactDraft))
                             .opacity(SECFacts.isValidContact(contactDraft) ? 1 : 0.4)
                     }
@@ -48,7 +48,7 @@ struct SettingsView: View {
                         .font(.mono(10)).foregroundStyle(sec.hasValidContact ? theme.up : Theme.warn)
                     if sec.hasValidContact {
                         Button("Remove contact") { sec.contact = ""; contactDraft = "" }
-                            .font(.mono(10, .bold)).foregroundStyle(Theme.cancel).buttonStyle(.plain)
+                            .font(.mono(10, .bold)).foregroundStyle(Theme.cancel).buttonStyle(.terminal)
                     }
                 }
 
@@ -162,7 +162,7 @@ struct SettingsView: View {
                         Text("Sign out").font(.mono(11, .bold)).foregroundStyle(Theme.text)
                             .padding(.horizontal, 12).frame(height: 28.pt).overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.rule))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.terminal)
                 }
                 if deleting {
                     HStack(spacing: 8) {
@@ -179,15 +179,15 @@ struct SettingsView: View {
                             Text(auth.busy ? "Deleting…" : "Delete forever").font(.mono(11, .bold)).foregroundStyle(Theme.canvas)
                                 .padding(.horizontal, 12).frame(height: 30.pt).background(Theme.cancel, in: .rect(cornerRadius: 3))
                         }
-                        .buttonStyle(.plain).disabled(deletePassword.isEmpty || auth.busy)
+                        .buttonStyle(.terminal).disabled(deletePassword.isEmpty || auth.busy)
                         Button("Keep") { deleting = false; deletePassword = ""; deleteError = nil }
-                            .font(.mono(11, .bold)).foregroundStyle(Theme.dim).buttonStyle(.plain)
+                            .font(.mono(11, .bold)).foregroundStyle(Theme.dim).buttonStyle(.terminal)
                     }
                     Text(deleteError ?? "Removes this account and its paper book, watchlists and alerts from this device. This cannot be undone.")
                         .font(.mono(10)).foregroundStyle(deleteError == nil ? Theme.dim : Theme.cancel)
                 } else {
                     Button("Delete account…") { deleting = true }
-                        .font(.mono(10, .semibold)).foregroundStyle(Theme.cancel).buttonStyle(.plain)
+                        .font(.mono(10, .semibold)).foregroundStyle(Theme.cancel).buttonStyle(.terminal)
                 }
             }
         }
@@ -217,7 +217,7 @@ struct SettingsView: View {
             .font(.mono(10, .bold)).foregroundStyle(Theme.cancel)
             .padding(.horizontal, 10).frame(height: 26.pt)
             .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.cancel.opacity(0.5)))
-            .buttonStyle(.plain)
+            .buttonStyle(.terminal)
     }
 }
 
@@ -260,7 +260,7 @@ struct SubscriptionStatusRow: View {
             }
             Spacer()
             Button(store.isPro ? "Manage" : "See plans") { _ = ws.run("PRO") }
-                .font(.mono(11, .bold)).foregroundStyle(Theme.accent).buttonStyle(.plain)
+                .font(.mono(11, .bold)).foregroundStyle(Theme.accent).buttonStyle(.terminal)
         }
     }
 }

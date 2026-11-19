@@ -108,6 +108,6 @@ struct TransferSection: View {
                 .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.rule))
                 .opacity(enabled ? 1 : 0.4)
         }
-        .buttonStyle(.plain).disabled(!enabled)
+        .buttonStyle(.terminal).disabled(!enabled)
     }
 }

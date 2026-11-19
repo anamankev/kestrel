@@ -229,7 +229,7 @@ struct NewsView: View {
                     .focused($searching)
                     .onChange(of: text) { if text.count > NewsQuery.maxLength { text = String(text.prefix(NewsQuery.maxLength)) } }
                 if !text.isEmpty {
-                    Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.dim) }.buttonStyle(.plain).accessibilityLabel("Clear search")
+                    Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.dim) }.buttonStyle(.terminal).accessibilityLabel("Clear search")
                 }
                 Text("\(shown) OF \(total)").font(.mono(9, .bold)).foregroundStyle(Theme.dim).fixedSize()
             }
@@ -257,7 +257,7 @@ struct NewsView: View {
                 .padding(.horizontal, 7).frame(height: 20.pt)
                 .background(on ? Theme.accent.opacity(0.85) : Theme.header, in: .rect(cornerRadius: 2))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.terminal)
     }
 
     private func row(_ item: NewsItem, _ query: NewsQuery) -> some View {
@@ -269,13 +269,13 @@ struct NewsView: View {
                 Text(highlighted(item.title, query)).font(.ui(12, .medium)).foregroundStyle(Theme.text)
                     .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.terminal)
             ForEach(tags) { i in
                 Button { ws.run("\(i.ticker) DES") } label: {
                     Text(i.ticker).font(.mono(9, .bold)).foregroundStyle(Theme.accent)
                         .padding(.horizontal, 5).frame(height: 16.pt).overlay(RoundedRectangle(cornerRadius: 2).stroke(Theme.accent.opacity(0.5)))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.terminal)
                 .help("Load \(i.name)")
             }
         }
@@ -327,7 +327,7 @@ struct HelpView: View {
                                 }
                                 .padding(.horizontal, 8).frame(height: 26.pt).contentShape(.rect)
                             }
-                            .buttonStyle(.plain).rowBackground(n)
+                            .buttonStyle(.terminal).rowBackground(n)
                         }
                     }
                 }

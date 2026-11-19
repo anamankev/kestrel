@@ -120,11 +120,11 @@ struct ScreenerView: View {
                     .padding(6).background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule)).frame(maxWidth: 240.pt)
                 Spacer()
                 Button("RESET") { minRevenue = 0; minMargin = -1; minROE = -1; maxLeverage = 10; text = "" }
-                    .font(.mono(10, .bold)).foregroundStyle(Theme.dim).buttonStyle(.plain)
+                    .font(.mono(10, .bold)).foregroundStyle(Theme.dim).buttonStyle(.terminal)
                 ShareLink(item: CSVFile(name: "screen-FY\(year).csv", text: csv(rows)), preview: SharePreview("Screen results")) {
                     Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                 }
-                .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                .buttonStyle(.terminal).foregroundStyle(Theme.accent)
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
@@ -163,7 +163,7 @@ struct ScreenerView: View {
             Text(title + (sort == c ? (descending ? " ▼" : " ▲") : ""))
                 .font(.mono(9, .bold)).foregroundStyle(sort == c ? Theme.accent : Theme.label)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.terminal)
     }
 
     private func row(_ r: ScreenRow) -> some View {
@@ -192,7 +192,7 @@ struct ScreenerView: View {
             }
             .padding(.horizontal, 8).padding(.vertical, 5).contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.terminal)
     }
 
     private func pct(_ v: Double?, tinted: Bool) -> some View {

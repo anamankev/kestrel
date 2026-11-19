@@ -150,7 +150,7 @@ struct Hotspot: View {
             .background(Theme.header, in: .rect(cornerRadius: 3))
             .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.rule))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.terminal)
     }
 }
 
@@ -248,4 +248,30 @@ struct ControlBar<Content: View>: View {
         }
         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
     }
+}
+
+/// Kestrel's button style: plain (no chrome) everywhere. On iPad every button also gets Apple's 44 pt minimum touch
+/// target; the Mac keeps the dense pointer sizes a terminal needs.
+struct TerminalButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.6 : 1)
+            #if os(iOS)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+            #endif
+    }
+}
+
+/// Height for bars that hold buttons: 44 pt on iPad (touch), the compact size on Mac.
+func barHeight(_ compact: CGFloat) -> CGFloat {
+    #if os(iOS)
+    max(44, compact)
+    #else
+    compact
+    #endif
+}
+
+extension ButtonStyle where Self == TerminalButtonStyle {
+    static var terminal: TerminalButtonStyle { TerminalButtonStyle() }
 }

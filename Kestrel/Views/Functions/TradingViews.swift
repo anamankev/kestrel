@@ -72,7 +72,7 @@ struct TicketView: View {
                             Text(Fmt.qty(p)).font(.mono(10, .bold)).foregroundStyle(Theme.label)
                                 .frame(maxWidth: .infinity).frame(height: 22.pt)
                                 .background(Theme.header, in: .rect(cornerRadius: 2))
-                        }.buttonStyle(.plain)
+                        }.buttonStyle(.terminal)
                     }
                 }
 
@@ -124,14 +124,14 @@ struct TicketView: View {
                             .background(confirming ? Theme.warn : (side == .buy ? theme.up : theme.down), in: .rect(cornerRadius: 3))
                             .opacity(qty == nil ? 0.4 : 1)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.terminal)
                     .disabled(qty == nil)
                     if confirming {
                         Button { confirming = false } label: {
                             Text("CXL").font(.mono(12, .heavy)).foregroundStyle(Theme.canvas)
                                 .frame(width: 56.pt, height: 40.pt).background(Theme.cancel, in: .rect(cornerRadius: 3))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.terminal)
                     }
                 }
                 .onChange(of: qtyText) { confirming = false }
@@ -222,7 +222,7 @@ struct TicketView: View {
             .background(side == s ? color : color.opacity(0.08), in: .rect(cornerRadius: 3))
             .overlay(RoundedRectangle(cornerRadius: 3).stroke(color.opacity(0.6)))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.terminal)
     }
 
     private func field(_ label: String, @ViewBuilder _ content: () -> some View) -> some View {
@@ -275,7 +275,7 @@ struct OrderRow: View {
                 Button { broker.cancel(o.id) } label: {
                     Text("CXL").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas)
                         .padding(.horizontal, 6).frame(height: 18.pt).background(Theme.cancel, in: .rect(cornerRadius: 2))
-                }.buttonStyle(.plain)
+                }.buttonStyle(.terminal)
             }
         }
         .font(.mono(11)).monospacedDigit().lineLimit(1)
@@ -351,7 +351,7 @@ struct PortfolioView: View {
                 HStack {
                     Spacer()
                     Button("Reset paper account") { confirmReset = true }
-                        .font(.mono(10, .bold)).foregroundStyle(Theme.cancel).buttonStyle(.plain)
+                        .font(.mono(10, .bold)).foregroundStyle(Theme.cancel).buttonStyle(.terminal)
                         .confirmationDialog("Reset to $1,000,000 and erase all orders?", isPresented: $confirmReset, titleVisibility: .visible) {
                             Button("Reset", role: .destructive) { broker.reset() }
                         }

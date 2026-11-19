@@ -115,7 +115,7 @@ struct BacktestView: View {
             Button { value.wrappedValue = min(range.upperBound, value.wrappedValue + (value.wrappedValue >= 20 ? 5 : 1)) } label: { Image(systemName: "plus") }
                 .accessibilityLabel("Increase \(label)")
         }
-        .buttonStyle(.plain).font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.accent)
+        .buttonStyle(.terminal).font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.accent)
     }
 
     // MARK: Results

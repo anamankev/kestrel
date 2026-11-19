@@ -60,12 +60,18 @@ recognises Apple's text styles; Kestrel scales its own fonts, verified at 150%).
   Motion and has a pause button; with motion off it scrolls by hand. The guide button no longer bobs under Reduce
   Motion. The web tape got the same pause button and pauses on hover.
 
-**On the main screen, issues fell from 457 to 23 after the fixes:**
-- **14 "hit area too small":** Apple's 44 pt rule for the function keys and tape tickers, which are 24 pt (that
-  meets WCAG 2.2 AA's 24 px).
+**Touch targets, per platform (2026-11-18):**
+- **iPad:** every button has a 44 pt touch target via one shared style (`TerminalButtonStyle`, 80 buttons). Bars
+  that hold buttons (panel headers, ticker tape) are 44 pt. Visual sizes barely change.
+- **Mac:** keeps the dense 20–28 pt controls normal for a pointer; the same style is plain there.
+- **Web:** 44 px targets on touch screens only (`pointer: coarse`); mouse users keep the compact sizes. Measured on
+  an emulated phone: no control under 44 px. On desktop the sizes are unchanged (keys 26 px).
+
+**On the main screen, issues fell from 457 to 23 before the touch-target change:**
+- **14 "hit area too small":** the function keys and tape tickers at 24 pt, now addressed on iPad as above.
 - **6 "label not human-readable":** numeric cells such as "-5.17%".
 - **3 contrast samples:** text next to overlays. The theme colours pass by calculation.
 
 **Not finished:** on the other screens the audit times out, because panels still waiting for data keep a loading
 indicator spinning once updates are frozen. Getting all 38 screens to audit needs a data fixture for test mode.
-Making every control 44 pt would also change the terminal's density, so that's a design decision.
+
