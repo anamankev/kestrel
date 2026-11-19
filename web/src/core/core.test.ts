@@ -51,7 +51,7 @@ describe("command parser", () => {
     expect(() => parse("X".repeat(80))).toThrow(CommandError);
   });
   test("every function parses", () => {
-    expect(functions.length).toBe(38);
+    expect(functions.length).toBe(43);   // 38 + RV, SEAS, GC, YAS, LEARN
     for (const f of functions) expect(parse(f.needsSecurity ? `AAPL ${f.code}` : f.code).fn).toBe(f.code);
   });
   test("suggestions", () => {
