@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "relay": "wrangler dev --config worker/wrangler.toml --port 8787",
-    "build:local": "VITE_RELAY_URL=http://localhost:8787 KESTREL_LOCAL_BUILD=1 npm run build"
+    "build:local": "VITE_RELAY_URL=http://localhost:8787 KESTREL_LOCAL_BUILD=1 npm run build",
+    "functions": "python3 scripts/gen-functions.py"
   },
   "dependencies": {
     "hash-wasm": "4.12.0",

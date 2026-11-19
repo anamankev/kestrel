@@ -1500,3 +1500,37 @@ struct GuideSafetyTests {
         #expect(KestrelGuide.answer("how does the guide work").text.contains("on your device"))
     }
 }
+
+@Suite struct RelativeValuationTests {
+    func row(_ cik: Int, _ revenue: Double?, netIncome: Double? = nil, equity: Double? = nil, assets: Double? = nil, liabilities: Double? = nil) -> ScreenRow {
+        ScreenRow(cik: cik, ticker: "T\(cik)", name: "Co \(cik)", sizeRank: cik, revenue: revenue, netIncome: netIncome, assets: assets, liabilities: liabilities, equity: equity)
+    }
+
+    @Test func readsEdgarCompanyListsIncludingFormerNames() {
+        let xml = """
+        <feed><entry><company-info><cik>0000320193</cik>
+        <name>Apple Inc.</name><sic>3571</sic></company-info></entry>
+        <entry><company-info><cik>0001571996</cik>
+        <formerly-names>&lt;name&gt;Dell Technologies Inc&lt;/name&gt;</formerly-names>
+        <name>Dell Technologies Inc.</name></company-info></entry></feed>
+        """
+        #expect(RelativeValuation.decodeIndustry(Data(xml.utf8)) == [.init(cik: 320193, name: "Apple Inc."), .init(cik: 1571996, name: "Dell Technologies Inc.")])
+        #expect(RelativeValuation.industry(fromSubmissions: Data(#"{"sic":"3571","sicDescription":"Electronic Computers"}"#.utf8))?.sic == "3571")
+    }
+
+    @Test func picksSameIndustryPeersClosestInSize() {
+        let target = row(1, 100)
+        let peers = RelativeValuation.pickPeers(target: target, rows: [target, row(2, 110), row(3, 1000), row(4, 95), row(5, 10), row(6, 100)], members: [1, 2, 3, 4, 5], n: 3)
+        #expect(peers.map(\.cik) == [4, 2, 3])
+    }
+
+    @Test func computesRatiosLikeTheWeb() {
+        let r = RelativeValuation.row(row(1, 200, netIncome: 20, equity: 100, assets: 400, liabilities: 300), isTarget: true, price: 10, shares: 50, priorRevenue: 160)
+        #expect(r.marketCap == 500 && r.pe == 25 && r.ps == 2.5 && r.pb == 5 && r.margin == 0.1 && r.roe == 0.2 && r.leverage == 0.75)
+        #expect(abs(r.growth! - 0.25) < 1e-12)
+        #expect(RelativeValuation.row(row(2, 100, netIncome: -5), isTarget: false, price: 10, shares: 10, priorRevenue: nil).pe == nil)
+        #expect(RelativeValuation.median([3, nil, 1, 2]) == 2 && RelativeValuation.median([4, 1, 3, 2]) == 2.5)
+        #expect(abs(RelativeValuation.premium(30, 20)! - 0.5) < 1e-12)
+        #expect(RelativeValuation.recentQuarters(now: Date(timeIntervalSince1970: 1_795_000_000)) == ["CY2026Q3I", "CY2026Q2I", "CY2026Q1I"])
+    }
+}

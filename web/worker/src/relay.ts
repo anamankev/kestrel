@@ -72,6 +72,16 @@ export function route(url: URL): Route | null {
     if (p[1] === "frames" && p.length === 4 && /^[A-Za-z]{2,100}$/.test(p[2]) && /^CY\d{4}(Q4I)?$/.test(p[3])) {
       return { upstream: `https://data.sec.gov/api/xbrl/frames/us-gaap/${p[2]}/USD/${p[3]}.json`, ttl: 86400, ua: "sec" };
     }
+    // Every 10-K filer under one SIC industry code (RV peers), 100 per page.
+    if (p[1] === "sic" && p.length === 3 && /^\d{4}$/.test(p[2])) {
+      const start = Number(q.get("start") ?? "0");
+      if (!Number.isInteger(start) || start < 0 || start > 3000 || start % 100 !== 0) return null;
+      return { upstream: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&SIC=${p[2]}&type=10-K&dateb=&owner=include&start=${start}&count=100&output=atom`, ttl: 86400, ua: "sec" };
+    }
+    // Shares outstanding for every filer at one quarter end (market caps).
+    if (p[1] === "shares" && p.length === 3 && /^CY\d{4}Q[1-4]I$/.test(p[2])) {
+      return { upstream: `https://data.sec.gov/api/xbrl/frames/dei/EntityCommonStockSharesOutstanding/shares/${p[2]}.json`, ttl: 86400, ua: "sec" };
+    }
     return null;
   }
   if (p[0] === "wb" && p[1] === "bulk" && p.length === 3 && WB.has(p[2])) {

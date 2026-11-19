@@ -30,6 +30,12 @@ describe("relay routes", () => {
     expect(route(new URL("https://r/rss/company?s=TSLA"))?.upstream).toContain("s=TSLA");
     expect(route(new URL("https://r/rss/evilfeed"))).toBeNull();
     expect(route(new URL("https://r/rss/company?s=<script>"))).toBeNull();
+    expect(route(new URL("https://r/sec/sic/3571?start=100"))?.upstream).toContain("SIC=3571&type=10-K&dateb=&owner=include&start=100&count=100&output=atom");
+    expect(route(new URL("https://r/sec/sic/3571?start=50"))).toBeNull();
+    expect(route(new URL("https://r/sec/sic/35711"))).toBeNull();
+    expect(route(new URL("https://r/sec/sic/3571?start=99999"))).toBeNull();
+    expect(route(new URL("https://r/sec/shares/CY2025Q4I"))?.upstream).toContain("/dei/EntityCommonStockSharesOutstanding/shares/CY2025Q4I.json");
+    expect(route(new URL("https://r/sec/shares/2025"))).toBeNull();
   });
 });
 

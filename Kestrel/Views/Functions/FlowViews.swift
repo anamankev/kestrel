@@ -302,7 +302,7 @@ struct HelpView: View {
     private static let groups: [(String, [(TerminalFunction, String)])] = [
         ("SECURITY", [(.des, "AAPL DES"), (.fa, "MSFT FA"), (.evts, "AAPL EVTS"), (.gp, "NVDA GP"), (.hp, "SPY HP"), (.bt, "SPY BT"), (.depth, "BTC DEPTH"), (.tas, "ETH TAS"), (.cn, "TSLA CN"), (.omon, "BTC OMON"), (.osa, "ETH OSA"), (.beta, "NVDA BETA"), (.dvd, "KO DVD")]),
         ("MARKETS", [(.secf, "SECF"), (.w, "W"), (.wei, "WEI"), (.most, "MOST"), (.hmap, "HMAP"), (.fx, "FX"), (.comd, "COMD"), (.rates, "RATES"), (.eco, "ECO"), (.ecst, "ECST JAPAN"), (.top, "TOP")]),
-        ("RESEARCH", [(.eqs, "EQS"), (.fact, "MSFT FACT"), (.evst, "NVDA EVST"), (.comp, "COMP"), (.mvo, "MVO"), (.corr, "CORR"), (.ern, "ERN")]),
+        ("RESEARCH", [(.eqs, "EQS"), (.rv, "AAPL RV"), (.fact, "MSFT FACT"), (.evst, "NVDA EVST"), (.comp, "COMP"), (.mvo, "MVO"), (.corr, "CORR"), (.ern, "ERN")]),
         ("TRADING", [(.trade, "SOL BUY"), (.port, "PORT"), (.blot, "BLOT"), (.alrt, "NVDA ALRT")]),
         ("SYSTEM", [(.pref, "PREF")]),
     ]

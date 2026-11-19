@@ -5,6 +5,7 @@ import { decodeFacts, decodeFilings, decodeTickers, earningsReleases, listings, 
 import { parseFactors, mergeFactors, MODELS, type FactorTable, type FactorSet } from "../core/factors";
 import { decodeBLS, decodeNYFed, decodeCountries, decodeBulkCSV, type Point, type Country } from "../core/econ";
 import { zipFile } from "../core/zip";
+import { decodeSicFeed } from "../core/valuation";
 import { chart, relayFetch } from "./relay";
 
 const memo = new Map<string, Promise<unknown>>();
@@ -61,6 +62,37 @@ export const screen = (): Promise<{ rows: ScreenRow[]; year: number }> => once("
     } catch (e) { if (!String(e).includes("404")) throw e; }
   }
   throw new Error("SEC has no complete annual frames yet");
+});
+
+// MARK: RV (relative valuation)
+
+/** A company's SIC industry from its SEC submissions. */
+export const industry = async (c: number) => { const s: any = await submissions(c); return { sic: String(s?.sic ?? ""), name: String(s?.sicDescription ?? "") }; };
+/** Every 10-K filer under one SIC code (EDGAR lists 100 per page). */
+export const industryMembers = (sic: string) => once(`sic|${sic}`, async () => {
+  const out: { cik: number; name: string }[] = [];
+  for (let start = 0; start <= 2000; start += 100) {
+    const page = decodeSicFeed(await (await relayFetch(`/sec/sic/${sic}?start=${start}`)).text());
+    out.push(...page);
+    if (page.length < 100) break;
+  }
+  return out;
+});
+/** Shares outstanding per CIK: the latest of the last two complete quarter ends. */
+export const sharesOutstanding = () => once("shares", async () => {
+  const now = new Date(), y = now.getUTCFullYear(), q = Math.floor(now.getUTCMonth() / 3);   // current quarter, 0-based
+  const quarters = Array.from({ length: 3 }, (_, k) => { const n = y * 4 + q - 1 - k; return `CY${Math.floor(n / 4)}Q${(n % 4) + 1}I`; });
+  const frames = await Promise.all(quarters.map((qq) => json(`/sec/shares/${qq}`).then(decodeFrame).catch(() => new Map<number, number>())));
+  const out = new Map<number, number>();
+  for (const f of [...frames].reverse()) for (const [k, v] of f) out.set(k, v);   // newest wins
+  return out;
+});
+/** Revenue per CIK for one calendar year (for growth). */
+export const revenueFor = (year: number) => once(`rev|${year}`, async () => {
+  const fr = (c: string) => json(`/sec/frames/${c}/CY${year}`).then(decodeFrame).catch(() => new Map<number, number>());
+  const [a, b] = await Promise.all([fr("Revenues"), fr("RevenueFromContractWithCustomerExcludingAssessedTax")]);
+  for (const [k, v] of b) if (!a.has(k)) a.set(k, v);
+  return a;
 });
 
 // MARK: Factors, macro, World Bank

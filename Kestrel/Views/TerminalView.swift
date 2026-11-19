@@ -514,7 +514,9 @@ struct FunctionView: View {
         case .port: PortfolioView(panelID: panel.id)
         case .blot: BlotterView()
         case .help: HelpView(panelID: panel.id)
-        case .des, .fa, .evts, .gp, .hp, .bt, .osa, .beta, .fact, .dvd, .evst, .depth, .tas, .cn, .omon, .trade:
+        case .gc, .yas, .learn:
+            EmptyNote(title: "\(c.function.rawValue) \(c.function.title)", detail: "Arriving in the next update.", icon: "hammer")
+        case .des, .fa, .evts, .gp, .hp, .bt, .osa, .beta, .fact, .dvd, .evst, .depth, .tas, .cn, .omon, .trade, .rv, .seas:
             if let i = c.instrument, i.assetClass == .option, c.function != .trade {
                 EmptyNote(title: "\(i.name)", detail: "Option contracts support TRADE. See the full chain, greeks and smile in \(Deribit.parse(i.symbol)?.underlying ?? "BTC") OMON.",
                           icon: "function")
@@ -539,6 +541,8 @@ struct FunctionView: View {
                 case .tas: TimeAndSalesView(instrument: i)
                 case .cn: NewsView(instrument: i)
                 case .omon: OptionMonitorView(instrument: i, panelID: panel.id).id(i.symbol)
+                case .rv: ValuationView(instrument: i, panelID: panel.id).id(i.symbol)
+                case .seas: EmptyNote(title: "SEAS Seasonality", detail: "Arriving in the next update.", icon: "hammer")
                 default: TicketView(instrument: i, side: panel.side ?? .buy).id("\(i.symbol)-\(panel.side?.rawValue ?? "")")
                 }
             } else {

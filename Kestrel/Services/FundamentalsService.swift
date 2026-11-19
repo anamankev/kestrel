@@ -116,6 +116,72 @@ import KestrelCore
         screen = .failed("SEC has no complete annual frames yet")
     }
 
+    // MARK: Relative valuation (RV)
+
+    struct RVData: Equatable {
+        var sic: String, industry: String, widened: Bool, filers: Int, year: Int
+        var target: ScreenRow, peers: [ScreenRow]
+        var shares: [Int: Double], priorRevenue: [Int: Double]
+    }
+    enum RVState: Equatable { case loading, ready(RVData), notFound, noData(Int?), failed(String) }
+    private(set) var rv: [String: RVState] = [:]
+    @ObservationIgnored private var industryMembers: [String: [RelativeValuation.Member]] = [:]
+    @ObservationIgnored private var sharesOutstanding: [Int: Double]?
+    @ObservationIgnored private var revenueByYear: [Int: [Int: Double]] = [:]
+
+    /// Every 10-K filer under one SIC code (EDGAR pages 100 at a time).
+    private func members(sic: String) async throws -> [RelativeValuation.Member] {
+        if let m = industryMembers[sic] { return m }
+        var out: [RelativeValuation.Member] = []
+        for start in stride(from: 0, through: 2000, by: 100) {
+            let page = RelativeValuation.decodeIndustry(try await get(RelativeValuation.industryURL(sic: sic, start: start)))
+            out += page
+            if page.count < 100 { break }
+        }
+        industryMembers[sic] = out
+        return out
+    }
+
+    func loadRV(_ i: Instrument) async {
+        guard i.assetClass == .equity, hasValidContact, rv[i.symbol] == nil else { return }
+        rv[i.symbol] = .loading
+        do {
+            if tickers == nil { tickers = try SECFacts.decodeTickers(await get(SECFacts.tickersURL)) }
+            guard let cik = tickers?[i.ticker] else { rv[i.symbol] = .notFound; return }
+            await loadScreen()
+            while case .loading = screen { try await Task.sleep(for: .milliseconds(300)) }   // another panel is loading it
+            guard case .ready(let rows, let year) = screen else { rv[i.symbol] = .failed("SEC annual data is unavailable"); return }
+            guard let target = rows.first(where: { $0.cik == cik }) else { rv[i.symbol] = .noData(year); return }
+            guard let ind = RelativeValuation.industry(fromSubmissions: try await get(SECFilings.url(cik: cik))) else { rv[i.symbol] = .noData(year); return }
+            var list = try await members(sic: ind.sic)
+            var peers = RelativeValuation.pickPeers(target: target, rows: rows, members: Set(list.map(\.cik)))
+            var widened = false
+            // Exact codes can be narrow (HP files under 3570, Apple and Dell under 3571): widen to the 3-digit group.
+            if peers.count < 5, ind.sic.count == 4 {
+                for k in 0..<10 { list += (try? await members(sic: "\(ind.sic.prefix(3))\(k)")) ?? [] }
+                peers = RelativeValuation.pickPeers(target: target, rows: rows, members: Set(list.map(\.cik)))
+                widened = true
+            }
+            if sharesOutstanding == nil {
+                var m: [Int: Double] = [:]
+                for q in RelativeValuation.recentQuarters().reversed() {   // oldest first, so the newest wins
+                    if let d = try? await get(RelativeValuation.sharesURL(quarter: q)), let f = try? SECFrames.decode(d) { m.merge(f) { _, new in new } }
+                }
+                sharesOutstanding = m
+            }
+            if revenueByYear[year - 1] == nil {
+                var m = (try? SECFrames.decode(await get(SECFrames.url(concept: "Revenues", period: .year(year - 1))))) ?? [:]
+                let asc = (try? SECFrames.decode(await get(SECFrames.url(concept: "RevenueFromContractWithCustomerExcludingAssessedTax", period: .year(year - 1))))) ?? [:]
+                m.merge(asc) { have, _ in have }
+                revenueByYear[year - 1] = m
+            }
+            rv[i.symbol] = .ready(RVData(sic: ind.sic, industry: ind.name, widened: widened, filers: Set(list.map(\.cik)).count, year: year,
+                                         target: target, peers: peers, shares: sharesOutstanding ?? [:], priorRevenue: revenueByYear[year - 1] ?? [:]))
+        } catch {
+            rv[i.symbol] = .failed(error.localizedDescription)
+        }
+    }
+
     func fundamentals(_ symbol: String) -> CompanyFundamentals? {
         if case .ready(let f) = states[symbol] { f } else { nil }
     }
