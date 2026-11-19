@@ -275,3 +275,30 @@ func barHeight(_ compact: CGFloat) -> CGFloat {
 extension ButtonStyle where Self == TerminalButtonStyle {
     static var terminal: TerminalButtonStyle { TerminalButtonStyle() }
 }
+
+/// COPY beside EXPORT CSV: puts the table on the clipboard as tab-separated text, which pastes into Excel or
+/// Numbers cells and reads with pandas.read_clipboard().
+struct CopyTableButton: View {
+    let csv: String
+    @State private var copied = false
+
+    var body: some View {
+        Button {
+            let text = CSV.tsv(fromCSV: csv)
+            #if os(iOS)
+            UIPasteboard.general.string = text
+            #else
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            #endif
+            copied = true
+            Task { try? await Task.sleep(for: .seconds(1.5)); copied = false }
+        } label: {
+            Label(copied ? "COPIED" : "COPY", systemImage: copied ? "checkmark" : "doc.on.doc").font(.mono(10, .bold))
+        }
+        .buttonStyle(.terminal).foregroundStyle(Theme.accent)
+        .help("Copy the table: paste into Excel or Numbers, or pandas.read_clipboard()")
+        .accessibilityLabel(copied ? "Copied" : "Copy table")
+    }
+}
+

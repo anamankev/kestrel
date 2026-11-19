@@ -1534,3 +1534,12 @@ struct GuideSafetyTests {
         #expect(RelativeValuation.recentQuarters(now: Date(timeIntervalSince1970: 1_795_000_000)) == ["CY2026Q3I", "CY2026Q2I", "CY2026Q1I"])
     }
 }
+
+@Suite struct ClipboardTableTests {
+    @Test func csvBecomesTabSeparatedForExcelAndPandas() {
+        let text = CSV.make(header: ["Ticker", "Name", "Note"], rows: [["AAPL", "Apple, Inc.", "said \"hi\"\nthen left"], ["MSFT", "Microsoft", "=SUM(A1)"]])
+        #expect(CSV.parse(text) == [["Ticker", "Name", "Note"], ["AAPL", "Apple, Inc.", "said \"hi\"\nthen left"], ["MSFT", "Microsoft", "'=SUM(A1)"]])
+        #expect(CSV.tsv(fromCSV: text) == "Ticker\tName\tNote\nAAPL\tApple, Inc.\tsaid \"hi\" then left\nMSFT\tMicrosoft\t'=SUM(A1)\n")
+    }
+}
+

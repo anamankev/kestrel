@@ -318,6 +318,25 @@ export function csvField(s: string): string {
 export const csv = (header: string[], rows: string[][]) => [header, ...rows].map((r) => r.map(csvField).join(",")).join("\r\n") + "\r\n";
 export const csvNum = (v: number | null | undefined, digits = 6) => (v == null || !Number.isFinite(v) ? "" : v.toFixed(digits));
 
+/** Parses RFC 4180 CSV (quoted fields may hold commas, quotes and newlines) into rows of fields. */
+export function parseCSV(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; continue; }
+    if (c === '"') q = true;
+    else if (c === ",") { row.push(f); f = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(f); rows.push(row); row = []; f = ""; }
+    else f += c;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+/** Tab-separated text for the clipboard: pastes into Excel or Numbers cells and reads with pandas.read_clipboard().
+ *  Tabs and line breaks inside fields become spaces so every cell stays in place. */
+export const toTSV = (csvText: string) => parseCSV(csvText).map((r) => r.map((f) => f.replace(/[\t\r\n]+/g, " ")).join("\t")).join("\n") + "\n";
+
 // MARK: Portfolio risk (KestrelCore Risk)
 
 /** OLS beta of date-aligned asset returns on market returns (cov / var); null under 20 observations. */

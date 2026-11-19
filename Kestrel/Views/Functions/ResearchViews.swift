@@ -84,6 +84,7 @@ struct BetaView: View {
                 .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 180.pt)
             Spacer()
             if let r = result {
+                CopyTableButton(csv: csv(r))
                 ShareLink(item: CSVFile(name: "\(instrument.ticker)-vs-\(benchmark)-\(frequency.rawValue.lowercased()).csv", text: csv(r)),
                           preview: SharePreview("Regression data")) {
                     Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
@@ -179,6 +180,7 @@ struct ComparisonView: View {
                     .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 260.pt)
                 Spacer()
                 if !series.isEmpty {
+                    CopyTableButton(csv: csv)
                     ShareLink(item: CSVFile(name: "comparison-\(window.rawValue).csv", text: csv), preview: SharePreview("Comparison")) {
                         Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                     }
@@ -315,6 +317,7 @@ struct OptimizerView: View {
                     .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 160.pt)
                 Spacer()
                 if let o = out {
+                    CopyTableButton(csv: csv(o))
                     ShareLink(item: CSVFile(name: "optimizer-\(window.rawValue).csv", text: csv(o)), preview: SharePreview("Weights")) {
                         Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                     }
@@ -468,6 +471,7 @@ struct FactorView: View {
                     .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 150.pt)
                 Spacer()
                 if let o = out {
+                    CopyTableButton(csv: csv(o))
                     ShareLink(item: CSVFile(name: "\(instrument.ticker)-\(model.rawValue.replacingOccurrences(of: " ", with: ""))-\(window.rawValue).csv", text: csv(o)),
                               preview: SharePreview("Factor loadings")) {
                         Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
@@ -612,6 +616,7 @@ struct DividendView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Spacer()
+                            CopyTableButton(csv: csv)
                             ShareLink(item: CSVFile(name: "\(instrument.ticker)-dividends.csv", text: csv), preview: SharePreview("Dividends")) {
                                 Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                             }
@@ -741,6 +746,7 @@ struct EventStudyView: View {
                     .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 220.pt)
                 Spacer()
                 if let s = study {
+                    CopyTableButton(csv: csv(s))
                     ShareLink(item: CSVFile(name: "\(instrument.ticker)-earnings-event-study.csv", text: csv(s)), preview: SharePreview("Event study")) {
                         Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                     }

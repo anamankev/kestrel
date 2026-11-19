@@ -88,6 +88,7 @@ struct ValuationView: View {
                     Text("SIC \(d.sic) · \(d.industry.uppercased())\(d.widened ? " · WIDENED TO \(d.sic.prefix(3))x" : "")")
                         .font(.mono(10, .bold)).foregroundStyle(Theme.label)
                     Spacer()
+                    CopyTableButton(csv: csv(all))
                     ShareLink(item: CSVFile(name: "\(instrument.ticker)-relative-valuation.csv", text: csv(all)), preview: SharePreview("Relative valuation")) {
                         Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                     }

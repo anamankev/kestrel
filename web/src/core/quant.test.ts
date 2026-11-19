@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ols, adjustedBeta, performance, rebased, projectToSimplex, frontier, optimize, linearFit, dividendSummary, eventStudy, carSummary, car, lastDay, backtest, csvField, csv, correlation, alignedCloses, returnStats, betaOf, historicalVaR, expectedShortfall, pnlSeries } from "./quant";
+import { ols, adjustedBeta, performance, rebased, projectToSimplex, frontier, optimize, linearFit, dividendSummary, eventStudy, carSummary, car, lastDay, backtest, csvField, csv, correlation, alignedCloses, returnStats, betaOf, historicalVaR, expectedShortfall, pnlSeries, parseCSV, toTSV } from "./quant";
 import type { Candle } from "./market";
 
 describe("regression and performance", () => {
@@ -118,5 +118,13 @@ describe("portfolio risk (ported from KestrelCore)", () => {
     expect(Math.abs(betaOf(m.map((v) => v * 1.5), m)! - 1.5)).toBeLessThan(1e-9);
     expect(betaOf([0.01], [0.02])).toBeNull();
     expect(pnlSeries({ A: 1000, B: -500 }, { A: [0.21], B: [0.1] })[0]).toBeCloseTo(160);
+  });
+});
+
+describe("clipboard tables", () => {
+  test("CSV round-trips to tab-separated text for Excel and pandas", () => {
+    const text = csv(["Ticker", "Name", "Note"], [["AAPL", "Apple, Inc.", 'said "hi"\nthen left'], ["MSFT", "Microsoft", "=SUM(A1)"]]);
+    expect(parseCSV(text)).toEqual([["Ticker", "Name", "Note"], ["AAPL", "Apple, Inc.", 'said "hi"\nthen left'], ["MSFT", "Microsoft", "'=SUM(A1)"]]);
+    expect(toTSV(text)).toBe('Ticker\tName\tNote\nAAPL\tApple, Inc.\tsaid "hi" then left\nMSFT\tMicrosoft\t\'=SUM(A1)\n');
   });
 });

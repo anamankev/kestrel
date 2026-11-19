@@ -121,6 +121,7 @@ struct ScreenerView: View {
                 Spacer()
                 Button("RESET") { minRevenue = 0; minMargin = -1; minROE = -1; maxLeverage = 10; text = "" }
                     .font(.mono(10, .bold)).foregroundStyle(Theme.dim).buttonStyle(.terminal)
+                CopyTableButton(csv: csv(rows))
                 ShareLink(item: CSVFile(name: "screen-FY\(year).csv", text: csv(rows)), preview: SharePreview("Screen results")) {
                     Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                 }

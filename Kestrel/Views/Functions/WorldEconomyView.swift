@@ -43,6 +43,7 @@ struct WorldEconomyView: View {
                     .labelsHidden().frame(maxWidth: 220.pt)
                 }
                 Spacer()
+                CopyTableButton(csv: csv)
                 ShareLink(item: CSVFile(name: csvName, text: csv), preview: SharePreview("World Bank data")) {
                     Label("EXPORT CSV", systemImage: "square.and.arrow.up").font(.mono(10, .bold))
                 }

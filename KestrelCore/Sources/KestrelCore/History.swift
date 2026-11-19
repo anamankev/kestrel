@@ -32,6 +32,35 @@ public struct ReturnStats: Sendable, Equatable {
 }
 
 public enum CSV {
+    /// Parses RFC 4180 CSV (quoted fields may hold commas, quotes and newlines) into rows of fields.
+    public static func parse(_ text: String) -> [[String]] {
+        var rows: [[String]] = [], row: [String] = [], f = "", quoted = false
+        var it = Array(text).makeIterator(), pending: Character? = nil
+        func next() -> Character? { if let p = pending { pending = nil; return p }; return it.next() }
+        while let c = next() {
+            if quoted {
+                if c == "\"" { if let n = next() { if n == "\"" { f.append("\"") } else { quoted = false; pending = n } } else { quoted = false } }
+                else { f.append(c) }
+                continue
+            }
+            switch c {
+            case "\"": quoted = true
+            case ",": row.append(f); f = ""
+            case "\n", "\r", "\r\n": row.append(f); rows.append(row); row = []; f = ""
+            default: f.append(c)
+            }
+        }
+        if !f.isEmpty || !row.isEmpty { row.append(f); rows.append(row) }
+        return rows
+    }
+
+    /// Tab-separated text for the clipboard: pastes into Excel or Numbers cells and reads with
+    /// pandas.read_clipboard(). Tabs and line breaks inside fields become spaces so cells stay in place.
+    public static func tsv(fromCSV text: String) -> String {
+        parse(text).map { $0.map { $0.replacingOccurrences(of: "[\t\r\n]+", with: " ", options: .regularExpression) }.joined(separator: "\t") }
+            .joined(separator: "\n") + "\n"
+    }
+
     /// RFC 4180 field escaping. Text starting with = + - @ is prefixed with ' so a spreadsheet
     /// never evaluates it as a formula (numbers such as -0.5 are left alone).
     public static func field(_ s: String) -> String {

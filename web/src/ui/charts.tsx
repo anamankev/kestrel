@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { toTSV } from "../core/quant";
 
 /** Small SVG charts for the research screens (lines, scatter with fit, bars), sized to their box. */
 const COLORS = ["var(--accent)", "var(--warn)", "#B78CFF", "var(--up)", "#FF7AB6", "#FF9F1C", "#7DD3FC", "var(--text)", "#A3E635", "#F87171", "#94A3B8", "#FDE68A"];
@@ -81,10 +82,19 @@ export function Bars({ items, w = 640, h = 180, format = nice, errors }: Box & {
 }
 
 /** Triggers a CSV download (Excel, Numbers, Python). */
+/** COPY (tab-separated, for pasting into Excel or pandas.read_clipboard()) and EXPORT CSV (a file). */
 export function ExportCSV({ name, build }: { name: string; build: () => string }) {
-  return <button className="key fn" onClick={() => {
-    const url = URL.createObjectURL(new Blob([build()], { type: "text/csv;charset=utf-8" }));
-    const a = Object.assign(document.createElement("a"), { href: url, download: name });
-    a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }}>EXPORT CSV</button>;
+  const [copied, setCopied] = useState(false);
+  return (
+    <span style={{ display: "inline-flex", gap: 4 }}>
+      <button className="key fn" title="Copy the table: paste into Excel or Numbers, or pandas.read_clipboard()" onClick={async () => {
+        try { await navigator.clipboard.writeText(toTSV(build())); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard blocked */ }
+      }}>{copied ? "COPIED ✓" : "COPY"}</button>
+      <button className="key fn" onClick={() => {
+        const url = URL.createObjectURL(new Blob([build()], { type: "text/csv;charset=utf-8" }));
+        const a = Object.assign(document.createElement("a"), { href: url, download: name });
+        a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }}>EXPORT CSV</button>
+    </span>
+  );
 }

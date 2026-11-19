@@ -47,6 +47,7 @@ struct HistoryView: View {
                 Text(weekly ? "WEEKLY BARS" : "DAILY BARS").font(.mono(9)).foregroundStyle(Theme.faint).padding(.leading, 6)
                 Spacer()
                 if !shown.isEmpty {
+                    CopyTableButton(csv: CSV.candles(shown, intraday: false))
                     ShareLink(item: CSVFile(name: "\(instrument.ticker)-\(span.rawValue)-\(weekly ? "weekly" : "daily").csv",
                                             text: CSV.candles(shown, intraday: false)),
                               preview: SharePreview("\(instrument.ticker) \(span.rawValue) prices")) {
