@@ -114,6 +114,7 @@ struct ScreenerView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 TextField("", text: $text)
+                    .accessibilityLabel("Filter companies by name or ticker")
                     .placeholder("filter by name or ticker", when: text.isEmpty)
                     .font(.mono(11, .medium)).foregroundStyle(Theme.text).textFieldStyle(.plain).autocorrectionDisabled()
                     .padding(6).background(Theme.canvas).overlay(Rectangle().stroke(Theme.rule)).frame(maxWidth: 240.pt)

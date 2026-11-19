@@ -54,6 +54,7 @@ struct AlertsView: View {
                 .onChange(of: kind) { prefill(last, i) }
             HStack(spacing: 8) {
                 TextField("", text: $levelText)
+                    .accessibilityLabel("Alert level")
                 .placeholder(kind == .move ? "e.g. 5" : "price", when: levelText.isEmpty)
                     .font(.mono(15, .semibold)).foregroundStyle(Theme.text).textFieldStyle(.plain)
                     #if os(iOS)

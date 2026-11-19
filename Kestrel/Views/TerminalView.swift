@@ -26,7 +26,7 @@ struct TerminalView: View {
             VStack(alignment: .trailing, spacing: 8) { FillToast(); AlertToast() }.padding(.top, 92).padding(.trailing, 12)
         }
         .overlay(alignment: .bottomTrailing) {
-            if !DemoTour.isEnabled && (!SnapshotTour.isEnabled || SnapshotTour.guideQuestions != nil) { GuideOverlay(guide: guide) }
+            if !DemoTour.isEnabled && (!SnapshotTour.isEnabled || SnapshotTour.isUITest || SnapshotTour.guideQuestions != nil) { GuideOverlay(guide: guide) }
         }
         // A lapsed subscription keeps the terminal usable: clamp a saved Pro layout to two panels.
         .onChange(of: store.isPro, initial: true) { if !store.isPro, ws.layout.count > ProFeature.freePanels { ws.layout = .two } }
@@ -35,8 +35,13 @@ struct TerminalView: View {
             for s in symbols { if let i = Universe.instrument(symbol: s) ?? Universe.resolve(s) { market.touch(i) } }
         }
         .onAppear {
-            if !DemoTour.isEnabled && !SnapshotTour.isEnabled { commandFocused = true }
+            if !DemoTour.isEnabled && (!SnapshotTour.isEnabled || SnapshotTour.isUITest) { commandFocused = true }
             guide.run = { [ws] in ws.run($0) }
+            // UI tests: let quotes load, then stop live updates so each audit runs on a settled screen.
+            if SnapshotTour.isUITest {
+                ws.maximized = nil; ws.layout = .one; ws.focused = 0     // audit one screen at a time
+                Task { try? await Task.sleep(for: .seconds(20)); market.freeze() }
+            }
             #if DEBUG
             SnapshotTour.guide = guide
             #endif
@@ -132,6 +137,12 @@ struct CommandBar: View {
                 .background(Theme.accent)
             Text(">").font(.mono(13, .bold)).foregroundStyle(Theme.accent).padding(.leading, 8)
             TextField("", text: $text)
+                .accessibilityIdentifier("command-line")
+                .accessibilityLabel("Command line")
+                .accessibilityHint("Type a security and a function, for example AAPL DES, then return.")
+                #if os(iOS)
+                .frame(minHeight: 44)          // full-size touch target on iPad
+                #endif
                 .placeholder("AAPL GP · BTC DEPTH · WEI · HELP", when: text.isEmpty)
                 .font(.mono(13, .medium))
                 .foregroundStyle(Theme.text)
@@ -238,7 +249,8 @@ struct Clocks: View {
     private static let zones: [(String, String)] = [("NY", "America/New_York"), ("LDN", "Europe/London"), ("TYO", "Asia/Tokyo")]
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { ctx in
+        // In UI tests the clocks tick once a minute, so the accessibility audit sees an idle screen.
+        TimelineView(.periodic(from: .now, by: SnapshotTour.isUITest ? 60 : 1)) { ctx in
             HStack(spacing: 10) {
                 ForEach(Self.zones, id: \.0) { label, tz in
                     VStack(alignment: .trailing, spacing: 0) {
@@ -304,7 +316,11 @@ struct TickerTape: View {
     @Environment(MarketStore.self) private var market
     @Environment(Workspace.self) private var ws
     @Environment(Theme.self) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var contentWidth: CGFloat = 1
+    /// WCAG 2.2.2: moving content can be paused. It also stops for Reduce Motion (and in UI tests).
+    @State private var paused = false
+    private var still: Bool { paused || reduceMotion || SnapshotTour.isUITest }
 
     private static let tickers = ["SPX", "INDU", "CCMP", "RTY", "VIX", "US10Y", "BTC", "ETH", "SOL", "EURUSD", "USDJPY",
                                   "CL1", "GC1", "UKX", "DAX", "NKY", "HSI", "NVDA", "AAPL", "MSFT"]
@@ -318,13 +334,28 @@ struct TickerTape: View {
         Color.clear
             .frame(maxWidth: .infinity, minHeight: 24.pt, maxHeight: 24.pt)
             .overlay(alignment: .leading) {
-                TimelineView(.animation(minimumInterval: 1.0 / 60)) { ctx in
-                    let x = -CGFloat(ctx.date.timeIntervalSinceReferenceDate * 40).truncatingRemainder(dividingBy: contentWidth)
-                    HStack(spacing: 0) { strip; strip }
-                        .offset(x: x)
+                if still {
+                    // Still: scroll it by hand instead.
+                    ScrollView(.horizontal, showsIndicators: false) { strip }
+                } else {
+                    TimelineView(.animation(minimumInterval: 1.0 / 60)) { ctx in
+                        let x = -CGFloat(ctx.date.timeIntervalSinceReferenceDate * 40).truncatingRemainder(dividingBy: contentWidth)
+                        HStack(spacing: 0) { strip; strip }
+                            .offset(x: x)
+                    }
                 }
             }
             .clipped()
+            .overlay(alignment: .trailing) {
+                if !reduceMotion {
+                    Button { paused.toggle() } label: {
+                        Image(systemName: paused ? "play.fill" : "pause.fill").font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(Theme.dim).frame(width: 24.pt, height: 24.pt).background(Theme.canvas)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(paused ? "Resume ticker tape" : "Pause ticker tape")
+                }
+            }
         .background(Theme.canvas)
         .overlay(alignment: .bottom) { Theme.rule.frame(height: 1.pt) }
     }

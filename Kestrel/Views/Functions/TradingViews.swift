@@ -61,7 +61,7 @@ struct TicketView: View {
                         .font(.mono(10, .semibold)).foregroundStyle(Theme.warn)
                 }
                 field("QUANTITY") {
-                    TextField("0", text: $qtyText).font(.mono(16, .semibold)).textFieldStyle(.plain)
+                    TextField("0", text: $qtyText).accessibilityLabel("Quantity").font(.mono(16, .semibold)).textFieldStyle(.plain)
                         #if os(iOS)
                         .keyboardType(.decimalPad)
                         #endif
@@ -84,7 +84,7 @@ struct TicketView: View {
                     }
                 if isStop {
                     field(side == .buy ? "STOP PRICE · TRIGGERS AT OR ABOVE" : "STOP PRICE · TRIGGERS AT OR BELOW") {
-                        TextField("0.00", text: $stopText).font(.mono(16, .semibold)).textFieldStyle(.plain)
+                        TextField("0.00", text: $stopText).accessibilityLabel("Stop price").font(.mono(16, .semibold)).textFieldStyle(.plain)
                             #if os(iOS)
                             .keyboardType(.decimalPad)
                             #endif
@@ -92,7 +92,7 @@ struct TicketView: View {
                 }
                 if isLimit {
                     field("LIMIT PRICE") {
-                        TextField("0.00", text: $limitText).font(.mono(16, .semibold)).textFieldStyle(.plain)
+                        TextField("0.00", text: $limitText).accessibilityLabel("Limit price").font(.mono(16, .semibold)).textFieldStyle(.plain)
                             #if os(iOS)
                             .keyboardType(.decimalPad)
                             #endif

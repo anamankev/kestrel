@@ -29,6 +29,7 @@ struct SettingsView: View {
                         .font(.ui(11)).foregroundStyle(Theme.dim)
                     HStack(spacing: 8) {
                         TextField("", text: $contactDraft)
+                    .accessibilityLabel("SEC contact email")
                 .placeholder("you@example.com", when: contactDraft.isEmpty)
                             .font(.mono(13)).foregroundStyle(Theme.text).textFieldStyle(.plain)
                             .autocorrectionDisabled()

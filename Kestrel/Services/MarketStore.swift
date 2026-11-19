@@ -90,6 +90,9 @@ struct SecurityDetail: Equatable {
 
     static let tapeDepth = 400
 
+    /// Stops streaming and refreshing (UI tests: lets the accessibility audit see a settled screen).
+    func freeze() { tasks.forEach { $0.cancel() } }
+
     func start() {
         guard tasks.isEmpty else { return }
         let stream = stream

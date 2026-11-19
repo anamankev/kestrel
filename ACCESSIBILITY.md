@@ -44,3 +44,28 @@
   layout, long security names abbreviate ("Ether…"), as at 100%, while tickers and prices stay whole. The Mac build
   compiles, but the Mac app at large sizes wasn't captured.
 - **VoiceOver** (app) and **NVDA/JAWS** (web) haven't been run by hand. The checks above are automated or computed.
+
+## Apple's accessibility audit (iPad)
+
+`KestrelUITests/AccessibilityAuditTests` runs `performAccessibilityAudit` (all checks except Dynamic Type, which only
+recognises Apple's text styles; Kestrel scales its own fonts, verified at 150%). It's opt-in:
+`TEST_RUNNER_KESTREL_A11Y_AUDIT=1 xcodebuild test -scheme Kestrel -only-testing:KestrelUITests …`. It launches with
+`-uitest` (debug only): a throwaway account, one panel, and live updates frozen after 20 s.
+
+**Fixed from its findings:**
+- **Unlabelled text fields.** The command line, news and security search, the watchlist add box, the screener
+  filter, the alert level, the ticket's quantity, stop and limit fields, and the SEC email field were all
+  unlabelled. They now have labels, and the command line has a hint and a 44 pt touch height.
+- **Motion.** The ticker tape scrolled forever and ignored Reduce Motion (WCAG 2.2.2). It now stops for Reduce
+  Motion and has a pause button; with motion off it scrolls by hand. The guide button no longer bobs under Reduce
+  Motion. The web tape got the same pause button and pauses on hover.
+
+**On the main screen, issues fell from 457 to 23 after the fixes:**
+- **14 "hit area too small":** Apple's 44 pt rule for the function keys and tape tickers, which are 24 pt (that
+  meets WCAG 2.2 AA's 24 px).
+- **6 "label not human-readable":** numeric cells such as "-5.17%".
+- **3 contrast samples:** text next to overlays. The theme colours pass by calculation.
+
+**Not finished:** on the other screens the audit times out, because panels still waiting for data keep a loading
+indicator spinning once updates are frozen. Getting all 38 screens to audit needs a data fixture for test mode.
+Making every control 44 pt would also change the terminal's density, so that's a design decision.

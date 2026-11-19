@@ -14,6 +14,10 @@
             <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "AB00000000000000000000A2" BuildableName = "KestrelTests.xctest" BlueprintName = "KestrelTests" ReferencedContainer = "container:Kestrel.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference skipped = "NO" parallelizable = "NO">
+            <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "AB00000000000000000000B2" BuildableName = "KestrelUITests.xctest" BlueprintName = "KestrelUITests" ReferencedContainer = "container:Kestrel.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle = "0" useCustomWorkingDirectory = "NO" ignoresPersistentStateOnLaunch = "NO" debugDocumentVersioning = "YES" debugServiceExtension = "internal" allowLocationSimulation = "YES">

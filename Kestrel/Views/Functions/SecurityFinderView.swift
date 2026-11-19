@@ -45,6 +45,7 @@ struct SecurityFinderView: View {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundStyle(Theme.dim)
                 TextField("", text: $query)
+                    .accessibilityLabel("Search securities")
                     .placeholder("Company or ticker: toyota, nestle, 7203.T, gold, GBPJPY", when: query.isEmpty)
                     .font(.mono(13, .medium)).foregroundStyle(Theme.text).textFieldStyle(.plain)
                     .autocorrectionDisabled().focused($focused)

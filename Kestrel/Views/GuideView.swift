@@ -25,6 +25,7 @@ struct GuideButton: View {
     let open: Bool
     let action: () -> Void
     @State private var bob = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
@@ -48,7 +49,11 @@ struct GuideButton: View {
         .buttonStyle(.plain)
         .accessibilityLabel(open ? "Close the guide" : "Ask the Kestrel guide")
         .keyboardShortcut("/", modifiers: .command)
-        .onAppear { withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { bob = true } }
+        .onAppear {
+            // No bobbing under Reduce Motion (or in UI tests).
+            guard !reduceMotion, !SnapshotTour.isUITest else { return }
+            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { bob = true }
+        }
     }
 }
 

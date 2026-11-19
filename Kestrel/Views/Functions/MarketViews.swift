@@ -92,6 +92,7 @@ struct MonitorView: View {
             HStack(spacing: 0) {
                 Text("ADD").font(.mono(9, .heavy)).foregroundStyle(Theme.canvas).padding(.horizontal, 6).frame(height: 24.pt).background(Theme.accent)
                 TextField("", text: $addText)
+                    .accessibilityLabel("Add a ticker to this watchlist")
                 .placeholder("ticker ↩", when: addText.isEmpty)
                     .font(.mono(11, .medium)).foregroundStyle(Theme.text).textFieldStyle(.plain)
                     .autocorrectionDisabled()

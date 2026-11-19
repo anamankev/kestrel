@@ -219,6 +219,7 @@ struct NewsView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.dim)
                 TextField("", text: $text)
+                    .accessibilityLabel("Search headlines")
                 .placeholder("Search headlines: fed rate  \"rate cut\"  -crypto", when: text.isEmpty)
                     .font(.mono(12)).foregroundStyle(Theme.text).textFieldStyle(.plain)
                     .autocorrectionDisabled()

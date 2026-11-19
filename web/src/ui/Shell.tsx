@@ -129,7 +129,14 @@ function Tape() {
     const q = market.quotes.get(i.symbol);
     return <span key={i.symbol}><span className="t">{i.ticker}</span>{q ? q.last.toLocaleString("en-US", { maximumFractionDigits: i.assetClass === "CURNCY" ? 4 : 2, minimumFractionDigits: 2 }) : "—"} <Change value={changePercent(q)} percent /></span>;
   });
-  return <div className="tape" aria-hidden="true"><div className="track">{items}{items.map((x, k) => <span key={`b${k}`}>{x}</span>)}</div></div>;
+  // WCAG 2.2.2: the moving tape can be paused (it also stops on hover and for reduced motion).
+  const [paused, setPaused] = useState(false);
+  return (
+    <div className={`tape ${paused ? "paused" : ""}`}>
+      <div className="track" aria-hidden="true">{items}{items.map((x, k) => <span key={`b${k}`}>{x}</span>)}</div>
+      <button className="tape-pause" onClick={() => setPaused(!paused)} aria-pressed={paused} aria-label={paused ? "Resume ticker tape" : "Pause ticker tape"}>{paused ? "▶" : "❚❚"}</button>
+    </div>
+  );
 }
 
 function PanelView({ id }: { id: number }) {

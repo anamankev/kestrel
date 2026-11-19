@@ -13,7 +13,9 @@ import UIKit
 ///   Files: <app container>/tmp/kestrel-snapshots/NN-name.png
 @MainActor
 enum SnapshotTour {
-    static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("-snapshot") }
+    static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("-snapshot") || isUITest }
+    /// `-uitest`: the same throwaway sign-in and unlock, then no tour, so UI tests (the accessibility audit) drive the app.
+    static var isUITest: Bool { ProcessInfo.processInfo.arguments.contains("-uitest") }
 
     static let folder = FileManager.default.temporaryDirectory.appending(path: "kestrel-snapshots", directoryHint: .isDirectory)
 
@@ -72,6 +74,7 @@ enum SnapshotTour {
 
     /// Phase 2, in the terminal: every function full-screen, then the 4- and 6-panel layouts.
     static func run(_ ws: Workspace) async {
+        guard !isUITest else { log("UI TEST READY"); return }
         log("SNAPSHOT terminal tour started")
         try? await Task.sleep(for: .seconds(4))
         ws.maximized = nil
@@ -150,6 +153,7 @@ enum SnapshotTour {
 /// Release builds never run the snapshot tour.
 enum SnapshotTour {
     static let isEnabled = false
+    static let isUITest = false
     static let guideQuestions: [String]? = nil
 }
 #endif
