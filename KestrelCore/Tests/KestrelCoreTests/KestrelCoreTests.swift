@@ -1603,3 +1603,29 @@ struct GuideSafetyTests {
         #expect(Bond.schedule(settle: Self.day(2027, 1, 1), maturity: Self.day(2026, 1, 1)) == nil)
     }
 }
+
+@Suite struct LearnTests {
+    @Test func curriculumLoadsAndCommandsParse() throws {
+        #expect(Learn.modules.count == 4)
+        let drills = Learn.modules.flatMap(\.drills)
+        #expect(drills.count == 16 && Set(drills.map(\.id)).count == 16)
+        for d in drills {
+            #expect(d.choices.indices.contains(d.answer))
+            #expect((try? CommandParser.parse(d.command, current: nil)) != nil, "\(d.command)")
+        }
+    }
+
+    @Test func shufflesLikeTheWeb() {
+        #expect(Learn.order(Learn.modules[0].drills[0]) == [2, 3, 0, 1])
+        let slots = Learn.modules.flatMap { $0.drills.map { Learn.order($0).firstIndex(of: $0.answer)! } }
+        #expect(slots == [2, 1, 0, 2, 3, 3, 0, 0, 2, 2, 1, 3, 2, 1, 2, 0])
+    }
+
+    @Test func progressAndBadges() {
+        let m = Learn.modules[1]
+        let some = Learn.sanitize([m.drills[0].id, "bogus"])
+        #expect(some == [m.drills[0].id] && Learn.done(m, some) == 1 && Learn.next(m, some) == 1)
+        let all = Set(m.drills.map(\.id))
+        #expect(Learn.earned(m, all) && Learn.next(m, all) == 0)
+    }
+}

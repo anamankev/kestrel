@@ -3,6 +3,7 @@ import { AccountDirectory, AuthError, b64, importDataKey, open, seal, unb64, SES
 import { userData, workspace } from "./workspace";
 import { broker } from "./broker";
 import { alerts } from "./alerts";
+import { learning } from "./learning";
 
 const DIR = "kestrel.accounts.v1";
 const DATA = (id: string) => `kestrel.vault.${id}`;
@@ -70,7 +71,7 @@ export class AuthService extends Store {
     await this.flush();
     this.current = null; this.key = null;
     userData.persist = workspace.persist = broker.persist = alerts.persist = () => {};
-    userData.restore(null); workspace.restore(null); broker.restore(null); alerts.restore(null);
+    userData.restore(null); workspace.restore(null); broker.restore(null); alerts.restore(null); learning.restore(null);
     try { await idb("readwrite", (st) => st.delete("current")); } catch { /* ignore */ }
     this.emit();
   }
@@ -107,8 +108,8 @@ export class AuthService extends Store {
     let state: any = null;
     const box = localStorage.getItem(DATA(r.id));
     if (box) { try { state = JSON.parse(dec.decode(await open(unb64(box), key))); } catch { state = null; } }
-    userData.restore(state?.watchlists); workspace.restore(state?.workspace); broker.restore(state?.paper); alerts.restore(state?.alerts);
-    userData.persist = workspace.persist = broker.persist = alerts.persist = () => this.schedule();
+    userData.restore(state?.watchlists); workspace.restore(state?.workspace); broker.restore(state?.paper); alerts.restore(state?.alerts); learning.restore(state?.learned);
+    userData.persist = workspace.persist = broker.persist = alerts.persist = learning.persist = () => this.schedule();
     try { await idb("readwrite", (st) => st.put({ id: r.id, key, expires: Date.now() + SESSION_LIFETIME } satisfies Session, "current")); } catch { /* session won't persist */ }
     this.emit();
   }
@@ -119,7 +120,7 @@ export class AuthService extends Store {
   async flush() {
     clearTimeout(this.timer);
     if (!this.current || !this.key) return;
-    const plain = enc.encode(JSON.stringify({ watchlists: userData.snapshot(), workspace: workspace.snapshot(), paper: broker.snapshot(), alerts: alerts.snapshot() }));
+    const plain = enc.encode(JSON.stringify({ watchlists: userData.snapshot(), workspace: workspace.snapshot(), paper: broker.snapshot(), alerts: alerts.snapshot(), learned: learning.snapshot() }));
     localStorage.setItem(DATA(this.current.id), b64(await seal(plain, this.key)));
   }
 }

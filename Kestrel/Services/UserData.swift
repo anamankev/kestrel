@@ -10,12 +10,16 @@ import UserNotifications
     /// during `init`, which once saved a half-loaded state and wiped alerts on launch.)
     private(set) var activeID: UUID
     private(set) var alerts: AlertBook
+    /// LEARN drills answered correctly.
+    private(set) var learned: Set<String>
     var lastAlert: PriceAlert?
 
     private struct Snapshot: Codable {
         var watchlists: [Watchlist]
         var activeID: UUID
         var alerts: AlertBook
+        /// Optional so files saved before LEARN still decode.
+        var learned: [String]?
     }
 
     @ObservationIgnored private let url: URL
@@ -37,14 +41,17 @@ import UserNotifications
         var lists = [Watchlist.core]
         var active = lists[0].id
         var book = AlertBook()
+        var done: Set<String> = []
         if let data = store.read(url), let s = try? JSONDecoder().decode(Snapshot.self, from: data), !s.watchlists.isEmpty {
             lists = s.watchlists
             active = s.watchlists.contains { $0.id == s.activeID } ? s.activeID : s.watchlists[0].id
             book = s.alerts
+            done = Learn.sanitize(s.learned ?? [])
         }
         watchlists = lists
         activeID = active
         alerts = book
+        learned = done
     }
 
     func select(_ id: UUID) {
@@ -54,7 +61,7 @@ import UserNotifications
     }
 
     func save() {
-        guard let data = try? JSONEncoder().encode(Snapshot(watchlists: watchlists, activeID: activeID, alerts: alerts)) else { return }
+        guard let data = try? JSONEncoder().encode(Snapshot(watchlists: watchlists, activeID: activeID, alerts: alerts, learned: learned.sorted())) else { return }
         store.write(data, to: url)
     }
 
@@ -116,6 +123,13 @@ import UserNotifications
         activeID = core.id
         save()
     }
+
+    func learn(_ id: String) {
+        guard !learned.contains(id) else { return }
+        learned.insert(id)
+        save()
+    }
+    func resetLearning(_ ids: [String]) { learned.subtract(ids); save() }
 
     func cancelAlert(_ id: UUID) { alerts.cancel(id); save() }
     func clearAlertHistory() { alerts.clearHistory(); save() }
