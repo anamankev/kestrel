@@ -366,3 +366,36 @@ export function pnlSeries(exposure: Record<string, number>, rets: Record<string,
   const n = lens.length ? Math.min(...lens) : 0;
   return Array.from({ length: n }, (_, t) => Object.entries(exposure).reduce((a, [k, v]) => { const r = rets[k]; return a + (r ? v * r[r.length - n + t] : 0); }, 0));
 }
+
+// MARK: Seasonality (SEAS)
+
+export interface MonthReturn { year: number; month: number; ret: number }
+export interface MonthStat { month: number; mean?: number; median?: number; positive?: number; best?: number; worst?: number; n: number }
+
+/** Calendar-month returns from monthly (or finer) bars: the last close of each month over the previous month's.
+ *  The current, unfinished month is left out. */
+export function monthlyReturns(bars: Candle[], now = Date.now()): MonthReturn[] {
+  const ends = new Map<number, number>();   // year*12+month -> last close
+  for (const b of [...bars].sort((a, c) => a.time - c.time)) {
+    if (!(b.close > 0)) continue;
+    const d = new Date(b.time); ends.set(d.getUTCFullYear() * 12 + d.getUTCMonth(), b.close);
+  }
+  const n = new Date(now), current = n.getUTCFullYear() * 12 + n.getUTCMonth();
+  const out: MonthReturn[] = [];
+  for (const [k, close] of ends) {
+    const prev = ends.get(k - 1);
+    if (prev && k < current) out.push({ year: Math.floor(k / 12), month: k % 12, ret: close / prev - 1 });
+  }
+  return out.sort((a, b) => a.year - b.year || a.month - b.month);
+}
+
+/** Average, median, share positive, best and worst return for each calendar month (0 = January). */
+export function seasonality(rets: MonthReturn[]): MonthStat[] {
+  return Array.from({ length: 12 }, (_, month) => {
+    const v = rets.filter((r) => r.month === month).map((r) => r.ret).sort((a, b) => a - b);
+    if (!v.length) return { month, n: 0 };
+    const m = v.length >> 1;
+    return { month, n: v.length, mean: v.reduce((a, b) => a + b, 0) / v.length, median: v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2,
+      positive: v.filter((x) => x > 0).length / v.length, best: v[v.length - 1], worst: v[0] };
+  });
+}

@@ -542,7 +542,7 @@ struct FunctionView: View {
                 case .cn: NewsView(instrument: i)
                 case .omon: OptionMonitorView(instrument: i, panelID: panel.id).id(i.symbol)
                 case .rv: ValuationView(instrument: i, panelID: panel.id).id(i.symbol)
-                case .seas: EmptyNote(title: "SEAS Seasonality", detail: "Arriving in the next update.", icon: "hammer")
+                case .seas: SeasonalityView(instrument: i).id(i.symbol)
                 default: TicketView(instrument: i, side: panel.side ?? .buy).id("\(i.symbol)-\(panel.side?.rawValue ?? "")")
                 }
             } else {

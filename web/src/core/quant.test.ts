@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ols, adjustedBeta, performance, rebased, projectToSimplex, frontier, optimize, linearFit, dividendSummary, eventStudy, carSummary, car, lastDay, backtest, csvField, csv, correlation, alignedCloses, returnStats, betaOf, historicalVaR, expectedShortfall, pnlSeries, parseCSV, toTSV } from "./quant";
+import { ols, adjustedBeta, performance, rebased, projectToSimplex, frontier, optimize, linearFit, dividendSummary, eventStudy, carSummary, car, lastDay, backtest, csvField, csv, correlation, alignedCloses, returnStats, betaOf, historicalVaR, expectedShortfall, pnlSeries, parseCSV, toTSV, monthlyReturns, seasonality } from "./quant";
 import type { Candle } from "./market";
 
 describe("regression and performance", () => {
@@ -126,5 +126,19 @@ describe("clipboard tables", () => {
     const text = csv(["Ticker", "Name", "Note"], [["AAPL", "Apple, Inc.", 'said "hi"\nthen left'], ["MSFT", "Microsoft", "=SUM(A1)"]]);
     expect(parseCSV(text)).toEqual([["Ticker", "Name", "Note"], ["AAPL", "Apple, Inc.", 'said "hi"\nthen left'], ["MSFT", "Microsoft", "'=SUM(A1)"]]);
     expect(toTSV(text)).toBe('Ticker\tName\tNote\nAAPL\tApple, Inc.\tsaid "hi" then left\nMSFT\tMicrosoft\t\'=SUM(A1)\n');
+  });
+});
+
+describe("seasonality", () => {
+  test("monthly returns by calendar month, leaving out the unfinished month", () => {
+    const bar = (y: number, m: number, d: number, close: number): Candle => ({ time: Date.UTC(y, m, d), open: close, high: close, low: close, close, volume: 0 });
+    const bars = [bar(2024, 0, 31, 100), bar(2024, 1, 10, 105), bar(2024, 1, 29, 110), bar(2024, 2, 29, 99), bar(2025, 0, 31, 120), bar(2025, 1, 28, 114), bar(2025, 2, 31, 114), bar(2025, 3, 15, 200)];
+    const r = monthlyReturns(bars, Date.UTC(2025, 3, 20));
+    expect(r.map((x) => [x.year, x.month, +x.ret.toFixed(4)])).toEqual([[2024, 1, 0.1], [2024, 2, -0.1], [2025, 1, -0.05], [2025, 2, 0]]);   // April 2025 is unfinished; Jan has no prior month
+    const s = seasonality(r);
+    expect(s[1]).toMatchObject({ n: 2, positive: 0.5 });
+    expect(s[1].best).toBeCloseTo(0.1); expect(s[1].worst).toBeCloseTo(-0.05);
+    expect(s[1].mean).toBeCloseTo(0.025);
+    expect(s[0].n).toBe(0);
   });
 });

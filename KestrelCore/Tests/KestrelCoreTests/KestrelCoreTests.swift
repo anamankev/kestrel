@@ -1543,3 +1543,19 @@ struct GuideSafetyTests {
     }
 }
 
+@Suite struct SeasonalityTests {
+    @Test func monthlyReturnsByCalendarMonthLikeTheWeb() {
+        func bar(_ y: Int, _ m: Int, _ d: Int, _ close: Double) -> Candle {
+            var c = DateComponents(); c.year = y; c.month = m + 1; c.day = d; c.timeZone = TimeZone(identifier: "UTC")
+            let t = Calendar(identifier: .gregorian).date(from: c)!
+            return Candle(time: t, open: close, high: close, low: close, close: close, volume: 0)
+        }
+        let bars = [bar(2024, 0, 31, 100), bar(2024, 1, 10, 105), bar(2024, 1, 29, 110), bar(2024, 2, 29, 99), bar(2025, 0, 31, 120), bar(2025, 1, 28, 114), bar(2025, 2, 31, 114), bar(2025, 3, 15, 200)]
+        let r = Seasonality.monthlyReturns(bars, now: bar(2025, 3, 20, 1).time)
+        #expect(r.map { [$0.year, $0.month] } == [[2024, 1], [2024, 2], [2025, 1], [2025, 2]])
+        #expect(r.map { ($0.ret * 10_000).rounded() / 10_000 } == [0.1, -0.1, -0.05, 0])
+        let s = Seasonality.stats(r)
+        #expect(s[1].n == 2 && s[1].positive == 0.5 && abs(s[1].mean! - 0.025) < 1e-12 && s[0].n == 0)
+    }
+}
+

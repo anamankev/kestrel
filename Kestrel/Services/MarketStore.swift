@@ -274,6 +274,13 @@ struct SecurityDetail: Equatable {
         return try YahooChart.decode(data, intraday: false, adjusted: adjusted).candles
     }
 
+    /// Monthly total-return bars from Yahoo for SEAS (crypto included, under the same BTC-USD style symbol).
+    func monthly(for i: Instrument, range: String) async throws -> [Candle] {
+        guard i.assetClass != .option else { return [] }
+        let (data, _) = try await http.data(from: YahooChart.url(symbol: i.symbol, range: range, interval: "1mo", events: true))
+        return try YahooChart.decode(data, intraday: false, adjusted: true).candles
+    }
+
     /// Ten years of cash dividends (monthly bars keep the payload small) and the latest price.
     func dividends(for i: Instrument) async throws -> (dividends: [Dividend], price: Double?) {
         let (data, _) = try await http.data(from: YahooChart.url(symbol: i.symbol, range: "10y", interval: "1mo", events: true))
