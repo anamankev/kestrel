@@ -16,7 +16,44 @@ protocol SessionStore {
 struct KeychainSessionStore: SessionStore {
     var service = "dev.kestrel.terminal.session"
     private var query: [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: "current"]
+        var q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: "current"]
+        #if os(macOS)
+        // The data-protection keychain (what iOS always uses): items belong to the app, not to one build's code
+        // signature, so a rebuilt or updated app never asks for the login-keychain password, and the read can't
+        // block the main thread on a prompt. Sessions saved by older builds in the login keychain aren't read:
+        // those people sign in once.
+        q[kSecUseDataProtectionKeychain as String] = true
+        #endif
+        return q
+    }
+
+    /// The store to use. A Mac build without a signing team (a local development build) has no access to the
+    /// data-protection keychain (errSecMissingEntitlement), so its session lives in memory: sign in at each
+    /// launch, with no password prompt and nothing written to the login keychain.
+    #if os(macOS)
+    /// Reads of a missing item report "not found" either way; only a write reveals errSecMissingEntitlement.
+    private static let dataProtectionAvailable: Bool = {
+        let probe = KeychainSessionStore(service: "dev.kestrel.terminal.probe")
+        probe.clear()
+        var q = probe.query
+        q[kSecValueData as String] = Data([0])
+        q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        let status = SecItemAdd(q as CFDictionary, nil)
+        probe.clear()
+        return status != errSecMissingEntitlement
+    }()
+    #endif
+
+    static func preferred() -> SessionStore {
+        #if os(macOS)
+        if !dataProtectionAvailable {
+            securityLog.notice("unsigned build: sessions kept in memory")
+            return MemorySessionStore()
+        }
+        return KeychainSessionStore()
+        #else
+        return KeychainSessionStore()
+        #endif
     }
 
     func load() -> (id: UUID, token: Data, key: Data?)? {
@@ -69,7 +106,7 @@ final class MemorySessionStore: SessionStore {
     /// Files from before accounts existed; the first account on the device adopts them.
     private static let legacyFiles = ["paper-account.json", "equity-curve.json", "user-data.json"]
 
-    init(root: URL = AuthService.root, sessions: SessionStore = KeychainSessionStore()) {
+    init(root: URL = AuthService.root, sessions: SessionStore = KeychainSessionStore.preferred()) {
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         fileURL = root.appending(path: "accounts.json")
         self.sessions = sessions

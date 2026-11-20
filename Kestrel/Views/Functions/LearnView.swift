@@ -56,7 +56,7 @@ struct LearnView: View {
                 }
                 .font(.mono(10, .bold))
             }
-            .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12).frame(maxWidth: .infinity, minHeight: 130.pt, alignment: .topLeading)
             .background(Theme.panel).overlay(RoundedRectangle(cornerRadius: 6).stroke(won ? Theme.accentDim : Theme.rule))
         }
         .buttonStyle(.terminal)

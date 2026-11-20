@@ -33,7 +33,11 @@ final class AccessibilityAuditTests: XCTestCase {
         sleep(22)   // quotes load, then the app freezes live updates (see TerminalView, -uitest)
 
         var found = 0
-        let types = XCUIAccessibilityAuditType.all.subtracting(.dynamicType)
+        #if os(iOS)
+        let types = XCUIAccessibilityAuditType.all.subtracting(.dynamicType)   // text size has its own check
+        #else
+        let types = XCUIAccessibilityAuditType.all                              // macOS has no Dynamic Type audit
+        #endif
         for screen in screens {
             if screen != "TERMINAL" {
                 // The command line normally keeps keyboard focus; if a screen took it, click the field's right end

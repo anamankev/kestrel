@@ -164,6 +164,14 @@ import KestrelCore
     }
 
     @Test func keychainRoundTrip() {
+        // An unsigned Mac build has no data-protection keychain: sessions stay in memory, never in the login keychain.
+        if KeychainSessionStore.preferred() is MemorySessionStore {
+            #if os(macOS)
+            return
+            #else
+            Issue.record("iOS must always use the Keychain"); return
+            #endif
+        }
         let kc = KeychainSessionStore(service: "dev.kestrel.terminal.tests.\(UUID().uuidString)")
         let id = UUID(), token = AccountDirectory.newSessionToken(), key = Vault.newKey()
         kc.save(id: id, token: token, key: key)
