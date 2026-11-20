@@ -381,3 +381,14 @@ struct ClockFormatTests {
         #expect(d.formatted(style) == "19:53:23")
     }
 }
+
+@Suite struct PersonalUITests {
+    @Test func signOutClearsTrendlinesAndBondInputsOnly() throws {
+        let d = try #require(UserDefaults(suiteName: "kestrel.tests.\(UUID().uuidString)"))
+        for k in ["gp.lines.AAPL", "gp.lines.BTC-USD", "yas.coupon", "yas.face", "gp.range", "seas.span"] { d.set("x", forKey: k) }
+        PersonalUI.clear(d)
+        #expect(d.object(forKey: "gp.lines.AAPL") == nil && d.object(forKey: "yas.face") == nil && d.object(forKey: "yas.coupon") == nil)
+        #expect(d.string(forKey: "gp.range") == "x" && d.string(forKey: "seas.span") == "x")
+    }
+}
+

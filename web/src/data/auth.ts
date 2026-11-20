@@ -4,6 +4,7 @@ import { userData, workspace } from "./workspace";
 import { broker } from "./broker";
 import { alerts } from "./alerts";
 import { learning } from "./learning";
+import { clearPersonalUI } from "./personal";
 
 const DIR = "kestrel.accounts.v1";
 const DATA = (id: string) => `kestrel.vault.${id}`;
@@ -72,6 +73,7 @@ export class AuthService extends Store {
     this.current = null; this.key = null;
     userData.persist = workspace.persist = broker.persist = alerts.persist = () => {};
     userData.restore(null); workspace.restore(null); broker.restore(null); alerts.restore(null); learning.restore(null);
+    clearPersonalUI();
     try { await idb("readwrite", (st) => st.delete("current")); } catch { /* ignore */ }
     this.emit();
   }

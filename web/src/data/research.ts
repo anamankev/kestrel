@@ -68,9 +68,15 @@ export const screen = (): Promise<{ rows: ScreenRow[]; year: number }> => once("
 // MARK: RV (relative valuation)
 
 /** A company's SIC industry from its SEC submissions. */
-export const industry = async (c: number) => { const s: any = await submissions(c); return { sic: String(s?.sic ?? ""), name: String(s?.sicDescription ?? "") }; };
+export const industry = async (c: number) => {
+  const s: any = await submissions(c);
+  const sic = String(s?.sic ?? "");
+  return { sic: SIC.test(sic) ? sic : "", name: String(s?.sicDescription ?? "").slice(0, 120) };   // only a 4-digit code ever reaches a URL
+};
+const SIC = /^\d{4}$/;
 /** Every 10-K filer under one SIC code (EDGAR lists 100 per page). */
 export const industryMembers = (sic: string) => once(`sic|${sic}`, async () => {
+  if (!SIC.test(sic)) throw new Error("Invalid industry code");
   const out: { cik: number; name: string }[] = [];
   for (let start = 0; start <= 2000; start += 100) {
     const page = decodeSicFeed(await (await relayFetch(`/sec/sic/${sic}?start=${start}`)).text());

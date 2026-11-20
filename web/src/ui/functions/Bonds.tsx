@@ -76,11 +76,22 @@ const KEY = "yas.inputs";
 const SHOCKS = [-100, -50, -25, 0, 25, 50, 100];
 const money = (v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
+/** Saved inputs come from plain browser storage, so they are checked before use: short strings and a known mode. */
+export function validInputs(v: unknown): Inputs | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const str = (k: string) => (typeof o[k] === "string" && (o[k] as string).length <= 24 ? (o[k] as string) : null);
+  const [coupon, maturity, price, yld, face] = ["coupon", "maturity", "price", "yld", "face"].map(str);
+  if (coupon == null || maturity == null || price == null || yld == null || face == null || !/^\d{4}-\d{2}-\d{2}$/.test(maturity)) return null;
+  if (o.mode !== "PRICE→YIELD" && o.mode !== "YIELD→PRICE") return null;
+  return { coupon, maturity, mode: o.mode, price, yld, face };
+}
+
 /** YAS: price ↔ yield for a fixed-coupon bond, with duration, convexity, DV01 and the spread to Treasuries. */
 export function BondCalculator() {
   const curves = useAsync(() => treasuryCurves(0), []);
   const latest = curves.data?.[curves.data.length - 1];
-  const [inp, setInp] = useState<Inputs | null>(() => { try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch { return null; } });
+  const [inp, setInp] = useState<Inputs | null>(() => { try { return validInputs(JSON.parse(localStorage.getItem(KEY) ?? "null")); } catch { return null; } });
   // First visit: a 10-year bond with a coupon near today's 10Y yield.
   useEffect(() => {
     if (inp || !latest) return;

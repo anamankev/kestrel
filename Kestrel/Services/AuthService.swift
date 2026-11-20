@@ -81,6 +81,16 @@ struct KeychainSessionStore: SessionStore {
     func clear() { SecItemDelete(query as CFDictionary) }
 }
 
+/// Per-person screen settings kept in UserDefaults (outside the encrypted account files): chart trendlines and
+/// the bond calculator's inputs. Cleared at sign-out so the next person on a shared iPad or Mac never sees them.
+/// Display preferences (ranges, studies) are kept.
+enum PersonalUI {
+    static let prefixes = ["gp.lines.", "yas."]
+    static func clear(_ defaults: UserDefaults = .standard) {
+        for key in defaults.dictionaryRepresentation().keys where prefixes.contains(where: key.hasPrefix) { defaults.removeObject(forKey: key) }
+    }
+}
+
 /// Tests and the snapshot tour: never touches the real Keychain.
 final class MemorySessionStore: SessionStore {
     private var value: (UUID, Data, Data?)?
@@ -169,6 +179,7 @@ final class MemorySessionStore: SessionStore {
         current = nil
         space = nil
         sessions.clear()
+        PersonalUI.clear()
     }
 
     /// Deleting needs the password again, so a borrowed, unlocked device can't wipe an account.

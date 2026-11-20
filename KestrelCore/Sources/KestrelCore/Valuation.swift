@@ -45,8 +45,9 @@ public enum RelativeValuation {
     /// The SIC code and description from a company's SEC submissions JSON.
     public static func industry(fromSubmissions data: Data) -> (sic: String, name: String)? {
         struct S: Decodable { let sic: String?; let sicDescription: String? }
-        guard let s = try? JSONDecoder().decode(S.self, from: data), let sic = s.sic, !sic.isEmpty else { return nil }
-        return (sic, s.sicDescription ?? "")
+        // Only a 4-digit code ever reaches a request URL.
+        guard let s = try? JSONDecoder().decode(S.self, from: data), let sic = s.sic, sic.wholeMatch(of: /[0-9]{4}/) != nil else { return nil }
+        return (sic, String((s.sicDescription ?? "").prefix(120)))
     }
 
     /// Up to `n` peers with annual data, closest in revenue to the target (log scale).

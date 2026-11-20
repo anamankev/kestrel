@@ -1629,3 +1629,28 @@ struct GuideSafetyTests {
         #expect(Learn.earned(m, all) && Learn.next(m, all) == 0)
     }
 }
+
+@Suite struct IndustryCodeTests {
+    @Test func onlyFourDigitCodesReachURLs() {
+        func sub(_ sic: String) -> Data { Data(#"{"sic":"\#(sic)","sicDescription":"Electronic Computers"}"#.utf8) }
+        #expect(RelativeValuation.industry(fromSubmissions: sub("3571"))?.sic == "3571")
+        for bad in ["", "357", "35711", "3571&type=x", "../x", "３５７１"] { #expect(RelativeValuation.industry(fromSubmissions: sub(bad)) == nil, "\(bad)") }
+    }
+}
+
+@Suite struct SymbolPathTests {
+    @Test func freeFormSymbolsAreASCIIBeforeTheyReachAURL() {
+        #expect(Universe.resolve("NG=F")?.symbol == "NG=F")
+        #expect(Universe.resolve("^N100")?.symbol == "^N100")
+        for bad in ["../X=F", "A/B=F", "A?B=F", "A#=F", "^ÉTOILE", "^１２３", "^A/B", "^A?x=1"] {
+            #expect(Universe.resolve(bad).map { $0.assetClass == .commodity || $0.assetClass == .index } != true, "\(bad)")
+        }
+        // Whatever resolves, the request stays on Yahoo's chart path.
+        for t in ["NG=F", "^N100", "AAPL", "7203.T", "BTC-USD", "GBPJPY"] {
+            guard let i = Universe.resolve(t) else { continue }
+            let u = YahooChart.url(symbol: i.symbol, range: "1d", interval: "5m")
+            #expect(u.host == "query1.finance.yahoo.com" && u.path.hasPrefix("/v8/finance/chart/") && !u.path.contains(".."))
+        }
+    }
+}
+

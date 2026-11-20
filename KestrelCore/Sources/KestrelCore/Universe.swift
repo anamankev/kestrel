@@ -221,10 +221,11 @@ public enum Universe {
             return Instrument(symbol: "\(pair)=X", ticker: pair, name: "\(pair.prefix(3)) / \(pair.suffix(3))", assetClass: .fx)
         }
         // Futures (CL=F, ES=F) and Yahoo index symbols (^N100, ^STI).
-        if upper.hasSuffix("=F"), upper.count <= 10 {
+        // ASCII only: the symbol becomes part of a request path.
+        if upper.range(of: #"^[A-Z0-9.\-]{1,8}=F$"#, options: .regularExpression) != nil {
             return Instrument(symbol: upper, ticker: upper, name: upper, assetClass: .commodity)
         }
-        if upper.hasPrefix("^"), upper.count <= 12, upper.dropFirst().allSatisfy({ $0.isLetter || $0.isNumber || $0 == "." }) {
+        if upper.range(of: #"^\^[A-Z0-9.]{1,11}$"#, options: .regularExpression) != nil {
             return Instrument(symbol: upper, ticker: upper, name: upper, assetClass: .index)
         }
         // Any coin: Coinbase streams the majors; the rest poll Yahoo's XXX-USD.

@@ -28,7 +28,7 @@ export function RelativeValuation({ i, panel }: { i: Instrument; panel: number }
     if (!c) return { kind: "nosec" as const };
     const [ind, sc, shares] = await Promise.all([industry(c), screen(), sharesOutstanding()]);
     const target = sc.rows.find((r) => r.cik === c);
-    if (!target) return { kind: "nodata" as const, year: sc.year };
+    if (!target || !ind.sic) return { kind: "nodata" as const, year: sc.year };
     let members = await industryMembers(ind.sic), group = false;
     let peers = pickPeers(target, sc.rows, new Set(members.map((m) => m.cik)), 12);
     // Exact codes can be narrow (HP files under 3570, Apple and Dell under 3571): widen to the 3-digit group.

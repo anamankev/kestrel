@@ -28,7 +28,7 @@ const FEEDS: Record<string, string> = {
   cnbc: "https://www.cnbc.com/id/100003114/device/rss/rss.html",
   cnbcfin: "https://www.cnbc.com/id/10000664/device/rss/rss.html",
   marketwatch: "https://feeds.content.dowjones.io/public/rss/mw_topstories",
-  coindesk: "https://www.coindesk.com/arc/outboundfeeds/rss/",
+  coindesk: "https://www.coindesk.com/arc/outboundfeeds/rss",
 };
 
 /** Maps a relay path to its upstream URL, or null if the request isn't allowed. */
@@ -154,7 +154,13 @@ function json(status: number, body: unknown, cors: Record<string, string>) {
 const hits = new Map<string, { n: number; reset: number }>();
 export function allow(ip: string, now = Date.now(), limit = 120): boolean {
   const h = hits.get(ip);
-  if (!h || now > h.reset) { hits.set(ip, { n: 1, reset: now + 60_000 }); if (hits.size > 10_000) hits.clear(); return true; }
+  if (!h || now > h.reset) {
+    // Bound memory by dropping expired windows first, so a flood of new IPs can't reset everyone's count at once.
+    if (hits.size >= 10_000) for (const [k, v] of hits) if (now > v.reset) hits.delete(k);
+    if (hits.size >= 10_000) hits.delete(hits.keys().next().value!);   // still full: evict the oldest window, not everyone
+    hits.set(ip, { n: 1, reset: now + 60_000 });
+    return true;
+  }
   h.n += 1;
   return h.n <= limit;
 }
@@ -195,8 +201,15 @@ export async function handle(req: Request, env: Env, upstreamFetch: Fetcher, cac
     return json(502, { error: "upstream unreachable" }, cors);
   }
   if (!up.ok) { log({ event: "upstream_error", status: up.status, path }); return json(up.status === 404 ? 404 : 502, { error: `upstream ${up.status}` }, cors); }
+  // A redirect must stay on the upstream's own host: the relay never fetches anywhere else for a visitor.
+  if (up.url && new URL(up.url).host !== new URL(r.upstream).host) {
+    log({ event: "upstream_redirect_rejected", path, to: new URL(up.url).host.slice(0, 80) });
+    return json(502, { error: "upstream redirected elsewhere" }, cors);
+  }
+  const MAX = 25 * 1024 * 1024;
+  if (Number(up.headers.get("Content-Length") ?? 0) > MAX) return json(502, { error: "upstream response too large" }, cors);
   const body = await up.arrayBuffer();
-  if (body.byteLength > 25 * 1024 * 1024) return json(502, { error: "upstream response too large" }, cors);
+  if (body.byteLength > MAX) return json(502, { error: "upstream response too large" }, cors);
   const res = new Response(body, { status: 200, headers: { "Content-Type": up.headers.get("Content-Type") ?? "application/octet-stream", "Cache-Control": `public, max-age=${r.ttl}` } });
   if (cache) await cache.put(key, res.clone());
   return withHeaders(res, cors, "MISS");

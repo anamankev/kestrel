@@ -75,6 +75,24 @@ describe("relay handler", () => {
     expect(allow("1.2.3.4", 61_000)).toBe(true);
   });
 
+  test("a flood of new IPs doesn't reset a limited IP", () => {
+    const t = 5_000_000;
+    for (let i = 0; i < 121; i++) allow("9.9.9.9", t);
+    expect(allow("9.9.9.9", t)).toBe(false);
+    for (let i = 0; i < 5_000; i++) allow(`10.0.${i >> 8}.${i & 255}`, t);
+    expect(allow("9.9.9.9", t)).toBe(false);
+  });
+
+  test("never follows a redirect off the upstream host, and refuses oversized bodies unread", async () => {
+    const moved = (to: string) => async () => { const r = new Response("{}", { status: 200 }); Object.defineProperty(r, "url", { value: to }); return r; };
+    expect((await handle(req("/yahoo/search?q=b"), env, moved("https://evil.example/steal"))).status).toBe(502);
+    expect((await handle(req("/yahoo/search?q=c"), env, moved("https://query1.finance.yahoo.com/v1/finance/search?q=c"))).status).toBe(200);
+    let read = false;
+    const huge = async () => new Response(new ReadableStream({ pull() { read = true; } }, { highWaterMark: 0 }), { status: 200, headers: { "Content-Length": String(26 * 1024 * 1024) } });
+    expect((await handle(req("/yahoo/search?q=d"), env, huge)).status).toBe(502);
+    expect(read).toBe(false);
+  });
+
   test("refuses unsafe configuration", async () => {
     expect(configProblem(env)).toBeNull();
     expect(configProblem({ ALLOWED_ORIGINS: "" })).toMatch(/empty/);
