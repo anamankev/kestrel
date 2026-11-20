@@ -9,7 +9,7 @@ const usd = (v: number) => `$${v.toFixed(2)}`;
  *  needs the server-side entitlement check planned with payments.) */
 export const PREVIEW = import.meta.env.DEV || import.meta.env.VITE_WEB_PREVIEW === "1";
 
-export function SubscribeView({ onPreview }: { onPreview: () => void }) {
+export function SubscribeView({ onPreview }: { onPreview?: () => void }) {
   const [sel, setSel] = useState<Plan["id"]>("annual");
   const plan = PLANS.find((p) => p.id === sel)!;
   return (
@@ -33,7 +33,7 @@ export function SubscribeView({ onPreview }: { onPreview: () => void }) {
         <p className="faint" style={{ fontSize: 11 }}>Crossed-out prices are what the same period costs on the monthly plan.</p>
         <button className="primary" disabled title="Web checkout isn't available yet">Subscribe · {usd(plan.price)} / {plan.period}</button>
         <p className="warn" style={{ fontSize: 12 }}>Web checkout opens soon. Subscriptions are available now in the Kestrel app for iPad and Mac.</p>
-        {PREVIEW && <button className="link" onClick={onPreview}>Continue to the web preview →</button>}
+        {PREVIEW && onPreview && <button className="link" onClick={onPreview}>Continue to the web preview →</button>}
         <h3 className="mono label">INCLUDED</h3>
         <ul>{INCLUDED.map((x) => <li key={x}>✓ {x}</li>)}</ul>
         <p className="faint" style={{ fontSize: 10 }}>Paper trading only: Kestrel does not connect a brokerage or move real money.</p>
