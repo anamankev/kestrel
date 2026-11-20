@@ -113,6 +113,45 @@ run against the relay (`npm run relay`) and the production bundle.
 2. **Before charging on the web (row 19):** build the server-side entitlement check with payments.
 3. **Before deploying:** add one free Cloudflare rate-limiting rule on the relay (row 12).
 
+## Re-review (2026-11-19): whole app, web app and relay
+
+**Scope:** everything, read again as an attacker would, with extra depth on code added since 2026-11-18: the
+relay's SEC industry, share-count and Treasury routes; RV, SEAS, GC, YAS, LEARN, COPY and PNG on every platform;
+and the Mac keychain change. **Tests after the fixes:** 157 KestrelCore, 22 app tests on macOS, 23 on the iPad
+simulator, 98 web and relay tests. All pass.
+
+### Found and fixed
+
+| # | Where | Flaw | Fix and proof |
+|---|-------|------|---------------|
+| 1 | Relay | Upstream redirects were followed blindly, so a redirect from an upstream could make the relay fetch another host for a visitor. | A response whose final URL is on a different host from the one requested is refused (502) and logged as `upstream_redirect_rejected`. The only upstream that redirects (CoinDesk, to its own host) now uses its final URL. Test: "never follows a redirect off the upstream host". |
+| 2 | Relay | The 25 MB cap was checked after reading the whole body into memory. | A larger `Content-Length` is refused before the body is read. Test: same, which asserts the stream is never pulled. |
+| 3 | Relay | Once 10,000 IPs were tracked, the rate-limit table was wiped, so a flood of new IPs reset every visitor's count, including a blocked one's. | Expired windows are dropped first, then only the oldest entry. Test: "a flood of new IPs doesn't reset a limited IP". |
+| 4 | App | Futures (`…=F`) and index (`^…`) symbols accepted any characters, including `/`, `?`, `#`, `..` and non-ASCII letters, and went straight into Yahoo request paths. The web was already protected by the relay's symbol pattern. | Both are ASCII-only (`[A-Z0-9.-]{1,8}=F`, `^[A-Z0-9.]{1,11}`). Test: `SymbolPathTests` (hostile symbols rejected; every resolved symbol stays on Yahoo's chart path). |
+| 5 | App and web | The SEC industry code from a company's filing went into a request URL unchecked. In Swift, `\d` also matches full-width digits such as `３５７１`; the new test caught this. | Only 4 ASCII digits are accepted (`[0-9]{4}`); anything else shows "no data". Tests: `IndustryCodeTests`; the relay also refuses `/sec/sic/3571%26x` (404, live). |
+| 6 | App and web | Chart trendlines and bond-calculator inputs sit in plain device storage outside the encrypted vault, so on a shared iPad, Mac or library computer the next person to sign in saw them. | Cleared at sign-out and account deletion; display preferences (ranges, studies) are kept. Tests: `PersonalUITests` (app), `personal.test.ts` (web). |
+| 7 | Web | Saved bond inputs were read from storage without checking their shape. | Checked before use: short strings, a date-shaped maturity and a known mode, otherwise the defaults. Test: "rejects tampered bond inputs". |
+| 8 | Mac (fixed earlier today) | The saved session was read from the login keychain on the main thread. Each rebuilt app asked for the keychain password and froze until answered. | Sessions use the data-protection keychain, which is tied to the app and never prompts. Unsigned dev builds, which can't use it, keep the session in memory only. Commit "Mac: sessions in the data-protection keychain, so launches never prompt or freeze". |
+
+### Checked and clean
+
+- **Web sinks:** no `innerHTML`, `dangerouslySetInnerHTML`, `eval`, `new Function`, `postMessage` or `window.open`. Both data-driven links are https-only and `noopener noreferrer`.
+- **New features:** COPY writes text only; PNG draws only the app's own canvas and frees its blob URL. LEARN progress lives in the encrypted vault, and stored IDs are filtered to known drills.
+- **Relay, live:** `/tsy/1900`, `/tsy/2025x`, `/sec/shares/CY2026Q9I` and a traversal attempt each returned **404**, and a foreign origin got **403**.
+- **Release app (Mac):** no ATS exceptions. No debug flags or tour strings in the binary (`-snapshot`, `-uitest`, `-capture`, `-keychainProbe`: 0 matches). Sandbox with outgoing network only.
+- **Dependencies:** `npm audit` reports **0 vulnerabilities**, including dev tools: the picomatch advisory listed above is resolved.
+- **Secrets:** gitleaks over all 66 commits found no leaks.
+
+### Before release (needs signing)
+
+- A locally signed Release build carries `get-task-allow`, which lets a debugger attach. Xcode adds it because
+  there is no signing team; App Store distribution signing removes it. Turning off entitlement injection
+  instead strips the sandbox too, so I left the setting alone. **Check:** after the first App Store archive,
+  `codesign -d --entitlements -` on the exported app must not list `get-task-allow`.
+- Mac builds from before 2026-11-19 left the old session item `dev.kestrel.terminal.session` in your **login**
+  keychain. The new app never reads it, and the token inside stops working at your next sign-in. To remove it,
+  delete it in Keychain Access.
+
 ## When the backend exists
 
 The backend planned for push alerts and sync must ship with: TLS only; HSTS, CSP, `X-Content-Type-Options`,
