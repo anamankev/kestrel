@@ -28,13 +28,13 @@ browser, with unlimited CSV exports.
 | Playlist video | What Bloomberg shows | Kestrel today | Verdict |
 |---|---|---|---|
 | **1. Getting started** | Command line with yellow-key mnemonics, menus, HELP, IB messaging | Same model: `AAPL DES <GO>`, 38 functions with Bloomberg-style mnemonics and aliases, HELP, numbered hotspots, an offline guide that answers in plain English, 1/2/4/6 panels | ✅ Same workflow, easier to learn. ❌ No IB chat network |
-| **2. Best equities functions** (EQS, WATC, RV, FA, DSCO, EE, ANR, BI) | Screen, watch, peer comparison, financials, consensus estimates, analyst ratings, Bloomberg Intelligence research | EQS (about 5,700 US filers), W, FA (SEC 10-K), DES, DVD, ERN, HP, BETA, FACT, EVST | ✅ EQS, FA, watchlists. ❌ RV peer table, EE estimates, ANR ratings, BI research |
+| **2. Best equities functions** (EQS, WATC, RV, FA, DSCO, EE, ANR, BI) | Screen, watch, peer comparison, financials, consensus estimates, analyst ratings, Bloomberg Intelligence research | EQS (about 5,700 US filers), W, FA (SEC 10-K), DES, DVD, ERN, HP, BETA, FACT, EVST | ✅ EQS, FA, RV peer table, watchlists. ❌ EE estimates, ANR ratings, BI research |
 | **3. FX** (FXIP, FXFC, monitors, price discovery) | FX portal, bank forecasts, dealer quotes | FX board (G10, crosses, EM, DXY), any pair charted, CORR cross-asset | ✅ Monitoring. ❌ Forecasts, dealer prices |
 | **4. News and research** | Bloomberg News, morning briefs, worksheets, document search, broker research | TOP (multi-source search with "phrases" and -exclude), CN, EVTS (SEC filings), ALRT | ✅ Searchable public news and filings. ❌ No first-party newswire or broker research |
 | **5. IB, Worksheets, Launchpad** | Chat with the whole industry, live sheets, saved layouts | W (live watchlists), PAGES (saved layouts), panels, CSV export | ✅ Launchpad and worksheets equivalents. ❌ IB |
 | **6. Commodities** | Prices, fundamentals, seasonality, supply/demand, BNEF | COMD board (energy, metals, ags, livestock, index and Treasury futures), charts | ✅ Prices. ❌ Seasonality, supply/demand, inventories |
-| **7. Charting** | Charts, studies, overlays, export | GP: 1D–5Y, SMA/Bollinger/VWAP/RSI, trendlines, VS overlay, CSV via HP | ✅ Comparable for students. ⚠ No chart image export |
-| **8. Fixed income** (SRCH, YAS, ALLQ, WB, CRVF) | Bond search, yield and spread analytics, dealer quotes, world curves | RATES (UST 3M–30Y), ECO (Fed funds, SOFR, 10Y–3M spread) | ⚠ Treasuries only. ❌ No bond search or yield analytics |
+| **7. Charting** | Charts, studies, overlays, export | GP: 1D–5Y, SMA/Bollinger/VWAP/RSI, trendlines, VS overlay, PNG export; CSV via HP | ✅ Comparable for students |
+| **8. Fixed income** (SRCH, YAS, ALLQ, WB, CRVF) | Bond search, yield and spread analytics, dealer quotes, world curves | RATES (UST 3M–30Y), GC (curve history, 10Y–2Y), YAS (price/yield, duration, convexity, DV01), ECO | ✅ Yield analytics for any fixed-coupon bond. ❌ No bond search or dealer quotes |
 
 Kestrel also has things Bloomberg doesn't give students on a library terminal:
 - **Paper trading with real risk numbers:** market, limit, stop and stop-limit orders, shorts with margin, and PORT
@@ -81,21 +81,25 @@ Kestrel also has things Bloomberg doesn't give students on a library terminal:
   before charging (noted earlier; deferred).
 - **Credential:** Bloomberg has BMC; Kestrel has no certificate yet.
 
-## Gaps worth closing (free data, no new costs)
+## Gaps closed (November 2026)
 
-Ranked by how much they would help someone decide to pay:
+All six gaps found in this comparison are now built on the web, iPad and Mac, from free data at no new cost:
 
-1. **RV (relative valuation):** a peer table from SEC data (same SIC industry) with margin, ROE, growth and leverage
-   side by side. It's in Bloomberg's "best equities functions" video, and students use it in every stock pitch.
-2. **Excel and Python access, like BDH:** a "copy as CSV" button on every table, and a small documented export of
-   any series. Researchers' main Bloomberg use is pulling history into spreadsheets.
-3. **Seasonality (commodities and stocks):** average return by month from price history. It's in the commodities
-   video, and Kestrel already has the history.
-4. **Treasury and bond basics:** a historical yield curve and spreads from Treasury.gov (public domain), plus a
-   bond price/yield/duration calculator that works like a simple YAS.
-5. **Learning mode:** guided drills that follow BMC's modules (Economic Indicators, Currencies, Fixed Income,
-   Equities) with tasks on real data, and a completion badge. This targets the student's main reason to pay.
-6. **Chart image export** (PNG) from GP, for slides and reports.
+1. **RV (relative valuation):** peers under the same SEC SIC industry code (widened to the 3-digit group when sparse),
+   closest in revenue, with P/E, P/S, P/B, margin, growth, ROE and leverage against the peer median. `AAPL RV`
+2. **Excel and Python access:** every exportable table has COPY (tab-separated, pastes straight into Excel or
+   `pandas.read_clipboard()`) beside EXPORT CSV.
+3. **SEAS (seasonality):** average, median, share of up years, best and worst return by calendar month over 5, 10
+   years or all history, from monthly total returns. `CL1 SEAS`
+4. **GC and YAS:** the Treasury par curve today against 1 month, 1 year and 5 years ago, with 5 years of 10Y–2Y spread
+   history (Treasury.gov); and a bond calculator for price ↔ yield, accrued interest (actual/actual), duration,
+   convexity, DV01, spread to the Treasury curve and yield scenarios. `GC`, `YAS`
+5. **LEARN:** four modules (Economics, Fixed Income, Currencies, Equities) of four drills each. Every drill opens a real
+   function in the next panel and asks what it shows; a module badge is saved in the account. `LEARN`
+6. **Chart image export:** PNG on GP saves the chart as drawn, with a title bar and timestamp.
+
+Still not covered (they need paid data): consensus estimates (EE), analyst ratings (ANR), dealer bond quotes (ALLQ),
+real-time exchange equities, and Bloomberg Intelligence research.
 
 ## Sources
 

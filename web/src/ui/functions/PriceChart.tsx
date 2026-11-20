@@ -86,6 +86,27 @@ export function PriceChart({ i }: { i: Instrument }) {
   const at = (e: React.MouseEvent<HTMLCanvasElement>) => { const r = e.currentTarget.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   const point = (p: { x: number; y: number }) => { const s = scaleOf(shown, size, studies); return { t: s.timeAt(p.x), p: s.priceAt(p.y) }; };
   const h = hover !== null && candles ? candles[hover] : candles?.[candles.length - 1];
+  /** The chart as drawn, under a title bar, downloaded as a PNG at screen resolution. */
+  const savePNG = () => {
+    const src = canvas.current;
+    if (!src || !src.width) return;
+    const dpr = src.width / Math.max(1, size.w), head = Math.round(28 * dpr);
+    const out = document.createElement("canvas");
+    out.width = src.width; out.height = src.height + head;
+    const g = out.getContext("2d")!;
+    g.fillStyle = css("--panel"); g.fillRect(0, 0, out.width, out.height);
+    g.drawImage(src, 0, head);
+    g.font = `700 ${12 * dpr}px ${css("--mono")}`; g.textBaseline = "middle";
+    g.fillStyle = css("--accent"); g.fillText(`KESTREL · ${i.ticker} GP · ${range}${comparing ? ` VS ${compare!.ticker}` : ""}`, 10 * dpr, head / 2);
+    g.textAlign = "right"; g.fillStyle = css("--dim"); g.fillText(new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }), out.width - 10 * dpr, head / 2);
+    const now = new Date(), day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    out.toBlob((b) => {
+      if (!b) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(b); a.download = `${i.ticker.replace(/[^A-Za-z0-9.-]/g, "-")}-${range}-${day}.png`;
+      a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }, "image/png");
+  };
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div className="toolbar">
@@ -103,6 +124,7 @@ export function PriceChart({ i }: { i: Instrument }) {
           <option value="">VS…</option>
           {COMPARE.filter((t) => t !== i.ticker).map((t) => <option key={t} value={t}>VS {t}</option>)}
         </select>
+        <button className="key fn" onClick={savePNG} disabled={!candles || failed} aria-label="Save chart as image">PNG</button>
         <span className="spacer" />
         {h && <span className="mono dim" style={{ fontSize: 11 }}>{new Date(h.time).toLocaleDateString("en-US", { month: "short", day: "numeric", year: range === "5Y" || range === "1Y" ? "numeric" : undefined })} {["1D", "5D", "1M"].includes(range) ? clock(h.time).slice(0, 5) : ""} · O {price(h.open, i.assetClass)} H {price(h.high, i.assetClass)} L {price(h.low, i.assetClass)} C <b style={{ color: "var(--text)" }}>{price(h.close, i.assetClass)}</b></span>}
       </div>

@@ -11,7 +11,8 @@ export interface Context { security?: Instrument; function?: string }
 
 /** App wording that doesn't fit the browser ("" drops a step). */
 const WEB: Record<string, string> = {
-  "Tap EXPORT CSV to save or share the table (Files, Mail, AirDrop).": "Click EXPORT CSV to download the table.",
+  "Tap EXPORT CSV to save or share the table (Files, Mail, AirDrop), or COPY to paste it into Excel or Python.": "Click EXPORT CSV to download the table, or COPY to paste it into Excel or Python.",
+  "PNG saves the chart as an image, with its title and time.": "PNG downloads the chart as an image, with its title and time.",
   "Add a contact email once in PREF: the SEC requires every app to identify itself.": "",
   "Needs the SEC contact email in PREF.": "",
   "Needs the SEC contact email in PREF (earnings dates come from SEC filings).": "",

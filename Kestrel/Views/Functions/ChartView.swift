@@ -1,5 +1,7 @@
 import SwiftUI
 import KestrelCore
+import UniformTypeIdentifiers
+import ImageIO
 
 /// GP: candlestick chart drawn in a single Canvas pass (one draw call per layer, no per-candle
 /// views), so a few hundred candles with studies keep up with a 120 Hz display. Crypto charts
@@ -31,6 +33,8 @@ struct ChartView: View {
     @State private var compareCandles: [Candle] = []
     @State private var lines: [TrendLine] = []
     @State private var draft: TrendLine?
+    @State private var png: PNGDocument?
+    @State private var exporting = false
 
     static let compareChoices = ["SPX", "CCMP", "QQQ", "BTC", "ETH", "GC1", "CL1"]
 
@@ -99,6 +103,37 @@ struct ChartView: View {
             compareCandles = (try? await market.candles(for: c, range: range)) ?? []
         }
         .onAppear(perform: loadLines)
+        .fileExporter(isPresented: $exporting, document: png, contentType: .png,
+                      defaultFilename: "\(instrument.ticker.replacingOccurrences(of: "/", with: "-"))-\(range.rawValue)-\(Date.now.formatted(Date.ISO8601FormatStyle(timeZone: .current).year().month().day())).png") { _ in png = nil }
+    }
+
+    /// The chart as shown (studies, comparison, trendlines; no crosshair) at 1600×900, with a title bar, as PNG.
+    private func renderPNG() -> PNGDocument? {
+        let data = visible
+        guard data.count > 1 else { return nil }
+        let comparing = compare != nil && !compareCandles.isEmpty
+        let (shown, cmp) = comparing ? rebased(data) : (data, [])
+        let view = VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("KESTREL · \(instrument.ticker) GP · \(range.rawValue)\(comparing ? " VS \(compare!.ticker)" : "")").foregroundStyle(Theme.accent)
+                Text(instrument.name).foregroundStyle(Theme.dim)
+                Spacer()
+                Text(Date.now.formatted(.dateTime.year().month().day().hour().minute().timeZone())).foregroundStyle(Theme.dim)
+            }
+            .font(.mono(13, .bold)).padding(.horizontal, 12).frame(height: 34)
+            ChartCanvas(candles: shown, instrument: instrument, theme: theme, range: range,
+                        showSMA: showSMA && !comparing, showBB: showBB && !comparing,
+                        showVWAP: showVWAP && range.isIntraday && !comparing,
+                        showRSI: showRSI, line: lineStyle || comparing, hover: nil,
+                        previousClose: comparing ? nil : previousClose,
+                        compare: cmp, compareLabel: compare?.ticker, percent: comparing, lines: lines, draft: nil)
+                .padding([.horizontal, .bottom], 8)
+        }
+        .frame(width: 1600, height: 900).background(Theme.panel)
+        let r = ImageRenderer(content: view)
+        r.scale = 2
+        guard let cg = r.cgImage else { return nil }
+        return PNGDocument(cgImage: cg)
     }
 
     private var previousClose: Double? { range == .d1 ? market.quotes[instrument.symbol]?.previousClose : nil }
@@ -185,6 +220,8 @@ struct ChartView: View {
             .menuStyle(.button).buttonStyle(.terminal).fixedSize()
             if panOffset > 0 { chip("⇥ LIVE", on: false) { panOffset = 0; panStart = 0 } }
             Spacer(minLength: 0)
+            chip("PNG", on: false) { if let d = renderPNG() { png = d; exporting = true } }
+                .accessibilityLabel("Save chart as image")
         }
         .padding(.horizontal, 6).padding(.vertical, 4)
     }
@@ -275,7 +312,7 @@ struct ChartCanvas: View {
             let labelEvery = max(n / max(Int(plotW / 110), 1), 1)
             for i in stride(from: labelEvery / 2, to: n, by: labelEvery) {
                 let d = candles[i].time
-                let s = range.isIntraday && range == .d1 ? d.formatted(Date.FormatStyle().locale(Locale(identifier: "en_GB")).hour(.twoDigits(amPM: .omitted)).minute())
+                let s = range.isIntraday && range == .d1 ? d.formatted(Date.FormatStyle().locale(Locale(identifier: "en_GB")).hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
                     : range == .y5 ? d.formatted(.dateTime.month(.abbreviated).year(.twoDigits))
                     : d.formatted(.dateTime.month(.abbreviated).day())
                 ctx.draw(Text(s).font(.mono(9)).foregroundStyle(Theme.faint),
@@ -502,4 +539,20 @@ nonisolated struct ChartScale {
         let i = Int(fi.rounded(.down))
         return Date(timeIntervalSince1970: ts[i] + (fi - Double(i)) * (ts[i + 1] - ts[i]))
     }
+}
+
+/// A rendered chart, written as PNG by the system save dialog (Files on iPad, a save panel on Mac).
+struct PNGDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.png] }
+    let data: Data
+
+    init?(cgImage: CGImage) {
+        let out = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(out, UTType.png.identifier as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(dest, cgImage, nil)
+        guard CGImageDestinationFinalize(dest) else { return nil }
+        data = out as Data
+    }
+    init(configuration: ReadConfiguration) throws { data = configuration.file.regularFileContents ?? Data() }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }
