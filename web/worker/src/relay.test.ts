@@ -34,6 +34,10 @@ describe("relay routes", () => {
     expect(route(new URL("https://r/sec/sic/3571?start=50"))).toBeNull();
     expect(route(new URL("https://r/sec/sic/35711"))).toBeNull();
     expect(route(new URL("https://r/sec/sic/3571?start=99999"))).toBeNull();
+    expect(route(new URL("https://r/tsy/2021"))?.upstream).toContain("daily-treasury-rates.csv/2021/all?type=daily_treasury_yield_curve&field_tdr_date_value=2021");
+    expect(route(new URL("https://r/tsy/1989"))).toBeNull();
+    expect(route(new URL(`https://r/tsy/${new Date().getUTCFullYear() + 1}`))).toBeNull();
+    expect(route(new URL("https://r/tsy/20211"))).toBeNull();
     expect(route(new URL("https://r/sec/shares/CY2025Q4I"))?.upstream).toContain("/dei/EntityCommonStockSharesOutstanding/shares/CY2025Q4I.json");
     expect(route(new URL("https://r/sec/shares/2025"))).toBeNull();
   });

@@ -6,6 +6,7 @@ import { parseFactors, mergeFactors, MODELS, type FactorTable, type FactorSet } 
 import { decodeBLS, decodeNYFed, decodeCountries, decodeBulkCSV, type Point, type Country } from "../core/econ";
 import { zipFile } from "../core/zip";
 import { decodeSicFeed } from "../core/valuation";
+import { parseTreasuryCSV, type CurveDay } from "../core/bonds";
 import { chart, relayFetch } from "./relay";
 
 const memo = new Map<string, Promise<unknown>>();
@@ -110,3 +111,15 @@ export const nyfed = (rate: "effr" | "sofr") => once(`nyfed|${rate}`, async () =
 export const countries = (): Promise<Country[]> => once("wb-countries", async () => decodeCountries(await (await fetch("https://api.worldbank.org/v2/country?format=json&per_page=400")).json()));
 export const worldBank = (indicator: string): Promise<Map<string, Point[]>> => once(`wb|${indicator}`, async () =>
   decodeBulkCSV(new TextDecoder().decode(await zipFile(await bytes(`/wb/bulk/${indicator}`), (n) => n.startsWith("API_") && n.endsWith(".csv")))));
+
+// MARK: Treasury curve (GC, YAS)
+
+/** Daily par yield curves for the last `years` calendar years plus this one, oldest first. A missing year is skipped. */
+export const treasuryCurves = (years: number) => once(`tsy|${years}`, async () => {
+  const now = new Date().getUTCFullYear();
+  const files = await Promise.all(Array.from({ length: years + 1 }, (_, k) => now - years + k)
+    .map((y) => relayFetch(`/tsy/${y}`).then((r) => r.text()).then(parseTreasuryCSV).catch(() => [] as CurveDay[])));
+  const days = files.flat();
+  if (!days.length) throw new Error("Treasury yield data is unavailable right now.");
+  return days;
+});

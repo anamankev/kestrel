@@ -35,6 +35,36 @@ import KestrelCore
         return try? NYFed.decode(d)
     }
 
+    // MARK: Treasury curve (GC, YAS)
+
+    private(set) var curves: [Treasury.CurveDay] = []
+    private(set) var curveYears = 0
+    private(set) var curveError: String?
+    @ObservationIgnored private var curvesUpdated: Date?
+
+    /// Daily par curves for the last `years` calendar years plus this one (one small CSV per year, refreshed hourly).
+    func loadCurves(years: Int) async {
+        if curveYears >= years, let curvesUpdated, Date().timeIntervalSince(curvesUpdated) < 3600 { return }
+        let now = Calendar(identifier: .gregorian).component(.year, from: .now)
+        let files = await withTaskGroup(of: [Treasury.CurveDay].self) { g in
+            for y in (now - years)...now {
+                g.addTask {
+                    guard let (d, r) = try? await URLSession.shared.data(for: URLRequest(url: Treasury.url(year: y), timeoutInterval: 25)),
+                          (r as? HTTPURLResponse)?.statusCode == 200 else { return [] }
+                    return Treasury.parse(String(decoding: d, as: UTF8.self))
+                }
+            }
+            var all: [Treasury.CurveDay] = []
+            for await rows in g { all += rows }
+            return all
+        }
+        guard !files.isEmpty else { curveError = "Couldn't reach Treasury.gov."; return }
+        curves = files.sorted { $0.date < $1.date }
+        curveYears = years
+        curvesUpdated = .now
+        curveError = nil
+    }
+
     // MARK: World Bank (ECST)
 
     private(set) var countries: [WorldBank.Country] = []

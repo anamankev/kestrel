@@ -99,6 +99,12 @@ export function route(url: URL): Route | null {
     const feed = FEEDS[p[1]];
     return feed ? { upstream: feed, ttl: 300, ua: "browser" } : null;
   }
+  // U.S. Treasury daily par yield curve, one CSV per year (GC, YAS).
+  if (p[0] === "tsy" && p.length === 2 && /^\d{4}$/.test(p[1])) {
+    const y = Number(p[1]), now = new Date().getUTCFullYear();
+    if (y < 1990 || y > now) return null;
+    return { upstream: `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/${y}/all?type=daily_treasury_yield_curve&field_tdr_date_value=${y}&page&_format=csv`, ttl: y === now ? 3600 : 86400, ua: "browser" };
+  }
   if (p[0] === "french" && p.length === 2 && FRENCH.has(p[1])) {
     return { upstream: `https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/${p[1]}`, ttl: 86400, ua: "browser" };
   }

@@ -17,6 +17,7 @@ import { Settings, Pro } from "./functions/Settings";
 import { OptionMonitor, OptionStrategy } from "./functions/Options";
 import { RelativeValuation } from "./functions/Valuation";
 import { Seasonality } from "./functions/Seasonality";
+import { BondCalculator, YieldCurve } from "./functions/Bonds";
 import { commodityGroups, currencyGroups, indices, rates, isStreaming } from "../core/universe";
 import { market } from "../data/market";
 import { useStore } from "../data/store";
@@ -61,6 +62,8 @@ export function FunctionView({ panel, cmd }: { panel: number; cmd: Command }) {
     case "PREF": return <Settings />;
     case "RV": return <RelativeValuation key={i!.symbol} i={i!} panel={panel} />;
     case "SEAS": return <Seasonality key={i!.symbol} i={i!} />;
+    case "GC": return <YieldCurve />;
+    case "YAS": return <BondCalculator />;
     case "OMON": return <OptionMonitor key={i!.symbol} i={i!} panel={panel} />;
     case "OSA": return <OptionStrategy key={i!.symbol} i={i!} />;
     case "PRO": return <Pro />;

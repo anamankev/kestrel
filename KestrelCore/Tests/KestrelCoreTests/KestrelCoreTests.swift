@@ -1559,3 +1559,47 @@ struct GuideSafetyTests {
     }
 }
 
+
+@Suite struct BondTests {
+    static func day(_ y: Int, _ m: Int, _ d: Int) -> Date {
+        var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "UTC")!
+        return c.date(from: DateComponents(year: y, month: m, day: d))!
+    }
+    static let csv = """
+    Date,"1 Mo","1.5 Month","2 Mo","3 Mo","4 Mo","6 Mo","1 Yr","2 Yr","3 Yr","5 Yr","7 Yr","10 Yr","20 Yr","30 Yr"
+    11/19/2026,4.20,4.27,4.29,4.34,4.35,4.42,4.62,4.76,4.81,4.86,4.94,5.04,5.43,5.40
+    11/18/2026,4.10,4.24,4.27,4.34,,4.43,4.62,4.80,4.84,4.89,4.96,5.07,5.44,5.41
+    """
+
+    @Test func readsTreasuryCSVLikeTheWeb() {
+        let days = Treasury.parse(Self.csv)
+        #expect(days.map(\.date) == [Self.day(2026, 11, 18), Self.day(2026, 11, 19)])
+        #expect(days[1].yields["10Y"] == 5.04 && days[1].yields["30Y"] == 5.4 && days[0].yields["4M"] == nil)
+        #expect(Treasury.curve(on: Self.day(2026, 11, 18).addingTimeInterval(3600), in: days) == days[0])
+        #expect(Treasury.curve(on: Self.day(2026, 11, 1), in: days) == nil)
+        #expect(abs(Treasury.interpolate(days[1], years: 8.5)! - 4.99) < 1e-12)
+        #expect(Treasury.parse("Date\n").isEmpty)
+    }
+
+    @Test func pricesAndRisk() {
+        let par = Bond.risk(coupon: 0.05, Bond.Schedule(n: 20, w: 1), yield: 0.05)
+        #expect(abs(par.clean - 100) < 1e-8 && abs(par.accrued) < 1e-10)
+        #expect(abs(par.modified - 7.7946) < 1e-3 && abs(par.dv01 - 0.077946) < 1e-5)
+        #expect(abs(Bond.risk(coupon: 0.04, Bond.Schedule(n: 20, w: 1), yield: 0.05).clean - 92.2054) < 1e-3)
+        let zero = Bond.risk(coupon: 0, Bond.Schedule(n: 20, w: 1), yield: 0.05)
+        #expect(abs(zero.macaulay - 10) < 1e-10 && abs(zero.convexity - 10 * 10.5 / pow(1.025, 2)) < 1e-8)
+        let b = Bond.risk(coupon: 0.06, Bond.Schedule(n: 20, w: 0.5), yield: 0.05)
+        #expect(abs(b.accrued - 1.5) < 1e-8)
+        #expect(abs(Bond.yield(coupon: 0.06, Bond.Schedule(n: 20, w: 0.5), clean: b.clean)! - 0.05) < 1e-9)
+        #expect(Bond.yield(coupon: 0.05, Bond.Schedule(n: 20, w: 1), clean: -1) == nil)
+    }
+
+    @Test func couponScheduleActualActual() {
+        #expect(Bond.schedule(settle: Self.day(2026, 11, 20), maturity: Self.day(2036, 11, 20)).map { [$0.n, Int($0.w * 1000)] } == [20, 1000])
+        let s = Bond.schedule(settle: Self.day(2026, 11, 15), maturity: Self.day(2036, 2, 15))!
+        #expect(s.n == 19 && abs(s.w - 92.0 / 184) < 1e-12)
+        let eom = Bond.schedule(settle: Self.day(2027, 3, 1), maturity: Self.day(2027, 8, 31))!
+        #expect(eom.n == 1 && abs(eom.w - 183.0 / 184) < 1e-12)
+        #expect(Bond.schedule(settle: Self.day(2027, 1, 1), maturity: Self.day(2026, 1, 1)) == nil)
+    }
+}

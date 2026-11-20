@@ -514,7 +514,9 @@ struct FunctionView: View {
         case .port: PortfolioView(panelID: panel.id)
         case .blot: BlotterView()
         case .help: HelpView(panelID: panel.id)
-        case .gc, .yas, .learn:
+        case .gc: YieldCurveView()
+        case .yas: BondCalculatorView()
+        case .learn:
             EmptyNote(title: "\(c.function.rawValue) \(c.function.title)", detail: "Arriving in the next update.", icon: "hammer")
         case .des, .fa, .evts, .gp, .hp, .bt, .osa, .beta, .fact, .dvd, .evst, .depth, .tas, .cn, .omon, .trade, .rv, .seas:
             if let i = c.instrument, i.assetClass == .option, c.function != .trade {
