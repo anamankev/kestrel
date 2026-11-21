@@ -1709,3 +1709,19 @@ struct GuideSafetyTests {
         #expect(w == ["Free cash flow is negative: the business is consuming cash.", "Revenue fell last year.", "Operating margin has compressed by 10.0 points.", "Long-term debt is 3.0x equity."])
     }
 }
+
+@Suite struct DataSourcesTests {
+    @Test func everySourceHasAnHTTPSProbeAndPowersSomething() {
+        let all = DataSources.all(year: 2026)
+        #expect(all.count == 11 && Set(all.map(\.id)).count == 11)
+        for s in all {
+            #expect(!s.powers.isEmpty)
+            switch s.probe {
+            case .feed: #expect(s.id == "coinbase-ws")
+            case .get(let u), .needsSECContact(let u): #expect(u.scheme == "https" && u.host != nil, "\(s.id)")
+            }
+        }
+        #expect(DataSources.classify(ok: true, seconds: 0.2) == .ok && DataSources.classify(ok: true, seconds: 3.5) == .slow && DataSources.classify(ok: false, seconds: 0.1) == .down)
+    }
+}
+

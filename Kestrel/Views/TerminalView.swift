@@ -516,6 +516,7 @@ struct FunctionView: View {
         case .help: HelpView(panelID: panel.id)
         case .gc: YieldCurveView()
         case .yas: BondCalculatorView()
+        case .data: DataSourcesView(panelID: panel.id)
         case .learn: LearnView(panelID: panel.id)
         case .des, .fa, .evts, .gp, .hp, .bt, .osa, .beta, .fact, .dvd, .evst, .depth, .tas, .cn, .omon, .trade, .rv, .seas, .dcf, .ai:
             if let i = c.instrument, i.assetClass == .option, c.function != .trade {

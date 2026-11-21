@@ -1,12 +1,22 @@
+import { sourceOfPath } from "../core/health";
+import { health } from "./health";
 import { decodeChart, decodeSearch, decodeSpark, type ChartSeries, type SearchHit } from "../core/yahoo";
 
 /** The Cloudflare relay (see worker/). Local `npm run relay` serves it on :8787. */
 export const RELAY = (import.meta.env.VITE_RELAY_URL as string | undefined) ?? "http://localhost:8787";
 
 export async function relayFetch(path: string, signal?: AbortSignal): Promise<Response> {
-  const r = await fetch(`${RELAY}${path}`, { signal });
-  if (!r.ok) throw new Error(`relay ${r.status}`);
-  return r;
+  const id = sourceOfPath(path), t = performance.now();
+  try {
+    const r = await fetch(`${RELAY}${path}`, { signal });
+    if (!r.ok) throw new Error(`relay ${r.status}`);
+    if (id) health.record(id, true, performance.now() - t);
+    return r;
+  } catch (e) {
+    // A request the app cancelled (screen closed) says nothing about the source.
+    if (id && !(e instanceof DOMException && e.name === "AbortError")) health.record(id, false, performance.now() - t, e instanceof Error ? e.message : "failed");
+    throw e;
+  }
 }
 
 export async function chart(symbol: string, range: string, interval: string, opts: { adjusted?: boolean; intraday?: boolean; signal?: AbortSignal } = {}): Promise<ChartSeries> {
