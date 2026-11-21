@@ -1654,3 +1654,34 @@ struct GuideSafetyTests {
     }
 }
 
+
+@Suite struct DCFTests {
+    static func fy(_ y: Int, _ rev: Double, _ ocf: Double? = nil, _ capex: Double? = nil) -> FiscalYear {
+        var f = FiscalYear(year: y, periodEnd: Date(timeIntervalSince1970: 0)); f.revenue = rev; f.operatingCashFlow = ocf; f.capex = capex; return f
+    }
+    func near(_ a: Double?, _ b: Double, _ tol: Double = 1e-6) -> Bool { a.map { abs($0 - b) < tol } ?? false }
+
+    @Test func perpetuityIdentitiesLikeTheWeb() {
+        #expect(near(DCF.value(.init(baseFCF: 100, growth: 0, terminalGrowth: 0, discount: 0.08), netCash: 0, shares: nil)?.enterprise, 1250))
+        #expect(near(DCF.value(.init(baseFCF: 100, growth: 0.03, terminalGrowth: 0.03, discount: 0.08), netCash: 0, shares: nil)?.enterprise, 2060))
+    }
+    @Test func fadeBridgeAndRefusals() {
+        let g = DCF.growthPath(0.1, 0)
+        #expect(g.prefix(5).allSatisfy { $0 == 0.1 } && abs(g[5] - 0.08) < 1e-12 && abs(g[9]) < 1e-12)
+        let r = DCF.value(.init(baseFCF: 100, growth: 0, terminalGrowth: 0, discount: 0.1), netCash: -200, shares: 10)
+        #expect(near(r?.equity, 800) && near(r?.perShare, 80) && near(r?.terminalShare, 1 / pow(1.1, 10)))
+        #expect(DCF.problem(.init(baseFCF: -5, growth: 0.05, terminalGrowth: 0.02, discount: 0.09), netCash: 0)?.contains("positive free cash flow") == true)
+        #expect(DCF.problem(.init(baseFCF: 100, growth: 0.05, terminalGrowth: 0.03, discount: 0.033), netCash: 0)?.contains("exceed terminal growth") == true)
+    }
+    @Test func defaultsFromFilings() {
+        let ys = [Self.fy(2021, 100, 30, 10), Self.fy(2022, 110), Self.fy(2023, 121), Self.fy(2024, 133.1, 40, 15)]
+        #expect(near(DCF.revenueCAGR(ys), 0.1))
+        let d = DCF.defaults(ys, tenYear: 0.045)
+        #expect(d.baseKnown && near(d.inputs.baseFCF, 25) && near(d.inputs.growth, 0.1) && near(d.inputs.discount, 0.1) && d.inputs.terminalGrowth == 0.025)
+        let neg = DCF.defaults([Self.fy(2024, 100, 5, 20)], tenYear: 0.05)
+        #expect(!neg.baseKnown && near(neg.inputs.growth, 0.05) && near(neg.inputs.discount, 0.105))
+        #expect(near(DCF.defaults([Self.fy(2020, 100), Self.fy(2024, 1000, 50, 0)], tenYear: nil).inputs.growth, 0.2))
+        let grid = DCF.sensitivity(.init(baseFCF: 100, growth: 0, terminalGrowth: 0, discount: 0.1), netCash: 0, shares: 10, discounts: [0.08, 0.1], terminals: [0, 0.02])
+        #expect(near(grid[0][0], 125) && near(grid[1][0], 100) && (grid[1][1] ?? 0) > (grid[1][0] ?? 0))
+    }
+}

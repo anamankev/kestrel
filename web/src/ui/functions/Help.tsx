@@ -3,8 +3,8 @@ import { workspace } from "../../data/workspace";
 import { Section } from "../components";
 
 /** Functions live on the web today; the rest arrive in later phases. */
-export const WEB_READY = new Set(["DES", "GP", "W", "WEI", "FX", "COMD", "RATES", "MOST", "HMAP", "TOP", "CN", "SECF", "DEPTH", "TAS", "HELP", "FA", "EVTS", "DVD", "ERN", "HP", "BETA", "FACT", "EVST", "BT", "COMP", "MVO", "CORR", "EQS", "ECO", "ECST", "TRADE", "PORT", "BLOT", "ALRT", "PREF", "PRO", "OMON", "OSA", "RV", "SEAS", "GC", "YAS", "LEARN"]);
-const EXAMPLES: Record<string, string> = { DES: "AAPL DES", GP: "NVDA GP", HP: "SPY HP", FA: "MSFT FA", EVTS: "AAPL EVTS", CN: "TSLA CN", DEPTH: "BTC DEPTH", TAS: "ETH TAS", OMON: "BTC OMON", OSA: "ETH OSA", TRADE: "SOL BUY", BT: "SPY BT", BETA: "NVDA BETA", FACT: "MSFT FACT", DVD: "KO DVD", EVST: "NVDA EVST", SECF: "SECF TOYOTA", ECST: "ECST JAPAN", ALRT: "NVDA ALRT", RV: "AAPL RV", SEAS: "CL1 SEAS" };
+export const WEB_READY = new Set(["DES", "GP", "W", "WEI", "FX", "COMD", "RATES", "MOST", "HMAP", "TOP", "CN", "SECF", "DEPTH", "TAS", "HELP", "FA", "EVTS", "DVD", "ERN", "HP", "BETA", "FACT", "EVST", "BT", "COMP", "MVO", "CORR", "EQS", "ECO", "ECST", "TRADE", "PORT", "BLOT", "ALRT", "PREF", "PRO", "OMON", "OSA", "RV", "SEAS", "GC", "YAS", "LEARN", "DCF"]);
+const EXAMPLES: Record<string, string> = { DES: "AAPL DES", GP: "NVDA GP", HP: "SPY HP", FA: "MSFT FA", EVTS: "AAPL EVTS", CN: "TSLA CN", DEPTH: "BTC DEPTH", TAS: "ETH TAS", OMON: "BTC OMON", OSA: "ETH OSA", TRADE: "SOL BUY", BT: "SPY BT", BETA: "NVDA BETA", FACT: "MSFT FACT", DVD: "KO DVD", EVST: "NVDA EVST", SECF: "SECF TOYOTA", ECST: "ECST JAPAN", ALRT: "NVDA ALRT", RV: "AAPL RV", SEAS: "CL1 SEAS", DCF: "AAPL DCF" };
 
 export function Help({ panel }: { panel: number }) {
   const ready = functions.filter((f) => WEB_READY.has(f.code)), later = functions.filter((f) => !WEB_READY.has(f.code));

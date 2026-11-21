@@ -19,6 +19,7 @@ import { RelativeValuation } from "./functions/Valuation";
 import { Seasonality } from "./functions/Seasonality";
 import { BondCalculator, YieldCurve } from "./functions/Bonds";
 import { Learn } from "./functions/Learn";
+import { DCF } from "./functions/DCF";
 import { commodityGroups, currencyGroups, indices, rates, isStreaming } from "../core/universe";
 import { market } from "../data/market";
 import { useStore } from "../data/store";
@@ -66,6 +67,7 @@ export function FunctionView({ panel, cmd }: { panel: number; cmd: Command }) {
     case "GC": return <YieldCurve />;
     case "YAS": return <BondCalculator />;
     case "LEARN": return <Learn panel={panel} />;
+    case "DCF": return <DCF key={i!.symbol} i={i!} />;
     case "OMON": return <OptionMonitor key={i!.symbol} i={i!} panel={panel} />;
     case "OSA": return <OptionStrategy key={i!.symbol} i={i!} />;
     case "PRO": return <Pro />;

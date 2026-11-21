@@ -517,7 +517,7 @@ struct FunctionView: View {
         case .gc: YieldCurveView()
         case .yas: BondCalculatorView()
         case .learn: LearnView(panelID: panel.id)
-        case .des, .fa, .evts, .gp, .hp, .bt, .osa, .beta, .fact, .dvd, .evst, .depth, .tas, .cn, .omon, .trade, .rv, .seas:
+        case .des, .fa, .evts, .gp, .hp, .bt, .osa, .beta, .fact, .dvd, .evst, .depth, .tas, .cn, .omon, .trade, .rv, .seas, .dcf:
             if let i = c.instrument, i.assetClass == .option, c.function != .trade {
                 EmptyNote(title: "\(i.name)", detail: "Option contracts support TRADE. See the full chain, greeks and smile in \(Deribit.parse(i.symbol)?.underlying ?? "BTC") OMON.",
                           icon: "function")
@@ -544,6 +544,7 @@ struct FunctionView: View {
                 case .omon: OptionMonitorView(instrument: i, panelID: panel.id).id(i.symbol)
                 case .rv: ValuationView(instrument: i, panelID: panel.id).id(i.symbol)
                 case .seas: SeasonalityView(instrument: i).id(i.symbol)
+                case .dcf: DCFView(instrument: i, panelID: panel.id).id(i.symbol)
                 default: TicketView(instrument: i, side: panel.side ?? .buy).id("\(i.symbol)-\(panel.side?.rawValue ?? "")")
                 }
             } else {
