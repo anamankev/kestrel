@@ -5,7 +5,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
     case des = "DES", fa = "FA", evts = "EVTS", gp = "GP", hp = "HP", depth = "DEPTH", tas = "TAS", cn = "CN", omon = "OMON"
     case w = "W", hmap = "HMAP", wei = "WEI", most = "MOST", fx = "FX", comd = "COMD", rates = "RATES"
     case top = "TOP", eco = "ECO", corr = "CORR", bt = "BT", osa = "OSA", ern = "ERN", secf = "SECF", beta = "BETA", comp = "COMP", mvo = "MVO", eqs = "EQS", fact = "FACT", dvd = "DVD", ecst = "ECST", evst = "EVST", pro = "PRO", alrt = "ALRT", pref = "PREF", trade = "TRADE", port = "PORT", blot = "BLOT", help = "HELP"
-    case rv = "RV", seas = "SEAS", gc = "GC", yas = "YAS", learn = "LEARN", dcf = "DCF"
+    case rv = "RV", seas = "SEAS", gc = "GC", yas = "YAS", learn = "LEARN", dcf = "DCF", ai = "AI"
 
     public var title: String {
         switch self {
@@ -49,6 +49,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         case .help: "Function Directory"
         case .rv: "Relative Valuation"
         case .dcf: "Discounted Cash Flow"
+        case .ai: "AI Analyst"
         case .seas: "Seasonality"
         case .gc: "Yield Curve History"
         case .yas: "Bond Yield Calculator"
@@ -59,7 +60,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
     /// Functions that operate on a loaded security.
     public var requiresSecurity: Bool {
         switch self {
-        case .des, .fa, .evts, .gp, .hp, .depth, .tas, .cn, .omon, .trade, .bt, .osa, .beta, .fact, .dvd, .evst, .rv, .seas, .dcf: true
+        case .des, .fa, .evts, .gp, .hp, .depth, .tas, .cn, .omon, .trade, .bt, .osa, .beta, .fact, .dvd, .evst, .rv, .seas, .dcf, .ai: true
         default: false
         }
     }
@@ -70,7 +71,7 @@ public enum TerminalFunction: String, CaseIterable, Codable, Sendable {
         "T&S": .tas, "TS": .tas, "N": .top, "NEWS": .top, "MON": .w, "WATCH": .w, "IMAP": .hmap,
         "MOV": .most, "FXC": .fx, "GLCO": .comd, "GOV": .rates, "BUY": .trade, "SELL": .trade,
         "OMS": .trade, "ALERT": .alrt, "SETTINGS": .pref, "PDF": .pref, "FIN": .fa, "EVT": .evts, "HIST": .hp, "HISTORY": .hp, "EARN": .ern, "EARNINGS": .ern, "SUBSCRIBE": .pro, "SUBS": .pro, "UPGRADE": .pro, "FILINGS": .evts, "ECON": .eco, "MACRO": .eco, "FINANCIALS": .fa, "ALERTS": .alrt, "OPT": .omon, "OPTIONS": .omon, "OV": .omon, "SMILE": .omon, "TKT": .trade, "PNL": .port, "PRT": .port, "ORD": .blot, "?": .help, "CORREL": .corr, "COR": .corr, "BTST": .bt, "BACKTEST": .bt, "STRAT": .osa, "PAYOFF": .osa, "NSE": .top, "SEARCH": .top, "FIND": .secf, "LOOKUP": .secf, "SECFIND": .secf, "SYMBOL": .secf, "REGRESS": .beta, "REGRESSION": .beta, "COMPARE": .comp, "PERF": .comp, "OPTIMIZE": .mvo, "FRONTIER": .mvo, "PORTOPT": .mvo, "SCREEN": .eqs, "SCREENER": .eqs, "EQSCREEN": .eqs, "FF": .fact, "FAMA": .fact, "FACTOR": .fact, "FACTORS": .fact, "CARHART": .fact, "DIV": .dvd, "DIVIDEND": .dvd, "DIVIDENDS": .dvd, "DVDH": .dvd, "COUNTRY": .ecst, "WDI": .ecst, "GLOBAL": .ecst, "EVENT": .evst, "EVENTSTUDY": .evst,
-        "PEERS": .rv, "INTRINSIC": .dcf, "FAIRVALUE": .dcf, "DISCOUNTEDCASHFLOW": .dcf, "COMPS": .rv, "RELVAL": .rv, "SEASON": .seas, "SEASONALITY": .seas, "CURVE": .gc, "YIELDCURVE": .gc,
+        "PEERS": .rv, "ASK": .ai, "ANALYST": .ai, "BRIEF": .ai, "INTRINSIC": .dcf, "FAIRVALUE": .dcf, "DISCOUNTEDCASHFLOW": .dcf, "COMPS": .rv, "RELVAL": .rv, "SEASON": .seas, "SEASONALITY": .seas, "CURVE": .gc, "YIELDCURVE": .gc,
         "BOND": .yas, "BONDCALC": .yas, "TRAIN": .learn, "TUTORIAL": .learn, "DRILLS": .learn,
     ]
 
